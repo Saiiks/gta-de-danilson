@@ -207,6 +207,7 @@ export class Engine {
     this.bloodMarks = [];
     this.smokeParticles = [];
     this.explosions = [];
+    this.pendingGameOver = null;
     this.missionOutTriggered = false;
 
     const startLoc = this.cityMap.resolveLocationCode(startCode);
@@ -342,12 +343,32 @@ export class Engine {
 
     if (this.player.isDead) {
       this.#updateParticles(dt);
+      this.#updateExplosions(dt);
       if (input.actionJustPressed) {
         if (this.storyPackage && !this.freeRoamMode) {
           this.startMission(this.currentMissionIndex, { skipIntro: true });
         } else {
           this.resetMatch();
         }
+      }
+      return;
+    }
+
+    if (this.pendingGameOver) {
+      this.pendingGameOver.timer += dt;
+      this.#updateParticles(dt);
+      this.#updateExplosions(dt);
+      this.hud.updateStatus({
+        locationCode: this.cityMap.getLocationAt(this.player.x, this.player.y)?.code || 'CIDADE',
+        vehicle: null,
+        isDrifting: false,
+        objectiveCode: this.objectiveCode,
+        health: 0
+      });
+      if (this.pendingGameOver.timer >= this.pendingGameOver.duration && this.explosions.length === 0) {
+        const reason = this.pendingGameOver.reason;
+        this.pendingGameOver = null;
+        this.triggerGameOver(reason);
       }
       return;
     }
@@ -901,8 +922,15 @@ export class Engine {
     const hitIds = new Set();
     if (this.player.inVehicleId === vehicle.id) {
       this.player.inVehicleId = null;
+      this.player.health = 0;
+      this.player.sinkAlpha = 0;
+      this.hud.triggerDamageFlash();
       hitIds.add('player');
-      this.applyDamage(100, 'Seu veículo explodiu!');
+      this.pendingGameOver = {
+        timer: 0,
+        duration: 1.4,
+        reason: 'Seu veículo explodiu!'
+      };
     }
 
     this.shakeTimer = 0.55;
