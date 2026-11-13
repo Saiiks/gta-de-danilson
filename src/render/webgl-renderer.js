@@ -198,24 +198,28 @@ export class WebGLRenderer {
     const minY = camera.y - halfH;
     const maxY = camera.y + halfH;
 
-    // Fundo asfalto da área visível
-    this.#pushQuad(minX, minY, maxX - minX, maxY - minY, 0, 'asphalt', [1, 1, 1, 1]);
+    // Fundo asfalto em grade de tiles 128x128 para manter nitidez da textura
+    const tileStep = 128;
+    const tx0 = Math.floor(minX / tileStep) * tileStep;
+    const ty0 = Math.floor(minY / tileStep) * tileStep;
+    for (let ty = ty0; ty < maxY; ty += tileStep) {
+      for (let tx = tx0; tx < maxX; tx += tileStep) {
+        this.#pushQuad(tx, ty, tileStep, tileStep, 0, 'asphalt', [1, 1, 1, 1]);
+      }
+    }
 
-    // Faixas amarelas nas ruas visíveis
-    const startCol = Math.max(0, Math.floor(minX / cityMap.cellStride));
-    const endCol = Math.min(cityMap.gridBlocks, Math.ceil(maxX / cityMap.cellStride));
-    const startRow = Math.max(0, Math.floor(minY / cityMap.cellStride));
-    const endRow = Math.min(cityMap.gridBlocks, Math.ceil(maxY / cityMap.cellStride));
-
+    // Faixas amarelas nas ruas visíveis usando offsets assimétricos
     const stripeColor = [0.95, 0.78, 0.22, 0.85];
-    for (let row = startRow; row <= endRow; row++) {
-      const ry = row * cityMap.cellStride + cityMap.roadWidth * 0.5 - 2;
+    for (const roadY of cityMap.roadYOffsets) {
+      if (roadY + cityMap.roadWidth < minY || roadY > maxY) continue;
+      const ry = roadY + cityMap.roadWidth * 0.5 - 2;
       for (let sx = Math.floor(minX / 64) * 64; sx < maxX; sx += 64) {
         this.#pushQuad(sx, ry, 34, 4, 0, 'solid', stripeColor);
       }
     }
-    for (let col = startCol; col <= endCol; col++) {
-      const rx = col * cityMap.cellStride + cityMap.roadWidth * 0.5 - 2;
+    for (const roadX of cityMap.roadXOffsets) {
+      if (roadX + cityMap.roadWidth < minX || roadX > maxX) continue;
+      const rx = roadX + cityMap.roadWidth * 0.5 - 2;
       for (let sy = Math.floor(minY / 64) * 64; sy < maxY; sy += 64) {
         this.#pushQuad(rx, sy, 4, 34, 0, 'solid', stripeColor);
       }
@@ -231,14 +235,20 @@ export class WebGLRenderer {
     const visibleBlocks = cityMap.getVisibleBlocks(minX, minY, maxX, maxY);
     for (const block of visibleBlocks) {
       const b = block.bounds;
+      // Sombra de meio-fio e calçada
+      this.#pushQuad(b.x - 4, b.y - 4, b.w + 8, b.h + 8, 0, 'solid', [0.16, 0.18, 0.22, 1]);
       this.#pushQuad(b.x, b.y, b.w, b.h, 0, 'sidewalk', [1, 1, 1, 1]);
 
       if (block.plaza) {
         const pb = block.plaza.bounds;
         this.#pushQuad(pb.x, pb.y, pb.w, pb.h, 0, 'grass', [1, 1, 1, 1]);
         for (const prop of block.plaza.props) {
-          const color = prop.kind === 'fountain' ? [0.35, 0.7, 0.9, 1] : [0.55, 0.36, 0.2, 1];
-          this.#pushQuad(prop.x, prop.y, prop.w, prop.h, 0, 'solid', color);
+          if (prop.kind === 'fountain') {
+            this.#pushQuad(prop.x - 4, prop.y - 4, prop.w + 8, prop.h + 8, 0, 'solid', [0.75, 0.77, 0.8, 1]);
+            this.#pushQuad(prop.x, prop.y, prop.w, prop.h, 0, 'water', [1, 1, 1, 1]);
+          } else {
+            this.#pushQuad(prop.x, prop.y, prop.w, prop.h, 0, 'solid', [0.55, 0.36, 0.2, 1]);
+          }
         }
       }
 
@@ -249,6 +259,9 @@ export class WebGLRenderer {
       for (const building of block.buildings) {
         const bb = building.bounds;
         const isInside = player.insideLocationCode === building.code;
+
+        // Sombra suave da edificação
+        this.#pushQuad(bb.x + 6, bb.y + 6, bb.w, bb.h, 0, 'solid', [0, 0, 0, 0.28]);
 
         // Interior sempre desenhado por baixo
         this.#pushQuad(bb.x, bb.y, bb.w, bb.h, 0, 'floor', hexToRgba(building.floorColor));
@@ -263,6 +276,12 @@ export class WebGLRenderer {
         // Cobertura superior oculta quando o jogador está dentro
         if (!isInside) {
           this.#pushQuad(bb.x, bb.y, bb.w, bb.h, 0, 'roof', hexToRgba(building.roofColor));
+        }
+
+        // Indicação discreta da porta de entrada (soleira/capacho)
+        if (building.doormat) {
+          const dm = building.doormat;
+          this.#pushQuad(dm.x, dm.y, dm.w, dm.h, 0, 'doormat', [1, 1, 1, 0.92]);
         }
       }
     }

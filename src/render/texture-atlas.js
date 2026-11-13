@@ -1,17 +1,20 @@
-function drawNoiseTile(ctx, x, y, size, baseColor, grainAlpha) {
+function drawGrain(ctx, x, y, size, baseColor, count, alphaLight, alphaDark) {
   ctx.fillStyle = baseColor;
   ctx.fillRect(x, y, size, size);
-  for (let i = 0; i < 180; i++) {
-    const px = x + ((i * 73) % size);
-    const py = y + ((i * 137) % size);
-    ctx.fillStyle = i % 2 === 0 ? `rgba(255,255,255,${grainAlpha})` : `rgba(0,0,0,${grainAlpha})`;
-    ctx.fillRect(px, py, 2, 2);
+  for (let i = 0; i < count; i++) {
+    const px = x + ((i * 97 + 13) % size);
+    const py = y + ((i * 151 + 29) % size);
+    const s = (i % 3 === 0) ? 2 : 1;
+    ctx.fillStyle = i % 2 === 0
+      ? `rgba(255,255,255,${alphaLight})`
+      : `rgba(0,0,0,${alphaDark})`;
+    ctx.fillRect(px, py, s, s);
   }
 }
 
 export function createTextureAtlas() {
-  const size = 512;
-  const tile = 64;
+  const size = 1024;
+  const tile = 128;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -22,7 +25,7 @@ export function createTextureAtlas() {
     const x = col * tile;
     const y = row * tile;
     drawFn(ctx, x, y, tile);
-    const pad = 1 / size;
+    const pad = 1.5 / size;
     uvs[name] = {
       u0: x / size + pad,
       v0: y / size + pad,
@@ -37,81 +40,172 @@ export function createTextureAtlas() {
   });
 
   register('asphalt', 1, 0, (c, x, y, s) => {
-    drawNoiseTile(c, x, y, s, '#2d313a', 0.06);
+    drawGrain(c, x, y, s, '#2b2f38', 650, 0.05, 0.14);
+    c.strokeStyle = 'rgba(0,0,0,0.18)';
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(x + 18, y + 36);
+    c.lineTo(x + 54, y + 48);
+    c.lineTo(x + 76, y + 42);
+    c.moveTo(x + 82, y + 92);
+    c.lineTo(x + 114, y + 104);
+    c.stroke();
   });
 
   register('sidewalk', 2, 0, (c, x, y, s) => {
-    drawNoiseTile(c, x, y, s, '#8d94a0', 0.05);
-    c.strokeStyle = 'rgba(0,0,0,0.18)';
+    drawGrain(c, x, y, s, '#9aa1ad', 420, 0.08, 0.08);
+    c.strokeStyle = 'rgba(40,46,58,0.28)';
     c.lineWidth = 2;
-    c.strokeRect(x + 1, y + 1, s - 2, s - 2);
+    for (let i = 0; i <= s; i += 32) {
+      c.beginPath();
+      c.moveTo(x + i, y);
+      c.lineTo(x + i, y + s);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(x, y + i);
+      c.lineTo(x + s, y + i);
+      c.stroke();
+    }
+    c.strokeStyle = 'rgba(255,255,255,0.22)';
+    c.lineWidth = 2;
+    c.strokeRect(x + 2, y + 2, s - 4, s - 4);
   });
 
   register('grass', 3, 0, (c, x, y, s) => {
-    drawNoiseTile(c, x, y, s, '#3b7a47', 0.08);
+    drawGrain(c, x, y, s, '#367544', 520, 0.08, 0.12);
+    for (let i = 0; i < 40; i++) {
+      const gx = x + ((i * 53 + 7) % (s - 8));
+      const gy = y + ((i * 89 + 11) % (s - 8));
+      c.fillStyle = i % 3 === 0 ? '#4d945b' : '#2a5e36';
+      c.fillRect(gx, gy, 4, 3);
+    }
+    c.fillStyle = '#fde68a';
+    c.fillRect(x + 24, y + 38, 3, 3);
+    c.fillRect(x + 92, y + 84, 3, 3);
   });
 
-  register('roof', 4, 0, (c, x, y, s) => {
-    drawNoiseTile(c, x, y, s, '#c8ccd4', 0.05);
+  register('water', 4, 0, (c, x, y, s) => {
+    drawGrain(c, x, y, s, '#2186b5', 260, 0.09, 0.07);
+    c.strokeStyle = 'rgba(186, 230, 253, 0.45)';
+    c.lineWidth = 2;
+    for (let wy = 18; wy < s; wy += 26) {
+      c.beginPath();
+      c.moveTo(x + 12, y + wy);
+      c.quadraticCurveTo(x + s * 0.5, y + wy - 6, x + s - 12, y + wy);
+      c.stroke();
+    }
+  });
+
+  register('roof', 5, 0, (c, x, y, s) => {
+    drawGrain(c, x, y, s, '#d1d5db', 360, 0.07, 0.08);
     c.strokeStyle = 'rgba(0,0,0,0.22)';
     c.lineWidth = 2;
-    for (let gy = 8; gy < s; gy += 16) {
+    for (let gy = 16; gy < s; gy += 16) {
       c.beginPath();
       c.moveTo(x, y + gy);
       c.lineTo(x + s, y + gy);
       c.stroke();
     }
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 4;
+    c.strokeRect(x + 2, y + 2, s - 4, s - 4);
+    c.fillStyle = 'rgba(255,255,255,0.22)';
+    c.fillRect(x + 18, y + 18, 28, 20);
   });
 
-  register('floor', 5, 0, (c, x, y, s) => {
-    drawNoiseTile(c, x, y, s, '#e2d8c5', 0.04);
-    c.strokeStyle = 'rgba(0,0,0,0.12)';
-    c.strokeRect(x + 2, y + 2, s / 2 - 2, s / 2 - 2);
-    c.strokeRect(x + s / 2, y + s / 2, s / 2 - 2, s / 2 - 2);
+  register('floor', 6, 0, (c, x, y, s) => {
+    drawGrain(c, x, y, s, '#dfd3be', 280, 0.06, 0.06);
+    c.strokeStyle = 'rgba(100,78,52,0.22)';
+    c.lineWidth = 2;
+    for (let i = 0; i <= s; i += 32) {
+      c.beginPath();
+      c.moveTo(x, y + i);
+      c.lineTo(x + s, y + i);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(x + i, y);
+      c.lineTo(x + i, y + s);
+      c.stroke();
+    }
+  });
+
+  register('doormat', 7, 0, (c, x, y, s) => {
+    c.fillStyle = '#374151';
+    c.fillRect(x + 8, y + 16, s - 16, s - 32);
+    c.fillStyle = '#d97706';
+    c.fillRect(x + 16, y + 26, s - 32, s - 52);
+    c.fillStyle = '#fef3c7';
+    c.fillRect(x + s * 0.42, y + 38, s * 0.16, s - 76);
   });
 
   register('car', 0, 1, (c, x, y, s) => {
+    c.fillStyle = 'rgba(0,0,0,0.35)';
+    c.fillRect(x + 10, y + 20, s - 16, s - 34);
+    c.fillStyle = '#111827';
+    c.fillRect(x + 18, y + 12, 20, 10);
+    c.fillRect(x + s - 38, y + 12, 20, 10);
+    c.fillRect(x + 18, y + s - 22, 20, 10);
+    c.fillRect(x + s - 38, y + s - 22, 20, 10);
+
     c.fillStyle = '#ffffff';
-    c.fillRect(x + 4, y + 8, s - 8, s - 16);
-    c.fillStyle = '#1f2937';
-    c.fillRect(x + 18, y + 14, s - 34, s - 28);
-    c.fillStyle = '#fde68a';
-    c.fillRect(x + s - 10, y + 12, 4, 10);
-    c.fillRect(x + s - 10, y + s - 22, 4, 10);
+    c.fillRect(x + 10, y + 18, s - 20, s - 36);
+    c.fillStyle = '#1e293b';
+    c.fillRect(x + 34, y + 26, s - 64, s - 52);
+    c.fillStyle = 'rgba(255,255,255,0.22)';
+    c.fillRect(x + 42, y + 30, s - 82, s - 60);
+    c.fillStyle = '#fef08a';
+    c.fillRect(x + s - 14, y + 24, 6, 14);
+    c.fillRect(x + s - 14, y + s - 38, 6, 14);
+    c.fillStyle = '#ef4444';
+    c.fillRect(x + 8, y + 24, 5, 14);
+    c.fillRect(x + 8, y + s - 38, 5, 14);
   });
 
   register('moto', 1, 1, (c, x, y, s) => {
     c.fillStyle = '#111827';
-    c.fillRect(x + 6, y + 24, 14, 16);
-    c.fillRect(x + s - 20, y + 24, 14, 16);
+    c.fillRect(x + 12, y + 48, 28, 32);
+    c.fillRect(x + s - 40, y + 48, 28, 32);
     c.fillStyle = '#ffffff';
-    c.fillRect(x + 16, y + 18, s - 32, s - 36);
+    c.fillRect(x + 30, y + 38, s - 60, s - 76);
+    c.fillStyle = '#1f2937';
+    c.fillRect(x + 44, y + 44, 30, s - 88);
     c.fillStyle = '#fef08a';
-    c.fillRect(x + s - 10, y + 26, 4, 12);
+    c.fillRect(x + s - 16, y + 54, 6, 20);
   });
 
   register('van', 2, 1, (c, x, y, s) => {
+    c.fillStyle = 'rgba(0,0,0,0.35)';
+    c.fillRect(x + 8, y + 14, s - 12, s - 22);
     c.fillStyle = '#ffffff';
-    c.fillRect(x + 3, y + 6, s - 6, s - 12);
-    c.fillStyle = '#1f2937';
-    c.fillRect(x + s - 20, y + 12, 12, s - 24);
-    c.fillStyle = '#fde68a';
-    c.fillRect(x + s - 8, y + 10, 4, 10);
-    c.fillRect(x + s - 8, y + s - 20, 4, 10);
+    c.fillRect(x + 8, y + 12, s - 16, s - 24);
+    c.fillStyle = '#1e293b';
+    c.fillRect(x + s - 38, y + 22, 20, s - 44);
+    c.fillStyle = 'rgba(0,0,0,0.14)';
+    c.fillRect(x + 16, y + 22, s - 62, s - 44);
+    c.fillStyle = '#fef08a';
+    c.fillRect(x + s - 12, y + 18, 5, 16);
+    c.fillRect(x + s - 12, y + s - 34, 5, 16);
+    c.fillStyle = '#ef4444';
+    c.fillRect(x + 7, y + 18, 4, 16);
+    c.fillRect(x + 7, y + s - 34, 4, 16);
   });
 
   register('player', 3, 1, (c, x, y, s) => {
+    c.fillStyle = 'rgba(0,0,0,0.35)';
+    c.beginPath();
+    c.arc(x + s / 2 + 4, y + s / 2 + 4, 42, 0, Math.PI * 2);
+    c.fill();
     c.fillStyle = '#1f2937';
     c.beginPath();
-    c.arc(x + s / 2, y + s / 2, 22, 0, Math.PI * 2);
+    c.arc(x + s / 2, y + s / 2, 40, 0, Math.PI * 2);
     c.fill();
     c.fillStyle = '#f59e0b';
     c.beginPath();
-    c.arc(x + s / 2 + 4, y + s / 2, 14, 0, Math.PI * 2);
+    c.arc(x + s / 2 + 8, y + s / 2, 26, 0, Math.PI * 2);
     c.fill();
     c.fillStyle = '#fde68a';
     c.beginPath();
-    c.arc(x + s / 2 + 12, y + s / 2, 6, 0, Math.PI * 2);
+    c.arc(x + s / 2 + 22, y + s / 2, 13, 0, Math.PI * 2);
     c.fill();
   });
 
