@@ -1,4 +1,4 @@
-import { isPositionFree, resolveEntityCollisions } from './collision.js';
+import { isPositionFree, resolveCircleOBB, resolveEntityCollisions } from './collision.js';
 
 export const VEHICLE_PROFILES = {
   car: {
@@ -61,7 +61,7 @@ export function createVehicleEntity(spawn) {
   };
 }
 
-export function updatePedestrian(player, input, dt, cityMap) {
+export function updatePedestrian(player, input, dt, cityMap, vehicles = []) {
   const walkSpeed = 175;
   const mx = input.moveX;
   const my = input.moveY;
@@ -76,7 +76,15 @@ export function updatePedestrian(player, input, dt, cityMap) {
   const nextX = player.x + mx * walkSpeed * dt;
   const nextY = player.y + my * walkSpeed * dt;
   const colliders = cityMap.getCollidersAround(nextX, nextY, 100);
-  const resolved = resolveEntityCollisions(nextX, nextY, player.radius, colliders, cityMap.worldSize);
+  let resolved = resolveEntityCollisions(nextX, nextY, player.radius, colliders, cityMap.worldSize);
+
+  for (const v of vehicles) {
+    if (Math.abs(v.x - resolved.x) > 80 || Math.abs(v.y - resolved.y) > 80) continue;
+    const hit = resolveCircleOBB(resolved.x, resolved.y, player.radius, v);
+    if (hit.collided) {
+      resolved = hit;
+    }
+  }
 
   player.x = resolved.x;
   player.y = resolved.y;

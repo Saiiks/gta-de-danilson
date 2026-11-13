@@ -57,6 +57,34 @@ export function resolveEntityCollisions(x, y, radius, colliders, worldSize) {
   return { x: nx, y: ny, collided };
 }
 
+export function resolveCircleOBB(cx, cy, radius, box) {
+  const cos = Math.cos(box.angle || 0);
+  const sin = Math.sin(box.angle || 0);
+  const dx = cx - box.x;
+  const dy = cy - box.y;
+
+  const lx = dx * cos + dy * sin;
+  const ly = -dx * sin + dy * cos;
+
+  const localRect = {
+    x: -box.length * 0.5,
+    y: -box.width * 0.5,
+    w: box.length,
+    h: box.width
+  };
+
+  const res = resolveCircleRect(lx, ly, radius, localRect);
+  if (!res.collided) {
+    return { x: cx, y: cy, collided: false };
+  }
+
+  return {
+    x: box.x + res.x * cos - res.y * sin,
+    y: box.y + res.x * sin + res.y * cos,
+    collided: true
+  };
+}
+
 export function isPositionFree(x, y, radius, colliders, worldSize) {
   if (x < radius || y < radius || x > worldSize - radius || y > worldSize - radius) {
     return false;

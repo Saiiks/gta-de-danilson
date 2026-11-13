@@ -67,3 +67,16 @@ test('saída do veículo posiciona o jogador em local livre adjacente', () => {
   const exitPos = findSafeExitPosition(car, 11, map);
   assert.ok(Math.hypot(exitPos.x - car.x, exitPos.y - car.y) > 15);
 });
+
+test('jogador a pé colide de forma sólida com veículos e não passa por cima deles', () => {
+  const map = new CityMap();
+  const road = map.resolveLocationCode('RUA-01');
+  const car = createVehicleEntity({ id: 'v1', kind: 'car', model: 'Sedan', color: '#f00', x: 700, y: road.bounds.y + 64, angle: 0 });
+  const player = { x: car.x - 40, y: car.y, angle: 0, speed: 0, radius: 11 };
+
+  for (let i = 0; i < 30; i++) {
+    updatePedestrian(player, { moveX: 1, moveY: 0 }, 0.016, map, [car]);
+  }
+
+  assert.ok(player.x <= car.x - car.length * 0.5 - player.radius + 0.5);
+});

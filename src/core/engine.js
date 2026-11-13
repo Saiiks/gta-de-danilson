@@ -109,7 +109,7 @@ export class Engine {
       : null;
 
     if (!activeVehicle) {
-      updatePedestrian(this.player, input, dt, this.cityMap);
+      updatePedestrian(this.player, input, dt, this.cityMap, this.vehicles);
       if (input.actionJustPressed) {
         const nearest = findNearestVehicle(this.player.x, this.player.y, this.vehicles);
         if (nearest) {
