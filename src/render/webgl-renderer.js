@@ -201,29 +201,53 @@ export class WebGLRenderer {
     const minY = camera.y - halfH;
     const maxY = camera.y + halfH;
 
-    // Fundo asfalto em grade de tiles 128x128 para manter nitidez da textura
+    // Mar ao redor da ilha e asfalto apenas dentro dos limites da cidade
     const tileStep = 128;
     const tx0 = Math.floor(minX / tileStep) * tileStep;
     const ty0 = Math.floor(minY / tileStep) * tileStep;
     for (let ty = ty0; ty < maxY; ty += tileStep) {
       for (let tx = tx0; tx < maxX; tx += tileStep) {
-        this.#pushQuad(tx, ty, tileStep, tileStep, 0, 'asphalt', [1, 1, 1, 1]);
+        const insideIsland =
+          tx + tileStep > 0 &&
+          ty + tileStep > 0 &&
+          tx < cityMap.worldWidth &&
+          ty < cityMap.worldHeight;
+        this.#pushQuad(tx, ty, tileStep, tileStep, 0, insideIsland ? 'asphalt' : 'water', [1, 1, 1, 1]);
       }
     }
 
-    // Faixas amarelas nas ruas visíveis usando offsets assimétricos
+    // Borda costeira (areia/cais) ao redor da ilha quando visível
+    const shore = 18;
+    if (minX < shore) {
+      this.#pushQuad(-shore, Math.max(0, minY), shore, Math.min(cityMap.worldHeight, maxY) - Math.max(0, minY), 0, 'sidewalk', [0.85, 0.8, 0.65, 1]);
+    }
+    if (maxX > cityMap.worldWidth - shore) {
+      this.#pushQuad(cityMap.worldWidth, Math.max(0, minY), shore, Math.min(cityMap.worldHeight, maxY) - Math.max(0, minY), 0, 'sidewalk', [0.85, 0.8, 0.65, 1]);
+    }
+    if (minY < shore) {
+      this.#pushQuad(Math.max(-shore, minX), -shore, Math.min(cityMap.worldWidth + shore, maxX) - Math.max(-shore, minX), shore, 0, 'sidewalk', [0.85, 0.8, 0.65, 1]);
+    }
+    if (maxY > cityMap.worldHeight - shore) {
+      this.#pushQuad(Math.max(-shore, minX), cityMap.worldHeight, Math.min(cityMap.worldWidth + shore, maxX) - Math.max(-shore, minX), shore, 0, 'sidewalk', [0.85, 0.8, 0.65, 1]);
+    }
+
+    // Faixas amarelas nas ruas visíveis dentro da ilha
     const stripeColor = [0.95, 0.78, 0.22, 0.85];
+    const clampMinX = Math.max(0, Math.floor(minX / 64) * 64);
+    const clampMaxX = Math.min(cityMap.worldWidth - 34, maxX);
     for (const roadY of cityMap.roadYOffsets) {
       if (roadY + cityMap.roadWidth < minY || roadY > maxY) continue;
       const ry = roadY + cityMap.roadWidth * 0.5 - 2;
-      for (let sx = Math.floor(minX / 64) * 64; sx < maxX; sx += 64) {
+      for (let sx = clampMinX; sx < clampMaxX; sx += 64) {
         this.#pushQuad(sx, ry, 34, 4, 0, 'solid', stripeColor);
       }
     }
+    const clampMinY = Math.max(0, Math.floor(minY / 64) * 64);
+    const clampMaxY = Math.min(cityMap.worldHeight - 34, maxY);
     for (const roadX of cityMap.roadXOffsets) {
       if (roadX + cityMap.roadWidth < minX || roadX > maxX) continue;
       const rx = roadX + cityMap.roadWidth * 0.5 - 2;
-      for (let sy = Math.floor(minY / 64) * 64; sy < maxY; sy += 64) {
+      for (let sy = clampMinY; sy < clampMaxY; sy += 64) {
         this.#pushQuad(rx, sy, 4, 34, 0, 'solid', stripeColor);
       }
     }

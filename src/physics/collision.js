@@ -31,7 +31,7 @@ export function resolveCircleRect(cx, cy, radius, rect) {
   return { x: cx, y: rect.y + rect.h + radius, collided: true };
 }
 
-export function resolveEntityCollisions(x, y, radius, colliders, worldSize) {
+export function resolveEntityCollisions(x, y, radius, colliders) {
   let nx = x;
   let ny = y;
   let collided = false;
@@ -46,13 +46,6 @@ export function resolveEntityCollisions(x, y, radius, colliders, worldSize) {
       }
     }
   }
-
-  const minBound = radius;
-  const maxBound = worldSize - radius;
-  if (nx < minBound) { nx = minBound; collided = true; }
-  if (ny < minBound) { ny = minBound; collided = true; }
-  if (nx > maxBound) { nx = maxBound; collided = true; }
-  if (ny > maxBound) { ny = maxBound; collided = true; }
 
   return { x: nx, y: ny, collided };
 }
@@ -85,8 +78,12 @@ export function resolveCircleOBB(cx, cy, radius, box) {
   };
 }
 
-export function isPositionFree(x, y, radius, colliders, worldSize) {
-  if (x < radius || y < radius || x > worldSize - radius || y > worldSize - radius) {
+export function isInWater(x, y, cityMap) {
+  return x < 0 || y < 0 || x > cityMap.worldWidth || y > cityMap.worldHeight;
+}
+
+export function isPositionFree(x, y, radius, colliders, cityMap) {
+  if (cityMap && typeof cityMap === 'object' && isInWater(x, y, cityMap)) {
     return false;
   }
   for (const rect of colliders) {
