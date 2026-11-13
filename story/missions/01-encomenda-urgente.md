@@ -1,0 +1,26 @@
+---
+id: 01-encomenda-urgente
+title: Missão 1 — A Encomenda
+start: CASA-01
+target: COM-05
+objective: Leve a maleta até COM-05
+---
+
+## CUTSCENE_INICIO
+left: alex
+right: beto
+bg: Frente da Casa CASA-01
+
+- Beto: Alex, preciso que leve esta maleta até o comércio COM-05 o quanto antes.
+- Alex: Pode deixar comigo. Vou pegar um carro na rua e seguir a rota pelo minimapa.
+- Beto: Cuidado nas curvas e não caia na água nas bordas da ilha!
+
+## CUTSCENE_FIM
+left: alex
+right: clara
+bg: Entrada do Comércio COM-05
+
+- Clara: Você chegou rápido, Alex. Trouxe a maleta?
+- Alex: Está inteira aqui comigo. O que fazemos agora?
+- OPCAO: Entregar a maleta para Clara -> COMPLETE
+- OPCAO: Fugir com a maleta pela cidade -> GAMEOVER: Você tentou fugir com a maleta e foi cercado pela segurança do local!

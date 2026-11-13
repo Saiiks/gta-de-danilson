@@ -221,12 +221,12 @@ export function parseMissionMarkdown(rawText, fileName = 'mission.md', cityMap =
 
   if (cityMap) {
     try {
-      cityMap.getLocationByCode(meta.start);
+      cityMap.resolveLocationCode(meta.start);
     } catch (err) {
       throw new StoryParseError(fileName, 2, `Local de início inválido ("start: ${meta.start}"): ${err.message}`);
     }
     try {
-      cityMap.getLocationByCode(meta.target);
+      cityMap.resolveLocationCode(meta.target);
     } catch (err) {
       throw new StoryParseError(fileName, 2, `Local de destino inválido ("target: ${meta.target}"): ${err.message}`);
     }
