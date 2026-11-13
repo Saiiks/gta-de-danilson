@@ -453,13 +453,17 @@ export class Engine {
       }
     }
 
-    // Atropelamento de pessoas caídas no chão: veículo passa por cima e deixa trilha de sangue
+    // Atropelamento de pessoas caídas no chão: desloca o corpo e deixa trilha de sangue
     const downedPeds = this.trafficManager.pedestrians.filter((p) => p.state === 'downed');
     for (const v of nearbyVehicles) {
       if (v.speed > 12) {
         const hitRadius = Math.max(v.width, v.height) * 0.45;
         for (const ped of downedPeds) {
           if (Math.hypot(v.x - ped.x, v.y - ped.y) < hitRadius) {
+            const vLen = Math.hypot(v.vx, v.vy) || 1;
+            const pushSpeed = Math.max(140, v.speed * 1.15);
+            ped.vx = (v.vx / vLen) * pushSpeed;
+            ped.vy = (v.vy / vLen) * pushSpeed;
             if (!ped.runOver) {
               ped.runOver = true;
               this.bloodMarks.push({
@@ -487,6 +491,31 @@ export class Engine {
           while (this.bloodMarks.length > 260) {
             this.bloodMarks.shift();
           }
+        }
+      }
+    }
+
+    for (const ped of downedPeds) {
+      const pSpeed = Math.hypot(ped.vx || 0, ped.vy || 0);
+      if (pSpeed > 10) {
+        const nextX = ped.x + ped.vx * dt;
+        const nextY = ped.y + ped.vy * dt;
+        const colliders = this.cityMap.getCollidersAround(nextX, nextY, 80);
+        const res = resolveEntityCollisions(nextX, nextY, 10, colliders);
+        ped.x = res.x;
+        ped.y = res.y;
+        const damp = Math.exp(-4.8 * dt);
+        ped.vx = res.collided ? -ped.vx * 0.3 : ped.vx * damp;
+        ped.vy = res.collided ? -ped.vy * 0.3 : ped.vy * damp;
+        this.bloodMarks.push({
+          x: ped.x,
+          y: ped.y,
+          size: 8,
+          angle: Math.atan2(ped.vy, ped.vx),
+          alpha: 0.72
+        });
+        while (this.bloodMarks.length > 260) {
+          this.bloodMarks.shift();
         }
       }
     }
