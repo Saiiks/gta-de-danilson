@@ -19,6 +19,11 @@
         <div id="vehicle-badge" class="hud-pill">
           <span id="vehicle-status">A pé</span>
         </div>
+        <div id="health-badge" class="hud-pill">
+          <span class="hud-label">VIDA</span>
+          <div class="health-track"><div id="health-fill" class="health-fill"></div></div>
+          <span id="health-value">100</span>
+        </div>
       </div>
 
       <div id="minimap-container" aria-label="Minimapa">
@@ -69,6 +74,14 @@
       <div class="overlay-card error-card">
         <h2 class="overlay-heading">Não foi possível iniciar o jogo</h2>
         <p id="error-message" class="error-message"></p>
+      </div>
+    </section>
+
+    <section id="gameover-screen" class="overlay-screen gameover-overlay hidden" role="alert">
+      <div class="overlay-card gameover-card">
+        <h2 class="gameover-title">SE DEU MAL</h2>
+        <p id="gameover-reason" class="overlay-subtitle"></p>
+        <button id="restart-button" type="button" class="primary-button">Reiniciar</button>
       </div>
     </section>
 
