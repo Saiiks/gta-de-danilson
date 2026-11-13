@@ -58,7 +58,9 @@ test('gera veículos estacionados na calçada, tráfego NPC e retira motorista p
 
   const evicted = traffic.evictDriver(targetVehicle, player.radius);
   assert.equal(targetVehicle.driver, null);
-  assert.equal(evicted.state, 'downed');
+  assert.equal(evicted.state, 'walking');
+  assert.equal(evicted.health, 100);
+  assert.ok(evicted.returnTarget);
 });
 
 test('jogador ejetado arrasta na direção do movimento e sofre dano extra ao bater em obstáculo', () => {
@@ -184,21 +186,23 @@ test('pedestres dão um passo para trás e desviam ao colidir com jogador ou out
   assert.ok(pedB.dirX > 0);
 });
 
-test('pedestres colidem com veículos estacionados e desviam de lixeiras paradas', () => {
+test('pedestres colidem com veículos estacionados e não colidem com lixeiras paradas ao caminhar', () => {
   const map = new CityMap();
   const traffic = new TrafficManager(map);
   const road = map.resolveLocationCode('RUA-01');
   const ped = traffic.pedestrians[0];
   const player = { x: road.bounds.x + 100, y: road.bounds.y + 100, inVehicleId: null, isDead: false, radius: 11 };
 
-  // Lixeira parada no caminho faz o pedestre desviar
+  // Lixeira parada no caminho não bloqueia nem desvia o pedestre caminhando
   ped.x = road.bounds.x + 200;
   ped.y = road.bounds.y + 64;
   ped.dirX = 1;
   ped.dirY = 0;
-  const bin = { id: 'bin-obs', x: ped.x + 20, y: ped.y, vx: 0, vy: 0, radius: 7 };
-  traffic.update(0.016, player, [], [bin]);
-  assert.notEqual(ped.dirY, 0);
+  const bin = { id: 'bin-obs', x: ped.x + 8, y: ped.y, vx: 0, vy: 0, radius: 7 };
+  traffic.update(0.05, player, [], [bin]);
+  assert.equal(ped.dirX, 1);
+  assert.equal(ped.dirY, 0);
+  assert.ok(ped.x > road.bounds.x + 200);
 
   // Veículo estacionado bloqueia passagem e faz o pedestre desviar
   const parked = createVehicleEntity({ id: 'v-park', kind: 'car', model: 'Sedan', color: '#f00', x: road.bounds.x + 320, y: road.bounds.y + 64, angle: 0 });
@@ -209,4 +213,166 @@ test('pedestres colidem com veículos estacionados e desviam de lixeiras paradas
   traffic.update(0.05, player, [parked], []);
   assert.ok(ped.x <= parked.x - parked.length * 0.5 - (ped.radius || 10) + 0.5);
   assert.ok(ped.dirX < 0);
+});
+
+test('pedestre atravessa rua perpendicularmente à calçada até o quarteirão oposto', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const ped = traffic.pedestrians[0];
+  const block = map.blocks[0][0];
+  ped.bx = 0;
+  ped.by = 0;
+  ped.side = 'south';
+  ped.cw = 1;
+  ped.x = block.bounds.x + block.bounds.w * 0.5;
+  ped.y = block.bounds.y + block.bounds.h - 13;
+  ped.crossCooldown = 0;
+  ped.crossTimer = 0.02;
+  const player = { x: ped.x + 120, y: ped.y + 120, inVehicleId: null, isDead: false, radius: 11 };
+
+  traffic.update(0.05, player, [], []);
+  assert.equal(ped.state, 'crossing');
+  assert.equal(ped.dirX, 0);
+  assert.equal(ped.dirY, 1);
+
+  for (let i = 0; i < 60 && ped.state === 'crossing'; i++) {
+    traffic.update(0.05, player, [], []);
+  }
+  assert.equal(ped.state, 'walking');
+  assert.equal(ped.by, 1);
+  assert.equal(ped.side, 'north');
+});
+
+test('pedestre em fuga derruba lixeiras e volta ao comportamento padrão quando o perigo passa', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const ped = traffic.pedestrians[0];
+  const block = map.blocks[1][1];
+  ped.bx = 1;
+  ped.by = 1;
+  ped.side = 'north';
+  ped.x = block.bounds.x + 80;
+  ped.y = block.bounds.y + 13;
+
+  const v = createVehicleEntity({ id: 'v-flee', kind: 'car', model: 'Sedan', color: '#f00', x: ped.x - 45, y: ped.y, angle: 0 });
+  v.vx = 160;
+  v.vy = 0;
+  v.speed = 160;
+  const bin = { id: 'bin-flee', x: ped.x + 16, y: ped.y, vx: 0, vy: 0, angVel: 0, angle: 0, radius: 7 };
+  const player = { x: ped.x + 120, y: ped.y + 120, inVehicleId: null, isDead: false, radius: 11 };
+
+  for (let i = 0; i < 8; i++) {
+    traffic.update(0.05, player, [v], [bin]);
+  }
+  assert.equal(ped.state, 'fleeing');
+  assert.ok(Math.hypot(bin.vx, bin.vy) > 30);
+
+  // Afasta a ameaça e simula tempo até o perigo passar
+  v.x = ped.x - 500;
+  v.speed = 0;
+  for (let i = 0; i < 70; i++) {
+    traffic.update(0.05, player, [v], []);
+  }
+  assert.equal(ped.state, 'walking');
+});
+
+test('pedestre entra em estabelecimento, permanece um tempo e sai de volta para a calçada', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const ped = traffic.pedestrians[0];
+  let commerce = null;
+  let cBx = 0;
+  let cBy = 0;
+  for (let by = 0; by < map.gridBlocks && !commerce; by++) {
+    for (let bx = 0; bx < map.gridBlocks && !commerce; bx++) {
+      const found = map.blocks[by][bx].buildings.find((b) => b.type === 'commerce');
+      if (found) {
+        commerce = found;
+        cBx = bx;
+        cBy = by;
+      }
+    }
+  }
+  assert.ok(commerce);
+
+  ped.bx = cBx;
+  ped.by = cBy;
+  ped.substate = 'entering_building';
+  ped.targetBuilding = commerce;
+  ped.visitStep = 0;
+  ped.x = commerce.spawnPoint.x;
+  ped.y = commerce.spawnPoint.y;
+  const player = { x: ped.x + 120, y: ped.y + 120, inVehicleId: null, isDead: false, radius: 11 };
+
+  let entered = false;
+  for (let i = 0; i < 40; i++) {
+    traffic.update(0.05, player, [], []);
+    if (ped.substate === 'inside_building') {
+      entered = true;
+      break;
+    }
+  }
+  assert.equal(entered, true);
+
+  // Avança tempo dentro do estabelecimento até sair e retornar à calçada
+  let exited = false;
+  for (let i = 0; i < 200; i++) {
+    traffic.update(0.05, player, [], []);
+    if (ped.substate === null && ped.targetBuilding === null) {
+      exited = true;
+      break;
+    }
+  }
+  assert.equal(exited, true);
+});
+
+test('faixas de pedestre e semáforos alternam verde/vermelho e pedestre espera sinal abrir para atravessar', () => {
+  const map = new CityMap();
+  assert.ok(map.crosswalks.length > 0);
+  assert.ok(map.trafficLights.length > 0);
+  // Não deve gerar faixa em todos os cruzamentos internos (seriam (29*29)*4 = 3364)
+  assert.ok(map.crosswalks.length < (map.gridBlocks - 1) * (map.gridBlocks - 1) * 4);
+  // Esquinas com semáforos não devem ter lixeiras
+  const hasBinNearLight = map.trashBinSpawns.some((bin) =>
+    map.trafficLights.some((light) => Math.hypot(bin.x - light.x, bin.y - light.y) < 32)
+  );
+  assert.equal(hasBinNearLight, false);
+
+  const cw = map.crosswalks.find((c) => c.id.endsWith('-e'));
+  assert.ok(cw);
+  // Encontra um instante em que o semáforo dessa faixa esteja vermelho e outro em que esteja verde
+  let redTime = 0;
+  let greenTime = 0;
+  for (let t = 0; t < 24; t += 0.5) {
+    const st = map.getTrafficLightState(cw, t);
+    if (st === 'red') redTime = t;
+    if (st === 'green') greenTime = t;
+  }
+  assert.equal(map.getTrafficLightState(cw, redTime), 'red');
+  assert.equal(map.getTrafficLightState(cw, greenTime), 'green');
+
+  const traffic = new TrafficManager(map);
+  const ped = traffic.pedestrians[0];
+  // Posiciona o pedestre na calçada sul do quarteirão imediatamente acima da faixa vertical (row - 1, col)
+  const bx = cw.col;
+  const by = cw.row - 1;
+  const block = map.blocks[by][bx];
+  ped.bx = bx;
+  ped.by = by;
+  ped.side = 'south';
+  ped.substate = null;
+  ped.crossCooldown = 0;
+  ped.crossTimer = 0.02;
+  ped.x = cw.x + cw.w * 0.5;
+  ped.y = block.bounds.y + block.bounds.h - 13;
+  const player = { x: ped.x + 120, y: ped.y + 120, inVehicleId: null, isDead: false, radius: 11 };
+
+  // No sinal vermelho, o pedestre para e aguarda abrir
+  traffic.update(0.05, player, [], [], redTime);
+  assert.equal(ped.state, 'waiting_light');
+  assert.equal(ped.speed, 0);
+
+  // Quando o sinal fica verde, o pedestre inicia a travessia
+  traffic.update(0.05, player, [], [], greenTime);
+  assert.equal(ped.state, 'crossing');
 });

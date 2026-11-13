@@ -1,6 +1,7 @@
 export class HudController {
   constructor() {
     this.shell = document.getElementById('game-shell');
+    this.canvasEl = document.getElementById('game-canvas');
     this.hudLayer = document.getElementById('hud-layer');
     this.startScreen = document.getElementById('start-screen');
     this.startButton = document.getElementById('start-button');
@@ -117,11 +118,21 @@ export class HudController {
     this.loadingScreen.classList.add('hidden');
     this.errorScreen.classList.add('hidden');
     this.gameoverScreen.classList.add('hidden');
+    this.setDeathDesaturation(0);
     this.hudLayer.classList.remove('hidden');
   }
 
   onRestartClick(handler) {
     this.restartButton.addEventListener('click', handler);
+  }
+
+  setDeathDesaturation(progress = 0) {
+    const p = Math.max(0, Math.min(1, progress));
+    const filterVal = p > 0
+      ? `grayscale(${p.toFixed(3)}) contrast(${(1 + p * 0.14).toFixed(3)}) brightness(${(1 - p * 0.14).toFixed(3)})`
+      : '';
+    if (this.canvasEl) this.canvasEl.style.filter = filterVal;
+    if (this.hudLayer) this.hudLayer.style.filter = filterVal;
   }
 
   showGameOver(reason) {
@@ -131,6 +142,7 @@ export class HudController {
 
   hideGameOver() {
     this.gameoverScreen.classList.add('hidden');
+    this.setDeathDesaturation(0);
   }
 
   triggerDamageFlash() {

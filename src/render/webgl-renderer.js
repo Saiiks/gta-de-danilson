@@ -252,8 +252,26 @@ export class WebGLRenderer {
       }
     }
 
+    // Faixas de pedestre nos cruzamentos selecionados
+    if (cityMap.crosswalks) {
+      const cwColor = [0.94, 0.95, 0.97, 0.86];
+      for (const cw of cityMap.crosswalks) {
+        if (cw.x + cw.w < minX || cw.x > maxX || cw.y + cw.h < minY || cw.y > maxY) continue;
+        if (cw.axis === 'h') {
+          for (let sx = cw.x + 4; sx <= cw.x + cw.w - 10; sx += 14) {
+            this.#pushQuad(sx, cw.y, 7, cw.h, 0, 'solid', cwColor);
+          }
+        } else {
+          for (let sy = cw.y + 4; sy <= cw.y + cw.h - 10; sy += 14) {
+            this.#pushQuad(cw.x, sy, cw.w, 7, 0, 'solid', cwColor);
+          }
+        }
+      }
+    }
+
     // Quarteirões visíveis: primeiro o piso (calçadas e gramado das praças)
     const visibleBlocks = cityMap.getVisibleBlocks(minX, minY, maxX, maxY);
+    const closedRoofs = [];
     for (const block of visibleBlocks) {
       const b = block.bounds;
       // Sombra de meio-fio e calçada
@@ -313,9 +331,9 @@ export class WebGLRenderer {
           this.#pushQuad(prop.x, prop.y, prop.w, prop.h, 0, 'solid', pCol);
         }
 
-        // Cobertura superior oculta quando o jogador está dentro
+        // Cobertura superior oculta quando o jogador está dentro (desenhada após pedestres)
         if (!isInside) {
-          this.#pushQuad(bb.x, bb.y, bb.w, bb.h, 0, 'roof', hexToRgba(building.roofColor));
+          closedRoofs.push({ x: bb.x, y: bb.y, w: bb.w, h: bb.h, color: hexToRgba(building.roofColor) });
         }
 
         // Indicação discreta da porta de entrada (soleira) e folha da porta animada
@@ -481,6 +499,11 @@ export class WebGLRenderer {
       }
     }
 
+    // Telhados fechados cobrem pessoas dentro dos prédios quando o jogador está fora
+    for (const roof of closedRoofs) {
+      this.#pushQuad(roof.x, roof.y, roof.w, roof.h, 0, 'roof', roof.color);
+    }
+
     // Jogador a pé ou montado em moto (que não possui teto)
     const playerVehicle = player.inVehicleId ? vehicles.find((v) => v.id === player.inVehicleId) : null;
     const ridingMoto = Boolean(playerVehicle && playerVehicle.kind === 'moto');
@@ -515,6 +538,32 @@ export class WebGLRenderer {
       }
 
       this.#pushQuad(player.x - 14 * pScale, player.y - 14 * pScale, 28 * pScale, 28 * pScale, player.angle, 'player', [1, 1, 1, pAlpha]);
+    }
+
+    // Semáforos com luz sutil verde/vermelha emanando dos dois lados
+    if (cityMap.trafficLights) {
+      for (const light of cityMap.trafficLights) {
+        if (light.x + 24 < minX || light.x - 24 > maxX || light.y + 24 < minY || light.y - 24 > maxY) continue;
+        const state = cityMap.getTrafficLightState(light, time);
+        const isGreen = state === 'green';
+        const glowColor = isGreen ? [0.18, 0.95, 0.42, 0.22] : [0.98, 0.22, 0.18, 0.22];
+        const coreColor = isGreen ? [0.32, 1.0, 0.52, 0.72] : [1.0, 0.32, 0.26, 0.72];
+
+        // Luz sutil saindo dos dois lados do semáforo
+        if (light.axis === 'v') {
+          this.#pushQuad(light.x - 9, light.y - 19, 18, 18, 0, 'circle', glowColor);
+          this.#pushQuad(light.x - 9, light.y + 1, 18, 18, 0, 'circle', glowColor);
+          this.#pushQuad(light.x - 2, light.y - 7, 4, 4, 0, 'circle', coreColor);
+          this.#pushQuad(light.x - 2, light.y + 3, 4, 4, 0, 'circle', coreColor);
+          this.#pushQuad(light.x - 5, light.y - 4, 10, 8, 0, 'solid', [0.14, 0.16, 0.2, 1]);
+        } else {
+          this.#pushQuad(light.x - 19, light.y - 9, 18, 18, 0, 'circle', glowColor);
+          this.#pushQuad(light.x + 1, light.y - 9, 18, 18, 0, 'circle', glowColor);
+          this.#pushQuad(light.x - 7, light.y - 2, 4, 4, 0, 'circle', coreColor);
+          this.#pushQuad(light.x + 3, light.y - 2, 4, 4, 0, 'circle', coreColor);
+          this.#pushQuad(light.x - 4, light.y - 5, 8, 10, 0, 'solid', [0.14, 0.16, 0.2, 1]);
+        }
+      }
     }
 
     // Fumaça (cinza/preta) e partículas de fogo (amarelo/laranja/vermelho)

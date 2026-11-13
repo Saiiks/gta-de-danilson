@@ -214,6 +214,8 @@ export class Engine {
     this.smokeParticles = [];
     this.explosions = [];
     this.pendingGameOver = null;
+    this.deathSequence = null;
+    this.hud?.setDeathDesaturation?.(0);
     this.missionOutTriggered = false;
 
     const startLoc = this.cityMap.resolveLocationCode(startCode);
@@ -251,10 +253,23 @@ export class Engine {
   }
 
   triggerGameOver(reason) {
-    if (this.player.isDead) return;
+    if (this.player.isDead || this.deathSequence) return;
+    this.pendingGameOver = null;
+    this.player.health = 0;
+    this.player.deathReason = reason;
+    this.deathSequence = {
+      timer: 0,
+      duration: 3.0,
+      reason
+    };
+  }
+
+  #finalizeGameOver(reason) {
+    this.deathSequence = null;
     this.player.isDead = true;
     this.player.health = 0;
     this.player.deathReason = reason;
+    this.hud?.setDeathDesaturation?.(1);
     this.hud.showGameOver(reason);
   }
 
@@ -326,7 +341,7 @@ export class Engine {
     this.elapsedTime += dt;
     const input = this.input.update(dt);
 
-    if (input.pauseJustPressed && !this.player.isDead && !this.cutscene?.active && !this.hud.isMissionCompleteOpen()) {
+    if (input.pauseJustPressed && !this.player.isDead && !this.deathSequence && !this.cutscene?.active && !this.hud.isMissionCompleteOpen()) {
       if (this.pauseMenu?.isOpen) this.pauseMenu.close();
       else this.pauseMenu?.open();
       return;
@@ -361,6 +376,43 @@ export class Engine {
       return;
     }
 
+    if (this.deathSequence) {
+      this.deathSequence.timer += dt;
+      const progress = Math.min(1, this.deathSequence.timer / this.deathSequence.duration);
+      const timeScale = Math.max(0.03, Math.pow(1 - progress, 1.8));
+      const scaledDt = dt * timeScale;
+
+      this.hud?.setDeathDesaturation?.(progress);
+      this.trafficManager.update(scaledDt, this.player, this.vehicles, this.trashBins, this.elapsedTime);
+
+      const noInput = { moveX: 0, moveY: 0, actionPressed: false, secondaryPressed: false };
+      for (const v of this.vehicles) {
+        if (v.driver === 'npc') continue;
+        if (Math.abs(v.x - this.player.x) > 1500) continue;
+        updateVehicle(v, noInput, scaledDt, this.cityMap);
+      }
+
+      const nearbyVehicles = this.vehicles.filter(
+        (v) => Math.abs(v.x - this.player.x) < 1200 && Math.abs(v.y - this.player.y) < 1200
+      );
+      this.#updateTrashBins(scaledDt, nearbyVehicles);
+      this.#updateParticles(scaledDt);
+      this.#updateExplosions(scaledDt);
+
+      this.hud.updateStatus({
+        locationCode: this.cityMap.getLocationAt(this.player.x, this.player.y)?.code || 'CIDADE',
+        vehicle: null,
+        isDrifting: false,
+        objectiveCode: this.objectiveCode,
+        health: 0
+      });
+
+      if (this.deathSequence.timer >= this.deathSequence.duration) {
+        this.#finalizeGameOver(this.deathSequence.reason);
+      }
+      return;
+    }
+
     if (this.pendingGameOver) {
       this.pendingGameOver.timer += dt;
       this.#updateParticles(dt);
@@ -375,6 +427,8 @@ export class Engine {
       if (this.pendingGameOver.timer >= this.pendingGameOver.duration && this.explosions.length === 0) {
         const reason = this.pendingGameOver.reason;
         this.pendingGameOver = null;
+    this.deathSequence = null;
+    this.hud?.setDeathDesaturation?.(0);
         this.triggerGameOver(reason);
       }
       return;
@@ -487,7 +541,7 @@ export class Engine {
       }
     }
 
-    this.trafficManager.update(dt, this.player, this.vehicles, this.trashBins);
+    this.trafficManager.update(dt, this.player, this.vehicles, this.trashBins, this.elapsedTime);
 
     let maxPlayerImpact = 0;
     let playerHitBuilding = false;
@@ -1118,11 +1172,7 @@ export class Engine {
       this.player.sinkAlpha = 0;
       this.hud.triggerDamageFlash();
       hitIds.add('player');
-      this.pendingGameOver = {
-        timer: 0,
-        duration: 1.4,
-        reason: 'Seu veículo explodiu!'
-      };
+      this.triggerGameOver('Seu veículo explodiu!');
     }
 
     this.shakeTimer = 0.55;

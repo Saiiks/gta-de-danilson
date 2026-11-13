@@ -31,9 +31,12 @@ export class CityMap {
     this.blocks = [];
     this.vehicleSpawns = [];
     this.trashBinSpawns = [];
+    this.crosswalks = [];
+    this.trafficLights = [];
 
     this.#buildRoads();
     this.#buildBlocks();
+    this.#buildCrosswalksAndLights();
     this.#buildVehicleSpawns();
   }
 
@@ -261,6 +264,71 @@ export class CityMap {
       }
       this.blocks.push(row);
     }
+  }
+
+  #buildCrosswalksAndLights() {
+    const rw = this.roadWidth;
+    const cycleDuration = 12;
+
+    for (let row = 1; row < this.gridBlocks; row++) {
+      for (let col = 1; col < this.gridBlocks; col++) {
+        if ((col + row) % 3 !== 0) continue;
+
+        const ix = this.roadXOffsets[col];
+        const iy = this.roadYOffsets[row];
+        const phaseOffset = ((col * 3 + row * 5) % 6) * 1.5;
+        const baseId = `cw-${col}-${row}`;
+
+        // 4 faixas de pedestre ao redor do cruzamento selecionado
+        this.crosswalks.push(
+          { id: `${baseId}-n`, col, row, x: ix + 4, y: iy - 24, w: rw - 8, h: 20, axis: 'h', phaseOffset, cycleDuration },
+          { id: `${baseId}-s`, col, row, x: ix + 4, y: iy + rw + 4, w: rw - 8, h: 20, axis: 'h', phaseOffset, cycleDuration },
+          { id: `${baseId}-w`, col, row, x: ix - 24, y: iy + 4, w: 20, h: rw - 8, axis: 'v', phaseOffset, cycleDuration },
+          { id: `${baseId}-e`, col, row, x: ix + rw + 4, y: iy + 4, w: 20, h: rw - 8, axis: 'v', phaseOffset, cycleDuration }
+        );
+
+        // 4 semáforos nas quinas do cruzamento, alinhados às faixas
+        this.trafficLights.push(
+          { id: `tl-${col}-${row}-nw`, col, row, x: ix - 10, y: iy - 10, axis: 'v', phaseOffset, cycleDuration },
+          { id: `tl-${col}-${row}-ne`, col, row, x: ix + rw + 10, y: iy - 10, axis: 'h', phaseOffset, cycleDuration },
+          { id: `tl-${col}-${row}-se`, col, row, x: ix + rw + 10, y: iy + rw + 10, axis: 'v', phaseOffset, cycleDuration },
+          { id: `tl-${col}-${row}-sw`, col, row, x: ix - 10, y: iy + rw + 10, axis: 'h', phaseOffset, cycleDuration }
+        );
+      }
+    }
+
+    // Remove lixeiras das esquinas que possuem semáforos
+    this.trashBinSpawns = this.trashBinSpawns.filter((bin) => {
+      for (const light of this.trafficLights) {
+        if (Math.abs(bin.x - light.x) < 32 && Math.abs(bin.y - light.y) < 32) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }
+
+  getTrafficLightState(item, time = 0) {
+    const dur = item.cycleDuration || 12;
+    const t = (((time + (item.phaseOffset || 0)) % dur) + dur) % dur;
+    const isGreen = item.axis === 'v' ? t < dur * 0.5 : t >= dur * 0.5;
+    return isGreen ? 'green' : 'red';
+  }
+
+  findNearbyCrosswalk(x, y, axis, maxDist = 58) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const cw of this.crosswalks) {
+      if (cw.axis !== axis) continue;
+      const cx = Math.max(cw.x, Math.min(cw.x + cw.w, x));
+      const cy = Math.max(cw.y, Math.min(cw.y + cw.h, y));
+      const d = Math.hypot(x - cx, y - cy);
+      if (d <= maxDist && d < bestDist) {
+        bestDist = d;
+        best = cw;
+      }
+    }
+    return best;
   }
 
   #buildVehicleSpawns() {
