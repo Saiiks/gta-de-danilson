@@ -268,10 +268,12 @@ export class CityMap {
         const seed = hashBlock(bx + 7, by + 13);
         const variant = VEHICLE_VARIANTS[seed % VEHICLE_VARIANTS.length];
         const horizontal = seed % 2 === 0;
-        const x = horizontal
+
+        // Veículo em tráfego na faixa da rua
+        const tx = horizontal
           ? this.blockXOffsets[bx] + this.colWidths[bx] * 0.5
           : this.roadXOffsets[bx] + this.roadWidth * 0.72;
-        const y = horizontal
+        const ty = horizontal
           ? this.roadYOffsets[by] + this.roadWidth * 0.72
           : this.blockYOffsets[by] + this.rowHeights[by] * 0.5;
 
@@ -280,10 +282,28 @@ export class CityMap {
           kind: variant.kind,
           model: variant.model,
           color: variant.color,
-          x,
-          y,
-          angle: horizontal ? 0 : Math.PI / 2
+          x: tx,
+          y: ty,
+          angle: horizontal ? 0 : Math.PI / 2,
+          isParked: false,
+          driver: 'npc'
         });
+
+        // Veículo estacionado junto à calçada para o jogador pegar
+        if ((bx + by) % 4 === 0) {
+          const pVariant = VEHICLE_VARIANTS[(seed >>> 2) % VEHICLE_VARIANTS.length];
+          this.vehicleSpawns.push({
+            id: `VEH-${String(idCounter++).padStart(3, '0')}`,
+            kind: pVariant.kind,
+            model: pVariant.model,
+            color: pVariant.color,
+            x: this.blockXOffsets[bx] + this.colWidths[bx] * 0.35,
+            y: this.blockYOffsets[by] - 18,
+            angle: 0,
+            isParked: true,
+            driver: null
+          });
+        }
       }
     }
   }

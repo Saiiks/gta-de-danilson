@@ -11,11 +11,19 @@ export class Minimap {
     const h = this.canvas.height;
     const scale = w / (this.viewRange * 2);
 
-    ctx.fillStyle = '#1b202b';
+    ctx.fillStyle = '#144970';
     ctx.fillRect(0, 0, w, h);
 
     const toMiniX = (wx) => w * 0.5 + (wx - player.x) * scale;
     const toMiniY = (wy) => h * 0.5 + (wy - player.y) * scale;
+
+    ctx.fillStyle = '#1b202b';
+    ctx.fillRect(
+      toMiniX(0),
+      toMiniY(0),
+      cityMap.worldWidth * scale,
+      cityMap.worldHeight * scale
+    );
 
     const minX = player.x - this.viewRange;
     const maxX = player.x + this.viewRange;

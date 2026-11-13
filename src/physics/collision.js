@@ -31,7 +31,7 @@ export function resolveCircleRect(cx, cy, radius, rect) {
   return { x: cx, y: rect.y + rect.h + radius, collided: true };
 }
 
-export function resolveEntityCollisions(x, y, radius, colliders, worldSize) {
+export function resolveEntityCollisions(x, y, radius, colliders) {
   let nx = x;
   let ny = y;
   let collided = false;
@@ -46,13 +46,6 @@ export function resolveEntityCollisions(x, y, radius, colliders, worldSize) {
       }
     }
   }
-
-  const minBound = radius;
-  const maxBound = worldSize - radius;
-  if (nx < minBound) { nx = minBound; collided = true; }
-  if (ny < minBound) { ny = minBound; collided = true; }
-  if (nx > maxBound) { nx = maxBound; collided = true; }
-  if (ny > maxBound) { ny = maxBound; collided = true; }
 
   return { x: nx, y: ny, collided };
 }
@@ -85,8 +78,53 @@ export function resolveCircleOBB(cx, cy, radius, box) {
   };
 }
 
-export function isPositionFree(x, y, radius, colliders, worldSize) {
-  if (x < radius || y < radius || x > worldSize - radius || y > worldSize - radius) {
+export function isInWater(x, y, cityMap) {
+  return x < 0 || y < 0 || x > cityMap.worldWidth || y > cityMap.worldHeight;
+}
+
+export function resolveVehiclePairCollision(vA, vB) {
+  const dx = vB.x - vA.x;
+  const dy = vB.y - vA.y;
+  const distSq = dx * dx + dy * dy;
+  const minDist = vA.radius + vB.radius;
+
+  if (distSq >= minDist * minDist) {
+    return { collided: false, impactSpeed: 0 };
+  }
+
+  const dist = Math.sqrt(distSq) || 0.001;
+  const nx = dx / dist;
+  const ny = dy / dist;
+  const overlap = minDist - dist;
+
+  vA.x -= nx * overlap * 0.5;
+  vA.y -= ny * overlap * 0.5;
+  vB.x += nx * overlap * 0.5;
+  vB.y += ny * overlap * 0.5;
+
+  const rvx = vB.vx - vA.vx;
+  const rvy = vB.vy - vA.vy;
+  const velAlongNormal = rvx * nx + rvy * ny;
+
+  if (velAlongNormal > 0) {
+    return { collided: true, impactSpeed: 0 };
+  }
+
+  const impactSpeed = -velAlongNormal;
+  const impulse = -(1 + 0.35) * velAlongNormal * 0.5;
+  vA.vx -= impulse * nx;
+  vA.vy -= impulse * ny;
+  vB.vx += impulse * nx;
+  vB.vy += impulse * ny;
+
+  vA.speed = Math.hypot(vA.vx, vA.vy);
+  vB.speed = Math.hypot(vB.vx, vB.vy);
+
+  return { collided: true, impactSpeed };
+}
+
+export function isPositionFree(x, y, radius, colliders, cityMap) {
+  if (cityMap && typeof cityMap === 'object' && isInWater(x, y, cityMap)) {
     return false;
   }
   for (const rect of colliders) {
