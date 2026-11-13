@@ -9,6 +9,7 @@ import {
   evaluateVehicleImpact,
   findNearestVehicle,
   findSafeExitPosition,
+  updateEjectedPlayer,
   updatePedestrian,
   updateVehicle
 } from '../physics/vehicle-physics.js';
@@ -47,7 +48,12 @@ export class Engine {
       deathReason: null,
       inVehicleId: null,
       insideLocationCode: null,
-      currentLocationCode: null
+      currentLocationCode: null,
+      sinkScale: 1,
+      sinkAlpha: 1,
+      sinkProgress: 0,
+      ejected: { active: false, vx: 0, vy: 0, hitCooldown: 0, graceTimer: 0, sourceVehicleId: null },
+      sinking: { active: false, timer: 0, duration: 1.35, vehicleId: null, vx: 0, vy: 0 }
     };
 
     this.camera = { x: 0, y: 0 };
@@ -85,12 +91,26 @@ export class Engine {
     this.player.deathReason = null;
     this.player.inVehicleId = null;
     this.player.insideLocationCode = null;
+    this.player.sinkScale = 1;
+    this.player.sinkAlpha = 1;
+    this.player.sinkProgress = 0;
+    this.player.ejected = { active: false, vx: 0, vy: 0, hitCooldown: 0, graceTimer: 0, sourceVehicleId: null };
+    this.player.sinking = { active: false, timer: 0, duration: 1.35, vehicleId: null, vx: 0, vy: 0 };
 
     this.camera.x = this.player.x;
     this.camera.y = this.player.y;
 
     this.setObjective('PRACA-01');
     this.hud.hideGameOver();
+  }
+
+  applyDamage(amount, fatalReason = 'Você se deu mal!') {
+    if (this.player.isDead || amount <= 0) return;
+    this.player.health = Math.max(0, this.player.health - amount);
+    this.hud.triggerDamageFlash();
+    if (this.player.health <= 0) {
+      this.triggerGameOver(fatalReason);
+    }
   }
 
   triggerGameOver(reason) {
@@ -144,29 +164,78 @@ export class Engine {
       return;
     }
 
+    if (this.player.sinking.active) {
+      const s = this.player.sinking;
+      s.timer += dt;
+      const progress = Math.min(1, s.timer / s.duration);
+      const damp = Math.exp(-3.2 * dt);
+      s.vx *= damp;
+      s.vy *= damp;
+
+      if (s.vehicleId) {
+        const sv = this.vehicles.find((v) => v.id === s.vehicleId);
+        if (sv) {
+          sv.x += s.vx * dt;
+          sv.y += s.vy * dt;
+          sv.sinkProgress = progress;
+          sv.sinkScale = 1 - progress * 0.72;
+          sv.sinkAlpha = 1 - progress * 0.88;
+          this.player.x = sv.x;
+          this.player.y = sv.y;
+        }
+      } else {
+        this.player.x += s.vx * dt;
+        this.player.y += s.vy * dt;
+        this.player.sinkProgress = progress;
+        this.player.sinkScale = 1 - progress * 0.72;
+        this.player.sinkAlpha = 1 - progress * 0.88;
+      }
+
+      this.hud.updateStatus({
+        locationCode: 'ÁGUA',
+        vehicle: null,
+        isDrifting: false,
+        objectiveCode: this.objectiveCode,
+        health: this.player.health
+      });
+
+      if (progress >= 1) {
+        this.player.sinking.active = false;
+        this.applyDamage(this.player.health || 100, 'Você caiu na água nos limites da ilha!');
+      }
+      return;
+    }
+
     let activeVehicle = this.player.inVehicleId
       ? this.vehicles.find((v) => v.id === this.player.inVehicleId)
       : null;
 
     if (!activeVehicle) {
-      updatePedestrian(this.player, input, dt, this.cityMap, this.vehicles);
-      if (this.player.speed > 5) {
-        this.player.walkPhase += dt * 14;
+      if (this.player.ejected.active) {
+        const ejRes = updateEjectedPlayer(this.player, dt, this.cityMap, this.vehicles);
+        if (ejRes.extraDamage > 0) {
+          this.applyDamage(ejRes.extraDamage, 'Você colidiu fortemente após ser ejetado!');
+        }
       } else {
-        this.player.walkPhase = 0;
-      }
-      if (input.actionJustPressed) {
-        const nearest = findNearestVehicle(this.player.x, this.player.y, this.vehicles);
-        if (nearest) {
-          if (nearest.driver === 'npc') {
-            this.trafficManager.evictDriver(nearest, this.player.radius);
+        updatePedestrian(this.player, input, dt, this.cityMap, this.vehicles);
+        if (this.player.speed > 5) {
+          this.player.walkPhase += dt * 14;
+        } else {
+          this.player.walkPhase = 0;
+        }
+        if (input.actionJustPressed) {
+          const nearest = findNearestVehicle(this.player.x, this.player.y, this.vehicles);
+          if (nearest) {
+            if (nearest.driver === 'npc') {
+              this.trafficManager.evictDriver(nearest, this.player.radius);
+            }
+            nearest.driver = 'player';
+            nearest.isParked = false;
+            this.player.inVehicleId = nearest.id;
+            this.player.insideLocationCode = null;
+            this.input.consumeExitTrigger();
+            activeVehicle = nearest;
           }
-          nearest.driver = 'player';
-          nearest.isParked = false;
-          this.player.inVehicleId = nearest.id;
-          this.player.insideLocationCode = null;
-          this.input.consumeExitTrigger();
-          activeVehicle = nearest;
         }
       }
     } else {
@@ -188,12 +257,18 @@ export class Engine {
     this.trafficManager.update(dt, this.player, this.vehicles);
 
     let maxPlayerImpact = 0;
+    let impactMoveVx = activeVehicle ? activeVehicle.vx : 0;
+    let impactMoveVy = activeVehicle ? activeVehicle.vy : 0;
     for (const v of this.vehicles) {
       if (v.driver === 'npc') continue;
       if (v.driver !== 'player' && Math.abs(v.x - this.player.x) > 1500) continue;
+      const preVx = v.vx;
+      const preVy = v.vy;
       const res = updateVehicle(v, input, dt, this.cityMap);
       if (v.driver === 'player' && res.impactSpeed > maxPlayerImpact) {
         maxPlayerImpact = res.impactSpeed;
+        impactMoveVx = preVx;
+        impactMoveVy = preVy;
       }
       if (v.isDrifting && v.driftIntensity > 0.25) {
         this.skidMarks.push({
@@ -232,21 +307,42 @@ export class Engine {
 
       const impact = evaluateVehicleImpact(maxPlayerImpact);
       if (impact.eject) {
-        const ejectPos = findSafeExitPosition(activeVehicle, this.player.radius, this.cityMap);
+        const moveLen = Math.hypot(impactMoveVx, impactMoveVy);
+        const dirX = moveLen > 1 ? impactMoveVx / moveLen : Math.cos(activeVehicle.angle);
+        const dirY = moveLen > 1 ? impactMoveVy / moveLen : Math.sin(activeVehicle.angle);
+        const ejectSpeed = Math.min(460, Math.max(240, maxPlayerImpact * 0.95));
+
         activeVehicle.driver = null;
         this.player.inVehicleId = null;
-        this.player.x = ejectPos.x;
-        this.player.y = ejectPos.y;
-        this.player.health = Math.max(0, this.player.health - impact.damage);
+        this.player.x = activeVehicle.x + dirX * (activeVehicle.radius + this.player.radius + 4);
+        this.player.y = activeVehicle.y + dirY * (activeVehicle.radius + this.player.radius + 4);
+        this.player.angle = Math.atan2(dirY, dirX);
+        this.player.ejected = {
+          active: true,
+          vx: dirX * ejectSpeed,
+          vy: dirY * ejectSpeed,
+          hitCooldown: 0.15,
+          graceTimer: 0.25,
+          sourceVehicleId: activeVehicle.id
+        };
         this.input.consumeExitTrigger();
-        if (this.player.health <= 0) {
-          this.triggerGameOver('Você sofreu uma colisão fatal!');
-        }
+        this.applyDamage(impact.damage, 'Você sofreu uma colisão fatal!');
       }
     }
 
-    if (isInWater(this.player.x, this.player.y, this.cityMap)) {
-      this.triggerGameOver('Você caiu na água nos limites da ilha!');
+    if (isInWater(this.player.x, this.player.y, this.cityMap) && !this.player.sinking.active && !this.player.isDead) {
+      const sv = this.player.inVehicleId
+        ? this.vehicles.find((v) => v.id === this.player.inVehicleId)
+        : null;
+      this.hud.triggerDamageFlash();
+      this.player.sinking = {
+        active: true,
+        timer: 0,
+        duration: 1.35,
+        vehicleId: sv ? sv.id : null,
+        vx: sv ? sv.vx * 0.45 : Math.cos(this.player.angle) * 90,
+        vy: sv ? sv.vy * 0.45 : Math.sin(this.player.angle) * 90
+      };
     }
 
     const loc = this.cityMap.getLocationAt(this.player.x, this.player.y);

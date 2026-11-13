@@ -357,17 +357,23 @@ export class WebGLRenderer {
       }
     }
 
-    // Veículos visíveis
+    // Veículos visíveis (com escala/transparência ao afundar na água)
     for (const v of vehicles) {
       if (v.x < minX || v.x > maxX || v.y < minY || v.y > maxY) continue;
+      const sinkScale = v.sinkScale ?? 1;
+      const rgba = hexToRgba(v.color, v.sinkAlpha ?? 1);
+      if (v.sinkProgress > 0) {
+        const ring = 24 + v.sinkProgress * 34;
+        this.#pushQuad(v.x - ring * 0.5, v.y - ring * 0.5, ring, ring, 0, 'solid', [0.75, 0.92, 1, (1 - v.sinkProgress) * 0.45]);
+      }
       this.#pushQuad(
-        v.x - v.length * 0.5,
-        v.y - v.width * 0.5,
-        v.length,
-        v.width,
+        v.x - v.length * 0.5 * sinkScale,
+        v.y - v.width * 0.5 * sinkScale,
+        v.length * sinkScale,
+        v.width * sinkScale,
         v.angle,
         v.kind,
-        hexToRgba(v.color)
+        rgba
       );
     }
 
@@ -388,25 +394,31 @@ export class WebGLRenderer {
       }
     }
 
-    // Jogador a pé com movimento simples de braços e pernas
+    // Jogador a pé com movimento simples de braços e pernas (ou afundando na água)
     if (!player.inVehicleId) {
-      const swing = player.speed > 5 ? Math.sin(player.walkPhase || 0) * 6 : 0;
+      const pScale = player.sinkScale ?? 1;
+      const pAlpha = player.sinkAlpha ?? 1;
+      if (player.sinkProgress > 0) {
+        const ring = 20 + player.sinkProgress * 28;
+        this.#pushQuad(player.x - ring * 0.5, player.y - ring * 0.5, ring, ring, 0, 'solid', [0.75, 0.92, 1, (1 - player.sinkProgress) * 0.5]);
+      }
+      const swing = player.speed > 5 && !player.ejected?.active ? Math.sin(player.walkPhase || 0) * 6 : 0;
       const cos = Math.cos(player.angle);
       const sin = Math.sin(player.angle);
       const drawLimb = (forwardOffset, sideOffset, w, h, color) => {
-        const lx = player.x + cos * forwardOffset - sin * sideOffset;
-        const ly = player.y + sin * forwardOffset + cos * sideOffset;
-        this.#pushQuad(lx - w * 0.5, ly - h * 0.5, w, h, player.angle, 'solid', color);
+        const lx = player.x + (cos * forwardOffset - sin * sideOffset) * pScale;
+        const ly = player.y + (sin * forwardOffset + cos * sideOffset) * pScale;
+        this.#pushQuad(lx - w * 0.5 * pScale, ly - h * 0.5 * pScale, w * pScale, h * pScale, player.angle, 'solid', [color[0], color[1], color[2], pAlpha]);
       };
 
       // Pernas alternadas
-      drawLimb(swing, -5, 9, 6, [0.15, 0.22, 0.35, 1]);
-      drawLimb(-swing, 5, 9, 6, [0.15, 0.22, 0.35, 1]);
+      drawLimb(swing, -5, 9, 6, [0.15, 0.22, 0.35]);
+      drawLimb(-swing, 5, 9, 6, [0.15, 0.22, 0.35]);
       // Braços alternados (opostos às pernas)
-      drawLimb(-swing * 0.85 + 2, -11, 8, 5, [0.92, 0.72, 0.52, 1]);
-      drawLimb(swing * 0.85 + 2, 11, 8, 5, [0.92, 0.72, 0.52, 1]);
+      drawLimb(-swing * 0.85 + 2, -11, 8, 5, [0.92, 0.72, 0.52]);
+      drawLimb(swing * 0.85 + 2, 11, 8, 5, [0.92, 0.72, 0.52]);
 
-      this.#pushQuad(player.x - 14, player.y - 14, 28, 28, player.angle, 'player', [1, 1, 1, 1]);
+      this.#pushQuad(player.x - 14 * pScale, player.y - 14 * pScale, 28 * pScale, 28 * pScale, player.angle, 'player', [1, 1, 1, pAlpha]);
     }
 
     // Marcador de objetivo ativo no mundo

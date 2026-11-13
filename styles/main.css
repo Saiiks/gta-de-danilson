@@ -33,6 +33,21 @@ body {
   height: 100%;
 }
 
+#damage-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+  opacity: 0;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.2) 35%, rgba(220, 38, 38, 0.72) 100%);
+  transition: opacity 0.22s ease-out;
+}
+
+#damage-flash.active {
+  opacity: 1;
+  transition: none;
+}
+
 .hidden {
   display: none !important;
 }

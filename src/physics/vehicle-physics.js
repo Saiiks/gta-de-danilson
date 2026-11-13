@@ -174,6 +174,65 @@ export function evaluateVehicleImpact(impactSpeed, threshold = 270) {
   return { eject: true, damage };
 }
 
+export function updateEjectedPlayer(player, dt, cityMap, vehicles = []) {
+  const ej = player.ejected;
+  if (!ej || !ej.active) {
+    return { extraDamage: 0 };
+  }
+
+  if (ej.hitCooldown > 0) {
+    ej.hitCooldown = Math.max(0, ej.hitCooldown - dt);
+  }
+
+  const nextX = player.x + ej.vx * dt;
+  const nextY = player.y + ej.vy * dt;
+  const colliders = cityMap.getCollidersAround(nextX, nextY, 100);
+  let resolved = resolveEntityCollisions(nextX, nextY, player.radius, colliders);
+  let hitObstacle = resolved.collided;
+
+  for (const v of vehicles) {
+    if (v.id === ej.sourceVehicleId && ej.graceTimer > 0) continue;
+    if (Math.abs(v.x - resolved.x) > 80 || Math.abs(v.y - resolved.y) > 80) continue;
+    const hit = resolveCircleOBB(resolved.x, resolved.y, player.radius, v);
+    if (hit.collided) {
+      resolved = hit;
+      hitObstacle = true;
+    }
+  }
+
+  if (ej.graceTimer > 0) {
+    ej.graceTimer = Math.max(0, ej.graceTimer - dt);
+  }
+
+  player.x = resolved.x;
+  player.y = resolved.y;
+
+  let extraDamage = 0;
+  const speed = Math.hypot(ej.vx, ej.vy);
+  if (hitObstacle) {
+    if (ej.hitCooldown <= 0 && speed > 45) {
+      extraDamage = Math.min(35, Math.max(10, Math.round(speed * 0.08)));
+      ej.hitCooldown = 0.25;
+    }
+    ej.vx *= -0.45;
+    ej.vy *= -0.45;
+  }
+
+  const drag = Math.exp(-3.6 * dt);
+  ej.vx *= drag;
+  ej.vy *= drag;
+  player.speed = Math.hypot(ej.vx, ej.vy);
+
+  if (player.speed < 22) {
+    ej.active = false;
+    ej.vx = 0;
+    ej.vy = 0;
+    player.speed = 0;
+  }
+
+  return { extraDamage };
+}
+
 export function findNearestVehicle(x, y, vehicles, maxDist = 52) {
   let nearest = null;
   let bestDist = maxDist;

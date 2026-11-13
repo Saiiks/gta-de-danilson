@@ -18,6 +18,8 @@ export class HudController {
     this.gameoverScreen = document.getElementById('gameover-screen');
     this.gameoverReasonEl = document.getElementById('gameover-reason');
     this.restartButton = document.getElementById('restart-button');
+    this.damageFlashEl = document.getElementById('damage-flash');
+    this.damageFlashTimer = null;
   }
 
   onStartClick(handler) {
@@ -60,6 +62,15 @@ export class HudController {
 
   hideGameOver() {
     this.gameoverScreen.classList.add('hidden');
+  }
+
+  triggerDamageFlash() {
+    if (!this.damageFlashEl) return;
+    this.damageFlashEl.classList.add('active');
+    clearTimeout(this.damageFlashTimer);
+    this.damageFlashTimer = setTimeout(() => {
+      this.damageFlashEl.classList.remove('active');
+    }, 90);
   }
 
   showError(message) {
