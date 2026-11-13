@@ -16,14 +16,24 @@ import {
 import { Minimap } from '../ui/minimap.js';
 
 export class Engine {
-  constructor(canvas, minimapCanvas, touchControlsEl, hud) {
+  constructor(canvas, minimapCanvas, touchControlsEl, hud, options = {}) {
     this.canvas = canvas;
     this.hud = hud;
     this.renderer = new WebGLRenderer(canvas);
     this.minimap = new Minimap(minimapCanvas);
     this.input = new InputManager(touchControlsEl);
 
-    this.cityMap = null;
+    this.cityMap = options.cityMap || null;
+    this.storyPackage = options.storyPackage || null;
+    this.cutscene = options.cutscene || null;
+    this.pauseMenu = options.pauseMenu || null;
+    this.onExitToTitle = options.onExitToTitle || null;
+
+    this.currentMissionIndex = 0;
+    this.freeRoamMode = !this.storyPackage;
+    this.missionOutTriggered = false;
+    this.paused = false;
+
     this.pathfinder = null;
     this.trafficManager = null;
     this.vehicles = [];
@@ -58,31 +68,95 @@ export class Engine {
     };
 
     this.camera = { x: 0, y: 0 };
-    this.hud.onRestartClick(() => this.resetMatch());
+    this.hud.onRestartClick(() => {
+      if (this.storyPackage && !this.freeRoamMode) {
+        this.startMission(this.currentMissionIndex, { skipIntro: true });
+      } else {
+        this.resetMatch();
+      }
+    });
+
+    this.#onKeyDown = (e) => {
+      if (!this.running || this.player.isDead || this.cutscene?.active) return;
+      if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+        if (this.pauseMenu?.isOpen) this.pauseMenu.close();
+        else this.pauseMenu?.open();
+      }
+    };
+    window.addEventListener('keydown', this.#onKeyDown);
   }
+
+  #onKeyDown = null;
 
   initWorld() {
     this.hud.showLoading(35, 'Gerando ilha e cidade-base 30x30...');
-    this.cityMap = new CityMap();
+    if (!this.cityMap) {
+      this.cityMap = new CityMap();
+    }
     this.pathfinder = new RoadPathfinder(this.cityMap);
 
     this.hud.showLoading(70, 'Iniciando tráfego e pedestres...');
     this.resetMatch();
 
     this.#handleResize();
-    window.addEventListener('resize', () => this.#handleResize());
+    this.#onResize = () => this.#handleResize();
+    window.addEventListener('resize', this.#onResize);
 
     this.hud.showLoading(100, 'Pronto!');
     console.info('[Engine] Cidade-ilha inicializada com', this.cityMap.locationsByCode.size, 'locais codificados.');
   }
 
-  resetMatch() {
+  #onResize = null;
+
+  stop() {
+    this.running = false;
+    if (this.#onKeyDown) window.removeEventListener('keydown', this.#onKeyDown);
+    if (this.#onResize) window.removeEventListener('resize', this.#onResize);
+  }
+
+  startMission(index, { skipIntro = false } = {}) {
+    if (!this.storyPackage || !this.storyPackage.missions?.length) {
+      this.freeRoamMode = true;
+      this.resetMatch();
+      return;
+    }
+
+    const clamped = Math.max(0, Math.min(index, this.storyPackage.missions.length - 1));
+    this.currentMissionIndex = clamped;
+    this.freeRoamMode = false;
+    this.missionOutTriggered = false;
+    const mission = this.storyPackage.missions[clamped];
+
+    this.resetMatch(mission.startLocation, mission.targetLocation);
+
+    this.pauseMenu?.configure(this.storyPackage.missions, clamped, {
+      onPauseChange: (isPaused) => {
+        this.paused = isPaused;
+      },
+      onRestartMission: () => {
+        this.startMission(this.currentMissionIndex);
+      },
+      onSelectMission: (missionIdx) => {
+        this.startMission(missionIdx);
+      },
+      onExitToTitle: () => {
+        this.onExitToTitle?.();
+      }
+    });
+
+    if (!skipIntro && mission.introCutscene?.steps?.length > 0 && this.cutscene) {
+      this.cutscene.play(mission.introCutscene, this.storyPackage.characters, () => {});
+    }
+  }
+
+  resetMatch(startCode = 'CASA-01', targetCode = null) {
     this.vehicles = this.cityMap.vehicleSpawns.map(createVehicleEntity);
     this.trafficManager = new TrafficManager(this.cityMap);
     this.skidMarks = [];
     this.bloodMarks = [];
+    this.missionOutTriggered = false;
 
-    const startLoc = this.cityMap.resolveLocationCode('CASA-01');
+    const startLoc = this.cityMap.resolveLocationCode(startCode);
     this.player.x = startLoc.spawnPoint.x;
     this.player.y = startLoc.spawnPoint.y;
     this.player.angle = 0;
@@ -102,7 +176,7 @@ export class Engine {
     this.camera.x = this.player.x;
     this.camera.y = this.player.y;
 
-    this.setObjective('PRACA-01');
+    this.setObjective(targetCode);
     this.hud.hideGameOver();
   }
 
@@ -136,6 +210,38 @@ export class Engine {
     this.routePoints = this.pathfinder.findRoute(this.player.x, this.player.y, this.objectiveCode);
   }
 
+  #handleMissionArrival() {
+    const mission = this.storyPackage.missions[this.currentMissionIndex];
+    if (!mission) return;
+
+    this.player.speed = 0;
+    const finishMission = () => {
+      const hasNext = this.currentMissionIndex + 1 < this.storyPackage.missions.length;
+      this.paused = true;
+      this.hud.showMissionComplete(mission.title, hasNext, () => {
+        this.paused = false;
+        if (hasNext) {
+          this.startMission(this.currentMissionIndex + 1);
+        } else {
+          this.freeRoamMode = true;
+          this.setObjective(null);
+        }
+      });
+    };
+
+    if (mission.outroCutscene?.steps?.length > 0 && this.cutscene) {
+      this.cutscene.play(mission.outroCutscene, this.storyPackage.characters, (result) => {
+        if (result?.outcome === 'gameover') {
+          this.triggerGameOver(result.reason || 'Você falhou na missão.');
+        } else {
+          finishMission();
+        }
+      });
+    } else {
+      finishMission();
+    }
+  }
+
   #handleResize() {
     this.renderer.resize(window.innerWidth, window.innerHeight);
   }
@@ -156,12 +262,23 @@ export class Engine {
   }
 
   update(dt) {
+    if (this.paused) return;
+
     this.elapsedTime += dt;
     const input = this.input.update(dt);
 
+    if (this.cutscene?.active) {
+      this.cutscene.updateInput(input);
+      return;
+    }
+
     if (this.player.isDead) {
       if (input.actionJustPressed) {
-        this.resetMatch();
+        if (this.storyPackage && !this.freeRoamMode) {
+          this.startMission(this.currentMissionIndex, { skipIntro: true });
+        } else {
+          this.resetMatch();
+        }
       }
       return;
     }
@@ -371,8 +488,17 @@ export class Engine {
         ? loc.code
         : null;
 
-    if (this.objectivePoint && Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 48) {
-      this.setObjective(null);
+    if (
+      this.objectivePoint &&
+      !this.missionOutTriggered &&
+      Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 56
+    ) {
+      if (this.storyPackage && !this.freeRoamMode) {
+        this.missionOutTriggered = true;
+        this.#handleMissionArrival();
+      } else {
+        this.setObjective(null);
+      }
     }
 
     this.routeTimer += dt;
