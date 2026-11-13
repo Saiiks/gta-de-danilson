@@ -252,20 +252,7 @@ export class WebGLRenderer {
       }
     }
 
-    // Marcas de drift
-    for (const mark of skidMarks) {
-      if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
-      this.#pushQuad(mark.x - 4, mark.y - 4, 8, 8, mark.angle, 'solid', [0.06, 0.06, 0.08, mark.alpha]);
-    }
-
-    // Marcas de sangue de arrasto e impacto
-    for (const mark of bloodMarks) {
-      if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
-      const s = mark.size || 8;
-      this.#pushQuad(mark.x - s * 0.5, mark.y - s * 0.5, s, s, mark.angle || 0, 'solid', [0.58, 0.04, 0.05, mark.alpha]);
-    }
-
-    // Quarteirões visíveis
+    // Quarteirões visíveis: primeiro o piso (calçadas e gramado das praças)
     const visibleBlocks = cityMap.getVisibleBlocks(minX, minY, maxX, maxY);
     for (const block of visibleBlocks) {
       const b = block.bounds;
@@ -276,6 +263,25 @@ export class WebGLRenderer {
       if (block.plaza) {
         const pb = block.plaza.bounds;
         this.#pushQuad(pb.x, pb.y, pb.w, pb.h, 0, 'grass', [1, 1, 1, 1]);
+      }
+    }
+
+    // Marcas de drift (sobre asfalto, calçada e gramado)
+    for (const mark of skidMarks) {
+      if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
+      this.#pushQuad(mark.x - 4, mark.y - 4, 8, 8, mark.angle, 'solid', [0.06, 0.06, 0.08, mark.alpha]);
+    }
+
+    // Marcas de sangue de arrasto e impacto (sobre asfalto, calçada e gramado)
+    for (const mark of bloodMarks) {
+      if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
+      const s = mark.size || 8;
+      this.#pushQuad(mark.x - s * 0.5, mark.y - s * 0.5, s, s, mark.angle || 0, 'solid', [0.58, 0.04, 0.05, mark.alpha]);
+    }
+
+    // Mobiliário de praça, obstáculos e edificações
+    for (const block of visibleBlocks) {
+      if (block.plaza) {
         for (const prop of block.plaza.props) {
           if (prop.kind === 'fountain') {
             this.#pushQuad(prop.x - 4, prop.y - 4, prop.w + 8, prop.h + 8, 0, 'solid', [0.75, 0.77, 0.8, 1]);
