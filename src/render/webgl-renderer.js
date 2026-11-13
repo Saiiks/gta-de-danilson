@@ -7,12 +7,13 @@ const VERTEX_SHADER = `
 
   uniform vec2 u_resolution;
   uniform vec2 u_camera;
+  uniform float u_zoom;
 
   varying vec2 v_texCoord;
   varying vec4 v_color;
 
   void main() {
-    vec2 screenPos = a_position - u_camera + u_resolution * 0.5;
+    vec2 screenPos = (a_position - u_camera) * u_zoom + u_resolution * 0.5;
     vec2 clipSpace = (screenPos / u_resolution) * 2.0 - 1.0;
     gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
     v_texCoord = a_texCoord;
@@ -100,6 +101,8 @@ export class WebGLRenderer {
     this.locCol = gl.getAttribLocation(program, 'a_color');
     this.locResolution = gl.getUniformLocation(program, 'u_resolution');
     this.locCamera = gl.getUniformLocation(program, 'u_camera');
+    this.locZoom = gl.getUniformLocation(program, 'u_zoom');
+    this.zoom = 1.22;
   }
 
   #initBuffers() {
@@ -191,8 +194,8 @@ export class WebGLRenderer {
     const gl = this.gl;
     this.quadCount = 0;
 
-    const halfW = (this.viewWidth || 800) * 0.5 + 140;
-    const halfH = (this.viewHeight || 600) * 0.5 + 140;
+    const halfW = ((this.viewWidth || 800) * 0.5) / this.zoom + 140;
+    const halfH = ((this.viewHeight || 600) * 0.5) / this.zoom + 140;
     const minX = camera.x - halfW;
     const maxX = camera.x + halfW;
     const minY = camera.y - halfH;
@@ -278,11 +281,55 @@ export class WebGLRenderer {
           this.#pushQuad(bb.x, bb.y, bb.w, bb.h, 0, 'roof', hexToRgba(building.roofColor));
         }
 
-        // Indicação discreta da porta de entrada (soleira/capacho)
+        // Indicação discreta da porta de entrada (soleira) e folha da porta animada
         if (building.doormat) {
           const dm = building.doormat;
-          this.#pushQuad(dm.x, dm.y, dm.w, dm.h, 0, 'doormat', [1, 1, 1, 0.92]);
+          this.#pushQuad(dm.x, dm.y, dm.w, dm.h, 0, 'doormat', [1, 1, 1, 0.75]);
         }
+
+        const ent = building.entrance;
+        const openAmt = building.doorOpen || 0;
+        const doorLen = 42;
+        const doorThick = 6;
+        let baseAngle = 0;
+        let hingeX = ent.x;
+        let hingeY = ent.y;
+        let swingDir = 1;
+
+        if (building.doorSide === 'south') {
+          hingeX = ent.x + 2;
+          hingeY = bb.y + bb.h - 7;
+          baseAngle = 0;
+          swingDir = -1;
+        } else if (building.doorSide === 'north') {
+          hingeX = ent.x + 2;
+          hingeY = bb.y + 7;
+          baseAngle = 0;
+          swingDir = 1;
+        } else if (building.doorSide === 'west') {
+          hingeX = bb.x + 7;
+          hingeY = ent.y + 2;
+          baseAngle = Math.PI * 0.5;
+          swingDir = -1;
+        } else {
+          hingeX = bb.x + bb.w - 7;
+          hingeY = ent.y + 2;
+          baseAngle = Math.PI * 0.5;
+          swingDir = 1;
+        }
+
+        const doorAngle = baseAngle + swingDir * openAmt * 1.45;
+        const doorCenterX = hingeX + Math.cos(doorAngle) * (doorLen * 0.5);
+        const doorCenterY = hingeY + Math.sin(doorAngle) * (doorLen * 0.5);
+        this.#pushQuad(
+          doorCenterX - doorLen * 0.5,
+          doorCenterY - doorThick * 0.5,
+          doorLen,
+          doorThick,
+          doorAngle,
+          'solid',
+          [0.45, 0.28, 0.14, 1]
+        );
       }
     }
 
@@ -300,8 +347,24 @@ export class WebGLRenderer {
       );
     }
 
-    // Jogador a pé
+    // Jogador a pé com movimento simples de braços e pernas
     if (!player.inVehicleId) {
+      const swing = player.speed > 5 ? Math.sin(player.walkPhase || 0) * 6 : 0;
+      const cos = Math.cos(player.angle);
+      const sin = Math.sin(player.angle);
+      const drawLimb = (forwardOffset, sideOffset, w, h, color) => {
+        const lx = player.x + cos * forwardOffset - sin * sideOffset;
+        const ly = player.y + sin * forwardOffset + cos * sideOffset;
+        this.#pushQuad(lx - w * 0.5, ly - h * 0.5, w, h, player.angle, 'solid', color);
+      };
+
+      // Pernas alternadas
+      drawLimb(swing, -5, 9, 6, [0.15, 0.22, 0.35, 1]);
+      drawLimb(-swing, 5, 9, 6, [0.15, 0.22, 0.35, 1]);
+      // Braços alternados (opostos às pernas)
+      drawLimb(-swing * 0.85 + 2, -11, 8, 5, [0.92, 0.72, 0.52, 1]);
+      drawLimb(swing * 0.85 + 2, 11, 8, 5, [0.92, 0.72, 0.52, 1]);
+
       this.#pushQuad(player.x - 14, player.y - 14, 28, 28, player.angle, 'player', [1, 1, 1, 1]);
     }
 
@@ -325,6 +388,7 @@ export class WebGLRenderer {
 
     gl.uniform2f(this.locResolution, this.viewWidth || 800, this.viewHeight || 600);
     gl.uniform2f(this.locCamera, camera.x, camera.y);
+    gl.uniform1f(this.locZoom, this.zoom);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertexData.subarray(0, this.quadCount * 6 * this.floatsPerVertex));

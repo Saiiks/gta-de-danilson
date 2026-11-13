@@ -36,6 +36,7 @@ export class Engine {
       y: 0,
       angle: 0,
       speed: 0,
+      walkPhase: 0,
       radius: 11,
       inVehicleId: null,
       insideLocationCode: null,
@@ -110,6 +111,11 @@ export class Engine {
 
     if (!activeVehicle) {
       updatePedestrian(this.player, input, dt, this.cityMap, this.vehicles);
+      if (this.player.speed > 5) {
+        this.player.walkPhase += dt * 14;
+      } else {
+        this.player.walkPhase = 0;
+      }
       if (input.actionJustPressed) {
         const nearest = findNearestVehicle(this.player.x, this.player.y, this.vehicles);
         if (nearest) {
@@ -173,6 +179,23 @@ export class Engine {
     if (this.objectiveCode && this.routeTimer >= 0.25) {
       this.routeTimer = 0;
       this.routePoints = this.pathfinder.findRoute(this.player.x, this.player.y, this.objectiveCode);
+    }
+
+    // Atualiza animação de abrir/fechar das portas próximas ao jogador
+    const nearbyBlocks = this.cityMap.getVisibleBlocks(
+      this.player.x - 400,
+      this.player.y - 400,
+      this.player.x + 400,
+      this.player.y + 400
+    );
+    for (const block of nearbyBlocks) {
+      for (const b of block.buildings) {
+        const ex = b.entrance.x + b.entrance.w * 0.5;
+        const ey = b.entrance.y + b.entrance.h * 0.5;
+        const nearDoor = !this.player.inVehicleId && Math.hypot(this.player.x - ex, this.player.y - ey) < 42;
+        const targetOpen = nearDoor ? 1 : 0;
+        b.doorOpen = (b.doorOpen || 0) + (targetOpen - (b.doorOpen || 0)) * Math.min(1, dt * 12);
+      }
     }
 
     this.camera.x += (this.player.x - this.camera.x) * Math.min(1, dt * 10);
