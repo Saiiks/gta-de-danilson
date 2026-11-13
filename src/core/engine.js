@@ -12,6 +12,7 @@ import {
   evaluateVehicleImpact,
   findNearestVehicle,
   findSafeExitPosition,
+  isTouchingVehicle,
   updateEjectedPlayer,
   updatePedestrian,
   updateVehicle,
@@ -217,6 +218,7 @@ export class Engine {
     this.player.speed = 0;
     this.player.walkPhase = 0;
     this.player.health = 100;
+    this.player.burnCooldown = 0;
     this.player.isDead = false;
     this.player.deathReason = null;
     this.player.inVehicleId = null;
@@ -576,6 +578,63 @@ export class Engine {
             this.smokeParticles.shift();
           }
         }
+      } else if (v.destroyed && v.burning) {
+        v.burnSmokeTimer = (v.burnSmokeTimer || 0) - dt;
+        if (v.burnSmokeTimer <= 0) {
+          v.burnSmokeTimer = 0.06;
+          this.smokeParticles.push({
+            x: v.x + (Math.random() - 0.5) * 18,
+            y: v.y + (Math.random() - 0.5) * 18,
+            vx: (Math.random() - 0.5) * 16,
+            vy: -16 + (Math.random() - 0.5) * 12,
+            size: 16 + Math.random() * 10,
+            alpha: 0.78,
+            dark: 0.1,
+            life: 0,
+            maxLife: 1.8
+          });
+          while (this.smokeParticles.length > 280) {
+            this.smokeParticles.shift();
+          }
+        }
+      }
+    }
+
+    // Dano por contato com veículos em chamas na rua
+    if (this.player.burnCooldown > 0) {
+      this.player.burnCooldown = Math.max(0, this.player.burnCooldown - dt);
+    }
+    for (const v of nearbyVehicles) {
+      if (v.burnCooldown > 0) {
+        v.burnCooldown = Math.max(0, v.burnCooldown - dt);
+      }
+      if (!v.destroyed || !v.burning) continue;
+
+      if (!this.player.inVehicleId && !this.player.isDead && !this.pendingGameOver && this.player.burnCooldown <= 0) {
+        if (isTouchingVehicle(this.player.x, this.player.y, this.player.radius, v, 7)) {
+          this.player.burnCooldown = 0.45;
+          this.applyDamage(14, 'Você se queimou em um veículo em chamas!');
+        }
+      }
+
+      if (this.trafficManager?.pedestrians) {
+        for (const ped of this.trafficManager.pedestrians) {
+          if (ped.state !== 'downed' && isTouchingVehicle(ped.x, ped.y, ped.radius || 9, v, 5)) {
+            ped.state = 'downed';
+            ped.runOver = true;
+          }
+        }
+      }
+
+      for (const other of nearbyVehicles) {
+        if (other.id === v.id || other.destroyed || (other.burnCooldown || 0) > 0) continue;
+        if (isTouchingVehicle(other.x, other.y, other.radius, v, 4)) {
+          other.burnCooldown = 0.5;
+          other.health = Math.max(0, (other.health ?? 100) - 8);
+          if (other.health <= 0) {
+            this.#triggerVehicleExplosion(other);
+          }
+        }
       }
     }
 
@@ -890,6 +949,8 @@ export class Engine {
   #triggerVehicleExplosion(vehicle) {
     if (!vehicle || vehicle.destroyed) return;
     vehicle.destroyed = true;
+    vehicle.burning = true;
+    vehicle.burnSmokeTimer = 0;
     vehicle.health = 0;
     vehicle.criticalTimer = 0;
     vehicle.driver = null;

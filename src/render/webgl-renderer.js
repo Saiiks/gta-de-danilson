@@ -405,6 +405,31 @@ export class WebGLRenderer {
           this.#pushQuad(rx - 7, ry - 4, 14, 8, v.angle - 0.3, 'solid', [0.08, 0.08, 0.1, 0.65]);
         }
       }
+      if (v.destroyed && v.burning) {
+        const cos = Math.cos(v.angle);
+        const sin = Math.sin(v.angle);
+        const glowSize = Math.max(v.length, v.width) * (1.28 + Math.sin(time * 11 + v.x) * 0.1);
+        this.#pushQuad(
+          v.x - glowSize * 0.5,
+          v.y - glowSize * 0.5,
+          glowSize,
+          glowSize,
+          0,
+          'circle',
+          [1, 0.34, 0.04, 0.44]
+        );
+        const offsets = [-0.26, 0.0, 0.25];
+        for (let fi = 0; fi < offsets.length; fi++) {
+          const dist = v.length * offsets[fi];
+          const wobble = Math.sin(time * 15 + fi * 2.1 + v.y) * 3.5;
+          const fx = v.x + cos * dist - sin * wobble;
+          const fy = v.y + sin * dist + cos * wobble;
+          const fSize = (18 + Math.sin(time * 18 + fi * 1.7) * 5) * sinkScale;
+          this.#pushQuad(fx - fSize * 0.5, fy - fSize * 0.5, fSize, fSize, 0, 'circle', [1, 0.5, 0.08, 0.88]);
+          const core = fSize * 0.55;
+          this.#pushQuad(fx - core * 0.5, fy - core * 0.5, core, core, 0, 'circle', [1, 0.9, 0.35, 0.92]);
+        }
+      }
       if (v.kind === 'moto' && v.driver === 'npc') {
         const riderScale = sinkScale;
         const riderAlpha = v.sinkAlpha ?? 1;

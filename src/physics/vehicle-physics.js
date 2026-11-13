@@ -235,6 +235,19 @@ export function computeShockwaveDamage(distance, maxRadius, maxDamage) {
   return Math.max(1, Math.round(maxDamage * strength));
 }
 
+export function isTouchingVehicle(entityX, entityY, entityRadius, vehicle, margin = 6) {
+  if (!vehicle) return false;
+  const dx = entityX - vehicle.x;
+  const dy = entityY - vehicle.y;
+  const cos = Math.cos(-(vehicle.angle || 0));
+  const sin = Math.sin(-(vehicle.angle || 0));
+  const localX = dx * cos - dy * sin;
+  const localY = dx * sin + dy * cos;
+  const halfLen = (vehicle.length || 44) * 0.5 + entityRadius + margin;
+  const halfWid = (vehicle.width || 24) * 0.5 + entityRadius + margin;
+  return Math.abs(localX) <= halfLen && Math.abs(localY) <= halfWid;
+}
+
 export function updateEjectedPlayer(player, dt, cityMap, vehicles = []) {
   const ej = player.ejected;
   if (!ej || !ej.active) {

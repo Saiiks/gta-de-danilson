@@ -6,6 +6,7 @@ import {
   computeShockwaveFalloff,
   createVehicleEntity,
   findSafeExitPosition,
+  isTouchingVehicle,
   updatePedestrian,
   updateVehicle,
   updateVehicleCriticalState
@@ -139,4 +140,10 @@ test('deslocamento de ar da explosão enfraquece e causa menos dano conforme se 
   assert.ok(dmgFar > 0);
   assert.equal(dmgOut, 0);
   assert.ok(computeShockwaveFalloff(50, maxRadius) > computeShockwaveFalloff(150, maxRadius));
+});
+
+test('detecta contato com veículo destruído em chamas para causar dano', () => {
+  const car = createVehicleEntity({ id: 'v-burn', kind: 'car', model: 'Sedan', color: '#f00', x: 100, y: 100, angle: 0 });
+  assert.equal(isTouchingVehicle(100 + car.length * 0.5 + 8, 100, 11, car, 7), true);
+  assert.equal(isTouchingVehicle(100 + car.length * 0.5 + 35, 100, 11, car, 7), false);
 });
