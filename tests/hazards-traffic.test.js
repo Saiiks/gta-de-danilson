@@ -4,6 +4,7 @@ import { CityMap } from '../src/world/city-map.js';
 import { TrafficManager } from '../src/world/traffic-manager.js';
 import { isInWater, resolveVehiclePairCollision } from '../src/physics/collision.js';
 import {
+  applyPedestrianDamage,
   applyVehicleDamage,
   createVehicleEntity,
   evaluateVehicleImpact,
@@ -107,4 +108,41 @@ test('veículo sofre dano proporcional ao impacto, sinaliza explosão ao zerar b
   assert.equal(moveRes.collided, false);
   assert.equal(v.speed, 0);
   assert.equal(findNearestVehicle(500, 500, [v]), null);
+});
+
+test('pessoas fogem acelerando de veículos próximos e giram para atravessar ruas', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const ped = traffic.pedestrians[0];
+  const player = { x: ped.x, y: ped.y, inVehicleId: null, radius: 11 };
+
+  const initDirX = ped.dirX;
+  const initDirY = ped.dirY;
+  ped.crossTimer = 0.05;
+  traffic.update(0.1, player, []);
+  assert.ok(ped.dirX !== initDirX || ped.dirY !== initDirY);
+
+  const v = createVehicleEntity({ id: 'v-threat', kind: 'car', model: 'Sedan', color: '#f00', x: ped.x - 50, y: ped.y, angle: 0 });
+  v.vx = 140;
+  v.vy = 0;
+  v.speed = 140;
+  traffic.update(0.2, player, [v]);
+  assert.equal(ped.state, 'fleeing');
+  assert.ok(ped.speed > 90);
+});
+
+test('veículos e lixeiras causam dano em pedestres na rua', () => {
+  const ped = { id: 'PED-T', health: 100, state: 'walking', hitCooldown: 0, dirX: 1, dirY: 0, angle: 0 };
+  const hit1 = applyPedestrianDamage(ped, 40, 200, 0);
+  assert.equal(hit1.damaged, true);
+  assert.equal(hit1.downed, false);
+  assert.equal(ped.health, 60);
+  assert.equal(ped.state, 'fleeing');
+
+  ped.hitCooldown = 0;
+  const hit2 = applyPedestrianDamage(ped, 70, 250, 0);
+  assert.equal(hit2.damaged, true);
+  assert.equal(hit2.downed, true);
+  assert.equal(ped.health, 0);
+  assert.equal(ped.state, 'downed');
 });

@@ -422,3 +422,29 @@ export function updateTrashBin(bin, dt, cityMap) {
   bin.y = resolved.y;
   return { bounced };
 }
+
+export function applyPedestrianDamage(ped, damage, impactVx = 0, impactVy = 0) {
+  if (!ped || ped.state === 'downed' || (ped.hitCooldown || 0) > 0 || damage <= 0) {
+    return { damaged: false, downed: false };
+  }
+  ped.health = Math.max(0, (ped.health ?? 100) - damage);
+  ped.hitCooldown = 0.35;
+  ped.vx = impactVx * 0.7;
+  ped.vy = impactVy * 0.7;
+
+  if (ped.health <= 0) {
+    ped.state = 'downed';
+    ped.runOver = true;
+    return { damaged: true, downed: true };
+  }
+
+  const len = Math.hypot(impactVx, impactVy);
+  if (len > 1) {
+    ped.dirX = impactVx / len;
+    ped.dirY = impactVy / len;
+    ped.angle = Math.atan2(ped.dirY, ped.dirX);
+  }
+  ped.state = 'fleeing';
+  ped.fleeTimer = 3.5;
+  return { damaged: true, downed: false };
+}

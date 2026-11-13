@@ -5,6 +5,7 @@ import { InputManager } from '../input/input-manager.js';
 import { WebGLRenderer } from '../render/webgl-renderer.js';
 import { isInWater, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js';
 import {
+  applyPedestrianDamage,
   applyVehicleDamage,
   computeShockwaveDamage,
   computeShockwaveFalloff,
@@ -680,6 +681,30 @@ export class Engine {
     this.#updateExplosions(dt);
     this.#updateTrashBins(dt, nearbyVehicles);
 
+    // Impacto de veículos em pessoas andando ou fugindo na rua
+    const standingPeds = this.trafficManager.pedestrians.filter((p) => p.state !== 'downed');
+    for (const v of nearbyVehicles) {
+      if (v.speed <= 18) continue;
+      for (const ped of standingPeds) {
+        if (ped.state === 'downed' || (ped.hitCooldown || 0) > 0) continue;
+        if (Math.abs(ped.x - v.x) > 48 || Math.abs(ped.y - v.y) > 48) continue;
+        if (isTouchingVehicle(ped.x, ped.y, ped.radius || 10, v, 2)) {
+          const dmg = Math.min(100, Math.max(18, Math.round(v.speed * 0.45)));
+          const hit = applyPedestrianDamage(ped, dmg, v.vx, v.vy);
+          if (hit.damaged) {
+            this.bloodMarks.push({
+              x: ped.x,
+              y: ped.y,
+              size: hit.downed ? 16 : 10,
+              angle: v.angle,
+              alpha: hit.downed ? 0.85 : 0.65
+            });
+            v.bloodTireTimer = 1.6;
+          }
+        }
+      }
+    }
+
     // Atropelamento de pessoas caídas no chão: desloca o corpo e deixa trilha de sangue
     const downedPeds = this.trafficManager.pedestrians.filter((p) => p.state === 'downed');
     for (const v of nearbyVehicles) {
@@ -903,6 +928,29 @@ export class Engine {
 
       if (bin.vx !== 0 || bin.vy !== 0 || bin.angVel !== 0) {
         updateTrashBin(bin, dt, this.cityMap);
+        const binSpeed = Math.hypot(bin.vx, bin.vy);
+        if (binSpeed > 45 && this.trafficManager?.pedestrians) {
+          for (const ped of this.trafficManager.pedestrians) {
+            if (ped.state === 'downed' || (ped.hitCooldown || 0) > 0) continue;
+            if (Math.hypot(ped.x - bin.x, ped.y - bin.y) <= bin.radius + (ped.radius || 10)) {
+              const dmg = Math.min(85, Math.max(15, Math.round(binSpeed * 0.22)));
+              const hit = applyPedestrianDamage(ped, dmg, bin.vx, bin.vy);
+              if (hit.damaged) {
+                if (hit.downed || dmg >= 35) {
+                  this.bloodMarks.push({
+                    x: ped.x,
+                    y: ped.y,
+                    size: hit.downed ? 14 : 9,
+                    angle: Math.atan2(bin.vy, bin.vx),
+                    alpha: 0.72
+                  });
+                }
+                bin.vx *= -0.45;
+                bin.vy *= -0.45;
+              }
+            }
+          }
+        }
       }
     }
   }

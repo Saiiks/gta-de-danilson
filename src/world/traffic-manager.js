@@ -32,6 +32,12 @@ export class TrafficManager {
           dirY: horizontal ? 0 : 1,
           angle: horizontal ? 0 : Math.PI * 0.5,
           speed: 62,
+          baseSpeed: 62,
+          health: 100,
+          radius: 10,
+          hitCooldown: 0,
+          fleeTimer: 0,
+          crossTimer: 2.2 + ((bx + by) % 4) * 1.1,
           walkPhase: (bx + by) * 0.7,
           color,
           state: 'walking'
@@ -116,17 +122,70 @@ export class TrafficManager {
       }
     }
 
-    // Atualiza pedestres caminhando pelas calçadas na área ativa
+    // Atualiza pedestres caminhando, atravessando ruas e fugindo de veículos próximos
     for (const ped of this.pedestrians) {
-      if (ped.state !== 'walking') continue;
+      if (ped.hitCooldown > 0) {
+        ped.hitCooldown = Math.max(0, ped.hitCooldown - dt);
+      }
+      if (ped.state === 'downed') continue;
       if (Math.abs(ped.x - player.x) > activeRadius || Math.abs(ped.y - player.y) > activeRadius) {
         continue;
       }
 
+      // Verifica se há veículo em movimento se aproximando perto do pedestre
+      let threat = null;
+      let threatDist = 115;
+      for (const v of vehicles) {
+        if (v.destroyed || v.speed < 25) continue;
+        const dx = ped.x - v.x;
+        const dy = ped.y - v.y;
+        const d = Math.hypot(dx, dy);
+        if (d < threatDist) {
+          const approaching = dx * v.vx + dy * v.vy > 0 || d < 65;
+          if (approaching) {
+            threatDist = d;
+            threat = v;
+          }
+        }
+      }
+
+      if (threat) {
+        ped.state = 'fleeing';
+        ped.fleeTimer = 2.4;
+        const dx = ped.x - threat.x;
+        const dy = ped.y - threat.y;
+        const d = Math.hypot(dx, dy) || 1;
+        ped.dirX = dx / d;
+        ped.dirY = dy / d;
+        ped.angle = Math.atan2(ped.dirY, ped.dirX);
+      } else if (ped.state === 'fleeing') {
+        ped.fleeTimer = Math.max(0, (ped.fleeTimer || 0) - dt);
+        if (ped.fleeTimer <= 0) {
+          ped.state = 'walking';
+        }
+      }
+
+      // Atravessar ruas periodicamente enquanto caminha
+      if (ped.state === 'walking') {
+        ped.crossTimer = (ped.crossTimer ?? 3.5) - dt;
+        if (ped.crossTimer <= 0) {
+          ped.crossTimer = 3.2 + ((Math.floor(ped.x + ped.y) % 5) * 0.8);
+          const turnSign = (Math.floor(ped.x * 0.1 + ped.y * 0.1) % 2 === 0) ? 1 : -1;
+          const nx = -ped.dirY * turnSign;
+          const ny = ped.dirX * turnSign;
+          ped.dirX = nx;
+          ped.dirY = ny;
+          ped.angle = Math.atan2(ped.dirY, ped.dirX);
+        }
+      }
+
+      const targetSpeed = ped.state === 'fleeing' ? 158 : (ped.baseSpeed || 62);
+      ped.speed += (targetSpeed - ped.speed) * Math.min(1, dt * (ped.state === 'fleeing' ? 7 : 4));
+
       const nextX = ped.x + ped.dirX * ped.speed * dt;
       const nextY = ped.y + ped.dirY * ped.speed * dt;
       const colliders = this.cityMap.getCollidersAround(nextX, nextY, 80);
-      const res = resolveEntityCollisions(nextX, nextY, 10, colliders);
+      const res = resolveEntityCollisions(nextX, nextY, ped.radius || 10, colliders);
 
       const nearEdge =
         res.x < 40 ||
@@ -141,7 +200,7 @@ export class TrafficManager {
       } else {
         ped.x = res.x;
         ped.y = res.y;
-        ped.walkPhase += dt * 9;
+        ped.walkPhase += dt * (ped.state === 'fleeing' ? 18 : 9);
       }
     }
   }
