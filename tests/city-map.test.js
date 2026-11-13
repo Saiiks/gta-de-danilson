@@ -19,6 +19,12 @@ test('gera cidade-base 30x30 com códigos únicos de ruas, casas, comércios e p
 
   assert.ok(casa1.interior.walls.length > 0);
   assert.ok(casa1.roofRect.w > 0);
+  assert.ok(casa1.doormat.w > 0);
+
+  const uniqueWidths = new Set(map.colWidths);
+  const uniqueHeights = new Set(map.rowHeights);
+  assert.ok(uniqueWidths.size > 1);
+  assert.ok(uniqueHeights.size > 1);
 });
 
 test('sinaliza erro descritivo ao resolver código de local inexistente', () => {

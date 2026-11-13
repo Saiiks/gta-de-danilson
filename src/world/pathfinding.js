@@ -7,17 +7,28 @@ export class RoadPathfinder {
   nodeToWorld(ix, iy) {
     const halfRoad = this.cityMap.roadWidth / 2;
     return {
-      x: ix * this.cityMap.cellStride + halfRoad,
-      y: iy * this.cityMap.cellStride + halfRoad
+      x: this.cityMap.roadXOffsets[ix] + halfRoad,
+      y: this.cityMap.roadYOffsets[iy] + halfRoad
     };
   }
 
   nearestNode(x, y) {
     const halfRoad = this.cityMap.roadWidth / 2;
-    const clamp = (val) => Math.max(0, Math.min(this.nodesPerAxis - 1, val));
+    const findClosest = (offsets, target) => {
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < offsets.length; i++) {
+        const d = Math.abs(offsets[i] + halfRoad - target);
+        if (d < bestDist) {
+          bestDist = d;
+          bestIdx = i;
+        }
+      }
+      return bestIdx;
+    };
     return {
-      ix: clamp(Math.round((x - halfRoad) / this.cityMap.cellStride)),
-      iy: clamp(Math.round((y - halfRoad) / this.cityMap.cellStride))
+      ix: findClosest(this.cityMap.roadXOffsets, x),
+      iy: findClosest(this.cityMap.roadYOffsets, y)
     };
   }
 

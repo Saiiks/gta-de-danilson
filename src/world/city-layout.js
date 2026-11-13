@@ -1,9 +1,9 @@
 export const GRID_BLOCKS = 30;
-export const BLOCK_SIZE = 320;
-export const ROAD_WIDTH = 128;
-export const CELL_STRIDE = BLOCK_SIZE + ROAD_WIDTH;
-export const SIDEWALK_WIDTH = 28;
-export const WORLD_SIZE = GRID_BLOCKS * CELL_STRIDE + ROAD_WIDTH;
+export const ROAD_WIDTH = 124;
+export const SIDEWALK_WIDTH = 26;
+
+const BLOCK_WIDTH_CHOICES = [250, 310, 370, 440, 290, 410];
+const BLOCK_HEIGHT_CHOICES = [250, 320, 380, 280, 430, 350];
 
 export const VEHICLE_VARIANTS = [
   { kind: 'car', model: 'Sedan Urbano', color: '#e63946' },
@@ -16,8 +16,8 @@ export const VEHICLE_VARIANTS = [
 ];
 
 const ROOF_PALETTES = {
-  house: ['#8d5b4c', '#7f5539', '#9c6644', '#6d597a'],
-  commerce: ['#3d5a80', '#2a9d8f', '#b56576', '#4a4e69']
+  house: ['#8d5b4c', '#7f5539', '#9c6644', '#6d597a', '#a47148'],
+  commerce: ['#3d5a80', '#2a9d8f', '#b56576', '#4a4e69', '#355070']
 };
 
 export function formatCode(prefix, number) {
@@ -31,6 +31,52 @@ export function hashBlock(bx, by) {
   return h;
 }
 
+export function buildGridMetrics() {
+  const colWidths = [];
+  const rowHeights = [];
+  for (let i = 0; i < GRID_BLOCKS; i++) {
+    const wSeed = hashBlock(i + 3, 17);
+    const hSeed = hashBlock(29, i + 5);
+    colWidths.push(BLOCK_WIDTH_CHOICES[wSeed % BLOCK_WIDTH_CHOICES.length]);
+    rowHeights.push(BLOCK_HEIGHT_CHOICES[hSeed % BLOCK_HEIGHT_CHOICES.length]);
+  }
+
+  const roadXOffsets = [];
+  const blockXOffsets = [];
+  let cx = 0;
+  for (let i = 0; i < GRID_BLOCKS; i++) {
+    roadXOffsets.push(cx);
+    cx += ROAD_WIDTH;
+    blockXOffsets.push(cx);
+    cx += colWidths[i];
+  }
+  roadXOffsets.push(cx);
+  const worldWidth = cx + ROAD_WIDTH;
+
+  const roadYOffsets = [];
+  const blockYOffsets = [];
+  let cy = 0;
+  for (let i = 0; i < GRID_BLOCKS; i++) {
+    roadYOffsets.push(cy);
+    cy += ROAD_WIDTH;
+    blockYOffsets.push(cy);
+    cy += rowHeights[i];
+  }
+  roadYOffsets.push(cy);
+  const worldHeight = cy + ROAD_WIDTH;
+
+  return {
+    colWidths,
+    rowHeights,
+    roadXOffsets,
+    blockXOffsets,
+    roadYOffsets,
+    blockYOffsets,
+    worldWidth,
+    worldHeight
+  };
+}
+
 export function createBuildingWithInterior({
   code,
   type,
@@ -42,16 +88,20 @@ export function createBuildingWithInterior({
   seed
 }) {
   const wallT = 14;
-  const doorW = 48;
+  const doorW = 46;
   const roofPalette = ROOF_PALETTES[type];
-  const roofColor = roofPalette[seed % roofPalette.length];
+  const roofColor = roofPalette[Math.abs(seed) % roofPalette.length];
 
   const walls = [];
   let entrance;
+  let doormat;
+  let spawnPoint;
 
   if (doorSide === 'south') {
     const doorX = x + (w - doorW) / 2;
     entrance = { x: doorX, y: y + h - wallT - 8, w: doorW, h: wallT + 20 };
+    doormat = { x: doorX + 2, y: y + h - 2, w: doorW - 4, h: 14 };
+    spawnPoint = { x: doorX + doorW / 2, y: y + h + 28 };
     walls.push(
       { x, y, w, h: wallT },
       { x, y, w: wallT, h },
@@ -59,9 +109,11 @@ export function createBuildingWithInterior({
       { x, y: y + h - wallT, w: doorX - x, h: wallT },
       { x: doorX + doorW, y: y + h - wallT, w: x + w - (doorX + doorW), h: wallT }
     );
-  } else {
+  } else if (doorSide === 'north') {
     const doorX = x + (w - doorW) / 2;
     entrance = { x: doorX, y: y - 12, w: doorW, h: wallT + 20 };
+    doormat = { x: doorX + 2, y: y - 12, w: doorW - 4, h: 14 };
+    spawnPoint = { x: doorX + doorW / 2, y: y - 28 };
     walls.push(
       { x, y: y + h - wallT, w, h: wallT },
       { x, y, w: wallT, h },
@@ -69,17 +121,40 @@ export function createBuildingWithInterior({
       { x, y, w: doorX - x, h: wallT },
       { x: doorX + doorW, y, w: x + w - (doorX + doorW), h: wallT }
     );
+  } else if (doorSide === 'west') {
+    const doorY = y + (h - doorW) / 2;
+    entrance = { x: x - 12, y: doorY, w: wallT + 20, h: doorW };
+    doormat = { x: x - 12, y: doorY + 2, w: 14, h: doorW - 4 };
+    spawnPoint = { x: x - 28, y: doorY + doorW / 2 };
+    walls.push(
+      { x, y, w, h: wallT },
+      { x, y: y + h - wallT, w, h: wallT },
+      { x: x + w - wallT, y, w: wallT, h },
+      { x, y, w: wallT, h: doorY - y },
+      { x, y: doorY + doorW, w: wallT, h: y + h - (doorY + doorW) }
+    );
+  } else {
+    const doorY = y + (h - doorW) / 2;
+    entrance = { x: x + w - wallT - 8, y: doorY, w: wallT + 20, h: doorW };
+    doormat = { x: x + w - 2, y: doorY + 2, w: 14, h: doorW - 4 };
+    spawnPoint = { x: x + w + 28, y: doorY + doorW / 2 };
+    walls.push(
+      { x, y, w, h: wallT },
+      { x, y: y + h - wallT, w, h: wallT },
+      { x, y, w: wallT, h },
+      { x: x + w - wallT, y, w: wallT, h: doorY - y },
+      { x: x + w - wallT, y: doorY + doorW, w: wallT, h: y + h - (doorY + doorW) }
+    );
   }
 
-  const props = type === 'commerce'
-    ? [
-        { x: x + 28, y: y + 34, w: w - 56, h: 24, kind: 'counter' },
-        { x: x + 28, y: y + h - 68, w: 38, h: 26, kind: 'shelf' }
-      ]
-    : [
-        { x: x + 28, y: y + 32, w: 48, h: 28, kind: 'table' },
-        { x: x + w - 76, y: y + 32, w: 48, h: 28, kind: 'sofa' }
-      ];
+  const props = [];
+  if (w >= 130 && h >= 100) {
+    if (type === 'commerce') {
+      props.push({ x: x + 26, y: y + 26, w: Math.min(90, w - 52), h: 20, kind: 'counter' });
+    } else {
+      props.push({ x: x + 26, y: y + 26, w: 36, h: 24, kind: 'table' });
+    }
+  }
 
   return {
     code,
@@ -89,13 +164,12 @@ export function createBuildingWithInterior({
     roofColor,
     floorColor: type === 'commerce' ? '#d8cfc0' : '#cbb99d',
     entrance,
+    doormat,
+    doorSide,
     interior: {
       walls,
       props
     },
-    spawnPoint: {
-      x: entrance.x + entrance.w / 2,
-      y: doorSide === 'south' ? y + h + 26 : y - 26
-    }
+    spawnPoint
   };
 }
