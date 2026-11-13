@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { CityMap } from '../src/world/city-map.js';
 import { TrafficManager } from '../src/world/traffic-manager.js';
 import { isInWater, resolveVehiclePairCollision } from '../src/physics/collision.js';
-import { createVehicleEntity, evaluateVehicleImpact } from '../src/physics/vehicle-physics.js';
+import { createVehicleEntity, evaluateVehicleImpact, updateEjectedPlayer } from '../src/physics/vehicle-physics.js';
 
 test('detecta queda na água ao ultrapassar os limites da ilha', () => {
   const map = new CityMap();
@@ -51,4 +51,26 @@ test('gera veículos estacionados na calçada, tráfego NPC e retira motorista p
   const evicted = traffic.evictDriver(targetVehicle, player.radius);
   assert.equal(targetVehicle.driver, null);
   assert.equal(evicted.state, 'downed');
+});
+
+test('jogador ejetado arrasta na direção do movimento e sofre dano extra ao bater em obstáculo', () => {
+  const map = new CityMap();
+  const casa = map.resolveLocationCode('CASA-01');
+  const wall = casa.interior.walls[0];
+
+  const player = {
+    x: wall.x + wall.w * 0.5,
+    y: wall.y - 25,
+    radius: 11,
+    speed: 0,
+    ejected: { active: true, vx: 0, vy: 320, hitCooldown: 0, graceTimer: 0, sourceVehicleId: null }
+  };
+
+  let totalExtra = 0;
+  for (let i = 0; i < 40; i++) {
+    const res = updateEjectedPlayer(player, 0.016, map, []);
+    totalExtra += res.extraDamage;
+  }
+
+  assert.ok(totalExtra > 0);
 });
