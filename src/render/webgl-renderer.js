@@ -447,20 +447,37 @@ export class WebGLRenderer {
       }
     }
 
-    // Pedestres NPC (caminhando na calçada ou caídos no chão)
+    // Pedestres NPC (mesma silhueta do jogador com braços/pernas animados e cores variadas)
     for (const ped of pedestrians) {
       if (ped.x < minX || ped.x > maxX || ped.y < minY || ped.y > maxY) continue;
+      const skin = ped.skinColor || [0.92, 0.72, 0.52, 1];
+      const hair = ped.hairColor || [0.16, 0.12, 0.1, 1];
+      const pants = ped.pantsColor || [0.15, 0.22, 0.35, 1];
+      const cos = Math.cos(ped.angle);
+      const sin = Math.sin(ped.angle);
       if (ped.state === 'downed') {
-        this.#pushQuad(ped.x - 14, ped.y - 6, 28, 12, ped.angle, 'solid', ped.color);
-        this.#pushQuad(ped.x + Math.cos(ped.angle) * 11 - 5, ped.y + Math.sin(ped.angle) * 11 - 5, 10, 10, ped.angle, 'solid', [0.92, 0.72, 0.52, 1]);
+        this.#pushQuad(ped.x - 13, ped.y - 6, 26, 12, ped.angle, 'solid', ped.color);
+        this.#pushQuad(ped.x + cos * 11 - 5, ped.y + sin * 11 - 5, 10, 10, ped.angle, 'circle', skin);
+        this.#pushQuad(ped.x + cos * 9.5 - 4, ped.y + sin * 9.5 - 4, 8, 8, ped.angle, 'circle', hair);
       } else {
-        const swing = Math.sin(ped.walkPhase || 0) * 5;
-        const cos = Math.cos(ped.angle);
-        const sin = Math.sin(ped.angle);
-        this.#pushQuad(ped.x + cos * swing - sin * -4 - 4, ped.y + sin * swing + cos * -4 - 3, 8, 6, ped.angle, 'solid', [0.15, 0.2, 0.3, 1]);
-        this.#pushQuad(ped.x - cos * swing - sin * 4 - 4, ped.y - sin * swing + cos * 4 - 3, 8, 6, ped.angle, 'solid', [0.15, 0.2, 0.3, 1]);
-        this.#pushQuad(ped.x - 10, ped.y - 10, 20, 20, ped.angle, 'solid', ped.color);
-        this.#pushQuad(ped.x + cos * 6 - 5, ped.y + sin * 6 - 5, 10, 10, ped.angle, 'solid', [0.92, 0.72, 0.52, 1]);
+        const swing = Math.sin(ped.walkPhase || 0) * 6;
+        const drawPedLimb = (forwardOffset, sideOffset, w, h, col) => {
+          const lx = ped.x + (cos * forwardOffset - sin * sideOffset);
+          const ly = ped.y + (sin * forwardOffset + cos * sideOffset);
+          this.#pushQuad(lx - w * 0.5, ly - h * 0.5, w, h, ped.angle, 'solid', col);
+        };
+        // Pernas alternadas
+        drawPedLimb(swing, -5, 9, 6, pants);
+        drawPedLimb(-swing, 5, 9, 6, pants);
+        // Braços alternados (opostos às pernas)
+        drawPedLimb(-swing * 0.85 + 2, -11, 8, 5, skin);
+        drawPedLimb(swing * 0.85 + 2, 11, 8, 5, skin);
+        // Sombra, contorno dos ombros, camisa, rosto e cabelo
+        this.#pushQuad(ped.x - 9, ped.y - 9, 20, 20, 0, 'circle', [0, 0, 0, 0.35]);
+        this.#pushQuad(ped.x - 9.5, ped.y - 9.5, 19, 19, 0, 'circle', [0.12, 0.16, 0.22, 1]);
+        this.#pushQuad(ped.x + cos * 2 - 6.5, ped.y + sin * 2 - 6.5, 13, 13, 0, 'circle', ped.color);
+        this.#pushQuad(ped.x + cos * 5.2 - 3.8, ped.y + sin * 5.2 - 3.8, 7.6, 7.6, 0, 'circle', skin);
+        this.#pushQuad(ped.x + cos * 4.0 - 3.6, ped.y + sin * 4.0 - 3.6, 7.2, 7.2, 0, 'circle', hair);
       }
     }
 

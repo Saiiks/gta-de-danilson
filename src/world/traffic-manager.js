@@ -6,7 +6,34 @@ const PED_COLORS = [
   [0.82, 0.32, 0.35, 1],
   [0.32, 0.72, 0.45, 1],
   [0.72, 0.45, 0.82, 1],
-  [0.88, 0.65, 0.25, 1]
+  [0.88, 0.65, 0.25, 1],
+  [0.18, 0.72, 0.74, 1],
+  [0.9, 0.44, 0.22, 1]
+];
+
+const SKIN_COLORS = [
+  [0.96, 0.8, 0.66, 1],
+  [0.92, 0.72, 0.52, 1],
+  [0.82, 0.6, 0.42, 1],
+  [0.64, 0.42, 0.28, 1],
+  [0.44, 0.28, 0.18, 1]
+];
+
+const HAIR_COLORS = [
+  [0.1, 0.09, 0.09, 1],
+  [0.28, 0.17, 0.1, 1],
+  [0.52, 0.32, 0.16, 1],
+  [0.86, 0.72, 0.32, 1],
+  [0.72, 0.28, 0.14, 1],
+  [0.68, 0.7, 0.74, 1]
+];
+
+const PANTS_COLORS = [
+  [0.15, 0.22, 0.35, 1],
+  [0.14, 0.15, 0.18, 1],
+  [0.22, 0.34, 0.52, 1],
+  [0.42, 0.36, 0.26, 1],
+  [0.2, 0.28, 0.22, 1]
 ];
 
 export class TrafficManager {
@@ -22,7 +49,11 @@ export class TrafficManager {
       for (let bx = 0; bx < this.cityMap.gridBlocks; bx += 2) {
         const block = this.cityMap.blocks[by][bx];
         const b = block.bounds;
-        const color = PED_COLORS[(bx + by) % PED_COLORS.length];
+        const idx = bx * 3 + by * 5;
+        const color = PED_COLORS[idx % PED_COLORS.length];
+        const skinColor = SKIN_COLORS[(idx + 1) % SKIN_COLORS.length];
+        const hairColor = HAIR_COLORS[(idx + 2) % HAIR_COLORS.length];
+        const pantsColor = PANTS_COLORS[(idx + 3) % PANTS_COLORS.length];
         const horizontal = (bx + by) % 4 === 0;
         this.pedestrians.push({
           id: `PED-${this.nextPedId++}`,
@@ -40,6 +71,9 @@ export class TrafficManager {
           crossTimer: 2.2 + ((bx + by) % 4) * 1.1,
           walkPhase: (bx + by) * 0.7,
           color,
+          skinColor,
+          hairColor,
+          pantsColor,
           state: 'walking'
         });
       }
@@ -62,6 +96,9 @@ export class TrafficManager {
       speed: 0,
       walkPhase: 0,
       color: PED_COLORS[this.nextPedId % PED_COLORS.length],
+      skinColor: SKIN_COLORS[this.nextPedId % SKIN_COLORS.length],
+      hairColor: HAIR_COLORS[this.nextPedId % HAIR_COLORS.length],
+      pantsColor: PANTS_COLORS[this.nextPedId % PANTS_COLORS.length],
       state: 'downed'
     };
     this.pedestrians.push(npc);
