@@ -16,10 +16,10 @@ export class HudController {
   }
 
   onStartClick(handler) {
-    this.startButton.addEventListener('click', async () => {
+    this.startButton.addEventListener('click', () => {
       try {
         if (this.shell.requestFullscreen && !document.fullscreenElement) {
-          await this.shell.requestFullscreen();
+          Promise.resolve(this.shell.requestFullscreen()).catch(() => {});
         }
       } catch {
         // Navegador pode restringir fullscreen; mantém 100vw/100dvh
