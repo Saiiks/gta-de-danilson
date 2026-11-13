@@ -428,10 +428,10 @@ export class WebGLRenderer {
       this.#pushQuad(player.x - 14 * pScale, player.y - 14 * pScale, 28 * pScale, 28 * pScale, player.angle, 'player', [1, 1, 1, pAlpha]);
     }
 
-    // Marcador de objetivo ativo no mundo
+    // Marcador de objetivo ativo no mundo + personagem do ponto de encontro
     if (objectivePoint) {
       const pulse = 1 + Math.sin(time * 5) * 0.18;
-      const size = 28 * pulse;
+      const size = 34 * pulse;
       this.#pushQuad(
         objectivePoint.x - size * 0.5,
         objectivePoint.y - size * 0.5,
@@ -439,7 +439,16 @@ export class WebGLRenderer {
         size,
         0,
         'solid',
-        [0.98, 0.75, 0.14, 0.65]
+        [0.98, 0.75, 0.14, 0.55]
+      );
+      this.#pushQuad(
+        objectivePoint.x - 12,
+        objectivePoint.y - 12,
+        24,
+        24,
+        Math.PI * 0.5,
+        'pedestrian',
+        [0.92, 0.25, 0.25, 1]
       );
     }
 

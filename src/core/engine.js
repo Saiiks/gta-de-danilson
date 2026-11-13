@@ -488,11 +488,13 @@ export class Engine {
         ? loc.code
         : null;
 
-    if (
+    const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
+    const reachedTarget =
       this.objectivePoint &&
-      !this.missionOutTriggered &&
-      Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 56
-    ) {
+      (Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 76 ||
+        (activeMission && this.player.insideLocationCode === activeMission.targetLocation));
+
+    if (this.objectivePoint && !this.missionOutTriggered && reachedTarget) {
       if (this.storyPackage && !this.freeRoamMode) {
         this.missionOutTriggered = true;
         this.#handleMissionArrival();
