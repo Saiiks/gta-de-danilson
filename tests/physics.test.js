@@ -107,12 +107,12 @@ test('veículo não pode entrar pela porta de uma construção', () => {
   assert.ok(moto.y >= house.bounds.y + house.bounds.h + moto.radius - 0.5);
 });
 
-test('veículo com até 20% de integridade solta fumaça por 10s e explode automaticamente', () => {
+test('veículo com até 30% de integridade solta fumaça por 10s e explode automaticamente', () => {
   const car = createVehicleEntity({ id: 'v-crit', kind: 'car', model: 'Sedan', color: '#f00', x: 0, y: 0, angle: 0 });
-  car.health = 21;
+  car.health = 31;
   assert.deepEqual(updateVehicleCriticalState(car, 5), { smokingCritical: false, shouldExplode: false });
 
-  car.health = 20;
+  car.health = 30;
   const at5s = updateVehicleCriticalState(car, 5);
   assert.equal(at5s.smokingCritical, true);
   assert.equal(at5s.shouldExplode, false);
