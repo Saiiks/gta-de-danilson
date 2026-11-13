@@ -205,7 +205,7 @@ export function updateVehicleCriticalState(vehicle, dt) {
   if (health <= 0) {
     return { smokingCritical: false, shouldExplode: true };
   }
-  if (health >= 10) {
+  if (health > 20) {
     vehicle.criticalTimer = null;
     return { smokingCritical: false, shouldExplode: false };
   }

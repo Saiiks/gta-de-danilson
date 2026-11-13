@@ -521,7 +521,7 @@ export class Engine {
       }
     }
 
-    // Contagem regressiva de 10s para veículos com menos de 10% de integridade
+    // Contagem regressiva de 10s para veículos com até 20% de integridade
     for (const v of this.vehicles) {
       if (v.destroyed) continue;
       const crit = updateVehicleCriticalState(v, dt);
@@ -533,7 +533,7 @@ export class Engine {
     // Fumaça em veículos com <= 50% de integridade formando trilha que se dissipa com o tempo
     for (const v of nearbyVehicles) {
       if (!v.destroyed && (v.health ?? 100) <= 50) {
-        const isCritical = (v.health ?? 100) < 10;
+        const isCritical = (v.health ?? 100) <= 20;
         v.smokeTimer = (v.smokeTimer || 0) - dt;
         const interval = isCritical ? 0.026 : v.health < 25 ? 0.035 : 0.07;
         if (v.smokeTimer <= 0) {
