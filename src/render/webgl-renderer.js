@@ -190,7 +190,7 @@ export class WebGLRenderer {
     this.quadCount++;
   }
 
-  renderFrame({ camera, cityMap, vehicles, pedestrians = [], player, skidMarks, objectivePoint, time }) {
+  renderFrame({ camera, cityMap, vehicles, pedestrians = [], player, skidMarks, bloodMarks = [], objectivePoint, time }) {
     const gl = this.gl;
     this.quadCount = 0;
 
@@ -256,6 +256,13 @@ export class WebGLRenderer {
     for (const mark of skidMarks) {
       if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
       this.#pushQuad(mark.x - 4, mark.y - 4, 8, 8, mark.angle, 'solid', [0.06, 0.06, 0.08, mark.alpha]);
+    }
+
+    // Marcas de sangue de arrasto e impacto
+    for (const mark of bloodMarks) {
+      if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
+      const s = mark.size || 8;
+      this.#pushQuad(mark.x - s * 0.5, mark.y - s * 0.5, s, s, mark.angle || 0, 'solid', [0.58, 0.04, 0.05, mark.alpha]);
     }
 
     // Quarteirões visíveis

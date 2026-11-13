@@ -28,6 +28,7 @@ export class Engine {
     this.trafficManager = null;
     this.vehicles = [];
     this.skidMarks = [];
+    this.bloodMarks = [];
     this.routePoints = [];
     this.objectiveCode = null;
     this.objectivePoint = null;
@@ -79,6 +80,7 @@ export class Engine {
     this.vehicles = this.cityMap.vehicleSpawns.map(createVehicleEntity);
     this.trafficManager = new TrafficManager(this.cityMap);
     this.skidMarks = [];
+    this.bloodMarks = [];
 
     const startLoc = this.cityMap.resolveLocationCode('CASA-01');
     this.player.x = startLoc.spawnPoint.x;
@@ -213,7 +215,24 @@ export class Engine {
     if (!activeVehicle) {
       if (this.player.ejected.active) {
         const ejRes = updateEjectedPlayer(this.player, dt, this.cityMap, this.vehicles);
+        if (this.player.speed > 35) {
+          this.bloodMarks.push({
+            x: this.player.x,
+            y: this.player.y,
+            size: 7,
+            angle: this.player.angle,
+            alpha: 0.72
+          });
+          if (this.bloodMarks.length > 260) {
+            this.bloodMarks.shift();
+          }
+        }
         if (ejRes.extraDamage > 0) {
+          this.bloodMarks.push(
+            { x: this.player.x, y: this.player.y, size: 16, angle: this.player.angle, alpha: 0.88 },
+            { x: this.player.x + 8, y: this.player.y - 6, size: 8, angle: 0, alpha: 0.78 },
+            { x: this.player.x - 7, y: this.player.y + 7, size: 7, angle: 0, alpha: 0.78 }
+          );
           this.applyDamage(ejRes.extraDamage, 'Você colidiu fortemente após ser ejetado!');
         }
       } else {
@@ -402,6 +421,7 @@ export class Engine {
       pedestrians: this.trafficManager ? this.trafficManager.pedestrians : [],
       player: this.player,
       skidMarks: this.skidMarks,
+      bloodMarks: this.bloodMarks,
       objectivePoint: this.objectivePoint,
       time: this.elapsedTime
     });
