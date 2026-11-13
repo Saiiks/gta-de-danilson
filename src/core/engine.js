@@ -114,7 +114,7 @@ export class Engine {
     if (this.#onResize) window.removeEventListener('resize', this.#onResize);
   }
 
-  startMission(index, { skipIntro = false } = {}) {
+  startMission(index, { skipIntro = false, preserveState = false } = {}) {
     if (!this.storyPackage || !this.storyPackage.missions?.length) {
       this.freeRoamMode = true;
       this.resetMatch();
@@ -127,7 +127,51 @@ export class Engine {
     this.missionOutTriggered = false;
     const mission = this.storyPackage.missions[clamped];
 
-    this.resetMatch(mission.startLocation, mission.targetLocation);
+    if (preserveState) {
+      const currentVehicle = this.player.inVehicleId
+        ? this.vehicles.find((v) => v.id === this.player.inVehicleId)
+        : null;
+      this.player.speed = 0;
+      if (currentVehicle) {
+        currentVehicle.vx = 0;
+        currentVehicle.vy = 0;
+        currentVehicle.speed = 0;
+      }
+      this.setObjective(mission.targetLocation);
+      this.hud.hideGameOver();
+      this.missionCheckpoint = {
+        missionIndex: clamped,
+        x: this.player.x,
+        y: this.player.y,
+        angle: this.player.angle,
+        health: this.player.health,
+        inVehicleId: this.player.inVehicleId,
+        vehiclePos: currentVehicle ? { x: currentVehicle.x, y: currentVehicle.y, angle: currentVehicle.angle } : null
+      };
+    } else if (this.missionCheckpoint && this.missionCheckpoint.missionIndex === clamped) {
+      const cp = this.missionCheckpoint;
+      this.resetMatch(mission.startLocation, mission.targetLocation);
+      this.player.x = cp.x;
+      this.player.y = cp.y;
+      this.player.angle = cp.angle;
+      this.player.health = cp.health;
+      this.player.inVehicleId = cp.inVehicleId;
+      if (cp.inVehicleId && cp.vehiclePos) {
+        const v = this.vehicles.find((veh) => veh.id === cp.inVehicleId);
+        if (v) {
+          v.x = cp.vehiclePos.x;
+          v.y = cp.vehiclePos.y;
+          v.angle = cp.vehiclePos.angle;
+          v.driver = 'player';
+          v.isParked = false;
+        }
+      }
+      this.camera.x = this.player.x;
+      this.camera.y = this.player.y;
+    } else {
+      this.missionCheckpoint = null;
+      this.resetMatch(mission.startLocation, mission.targetLocation);
+    }
 
     this.pauseMenu?.configure(this.storyPackage.missions, clamped, {
       onPauseChange: (isPaused) => {
@@ -137,6 +181,7 @@ export class Engine {
         this.startMission(this.currentMissionIndex);
       },
       onSelectMission: (missionIdx) => {
+        this.missionCheckpoint = null;
         this.startMission(missionIdx);
       },
       onExitToTitle: () => {
@@ -221,7 +266,7 @@ export class Engine {
       this.hud.showMissionComplete(mission.title, hasNext, () => {
         this.paused = false;
         if (hasNext) {
-          this.startMission(this.currentMissionIndex + 1);
+          this.startMission(this.currentMissionIndex + 1, { preserveState: true });
         } else {
           this.freeRoamMode = true;
           this.setObjective(null);
