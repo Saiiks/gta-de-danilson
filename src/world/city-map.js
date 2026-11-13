@@ -391,7 +391,7 @@ export class CityMap {
     return null;
   }
 
-  getCollidersAround(x, y, margin = 120) {
+  getCollidersAround(x, y, margin = 120, forVehicle = false) {
     const blocks = this.getVisibleBlocks(x - margin, y - margin, x + margin, y + margin);
     const colliders = [];
     for (const block of blocks) {
@@ -404,6 +404,10 @@ export class CityMap {
         }
       }
       for (const building of block.buildings) {
+        if (forVehicle) {
+          colliders.push(building.bounds);
+          continue;
+        }
         for (const wall of building.interior.walls) {
           colliders.push(wall);
         }

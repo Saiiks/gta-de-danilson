@@ -80,3 +80,26 @@ test('jogador a pé colide de forma sólida com veículos e não passa por cima 
 
   assert.ok(player.x <= car.x - car.length * 0.5 - player.radius + 0.5);
 });
+
+test('veículo não pode entrar pela porta de uma construção', () => {
+  const map = new CityMap();
+  const house = map.resolveLocationCode('CASA-01');
+  const doorCenterX = house.entrance.x + house.entrance.w * 0.5;
+  const moto = createVehicleEntity({
+    id: 'm1',
+    kind: 'moto',
+    model: 'Moto',
+    color: '#0f0',
+    x: doorCenterX,
+    y: house.bounds.y + house.bounds.h + 26,
+    angle: -Math.PI * 0.5
+  });
+  moto.driver = 'player';
+
+  const input = { moveX: 0, moveY: 0, actionPressed: true, secondaryPressed: false };
+  for (let i = 0; i < 30; i++) {
+    updateVehicle(moto, input, 0.016, map);
+  }
+
+  assert.ok(moto.y >= house.bounds.y + house.bounds.h + moto.radius - 0.5);
+});

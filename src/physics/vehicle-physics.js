@@ -160,7 +160,7 @@ export function updateVehicle(vehicle, input, dt, cityMap) {
 
   const nextX = vehicle.x + vehicle.vx * dt;
   const nextY = vehicle.y + vehicle.vy * dt;
-  const colliders = cityMap.getCollidersAround(nextX, nextY, 120);
+  const colliders = cityMap.getCollidersAround(nextX, nextY, 120, true);
   const resolved = resolveEntityCollisions(nextX, nextY, vehicle.radius, colliders);
 
   let impactSpeed = 0;
