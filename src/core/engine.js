@@ -1,9 +1,12 @@
 import { CityMap } from '../world/city-map.js';
 import { RoadPathfinder } from '../world/pathfinding.js';
+import { TrafficManager } from '../world/traffic-manager.js';
 import { InputManager } from '../input/input-manager.js';
 import { WebGLRenderer } from '../render/webgl-renderer.js';
+import { isInWater, resolveVehiclePairCollision } from '../physics/collision.js';
 import {
   createVehicleEntity,
+  evaluateVehicleImpact,
   findNearestVehicle,
   findSafeExitPosition,
   updatePedestrian,
@@ -21,6 +24,7 @@ export class Engine {
 
     this.cityMap = null;
     this.pathfinder = null;
+    this.trafficManager = null;
     this.vehicles = [];
     this.skidMarks = [];
     this.routePoints = [];
@@ -38,36 +42,63 @@ export class Engine {
       speed: 0,
       walkPhase: 0,
       radius: 11,
+      health: 100,
+      isDead: false,
+      deathReason: null,
       inVehicleId: null,
       insideLocationCode: null,
       currentLocationCode: null
     };
 
     this.camera = { x: 0, y: 0 };
+    this.hud.onRestartClick(() => this.resetMatch());
   }
 
   initWorld() {
-    this.hud.showLoading(35, 'Gerando cidade-base 30x30...');
+    this.hud.showLoading(35, 'Gerando ilha e cidade-base 30x30...');
     this.cityMap = new CityMap();
     this.pathfinder = new RoadPathfinder(this.cityMap);
 
-    this.hud.showLoading(70, 'Posicionando veículos...');
-    this.vehicles = this.cityMap.vehicleSpawns.map(createVehicleEntity);
-
-    const startLoc = this.cityMap.resolveLocationCode('CASA-01');
-    this.player.x = startLoc.spawnPoint.x;
-    this.player.y = startLoc.spawnPoint.y;
-    this.camera.x = this.player.x;
-    this.camera.y = this.player.y;
-
-    // Objetivo demonstrativo inicial para validar minimapa e rota sugerida
-    this.setObjective('PRACA-01');
+    this.hud.showLoading(70, 'Iniciando tráfego e pedestres...');
+    this.resetMatch();
 
     this.#handleResize();
     window.addEventListener('resize', () => this.#handleResize());
 
     this.hud.showLoading(100, 'Pronto!');
-    console.info('[Engine] Cidade-base inicializada com', this.cityMap.locationsByCode.size, 'locais codificados.');
+    console.info('[Engine] Cidade-ilha inicializada com', this.cityMap.locationsByCode.size, 'locais codificados.');
+  }
+
+  resetMatch() {
+    this.vehicles = this.cityMap.vehicleSpawns.map(createVehicleEntity);
+    this.trafficManager = new TrafficManager(this.cityMap);
+    this.skidMarks = [];
+
+    const startLoc = this.cityMap.resolveLocationCode('CASA-01');
+    this.player.x = startLoc.spawnPoint.x;
+    this.player.y = startLoc.spawnPoint.y;
+    this.player.angle = 0;
+    this.player.speed = 0;
+    this.player.walkPhase = 0;
+    this.player.health = 100;
+    this.player.isDead = false;
+    this.player.deathReason = null;
+    this.player.inVehicleId = null;
+    this.player.insideLocationCode = null;
+
+    this.camera.x = this.player.x;
+    this.camera.y = this.player.y;
+
+    this.setObjective('PRACA-01');
+    this.hud.hideGameOver();
+  }
+
+  triggerGameOver(reason) {
+    if (this.player.isDead) return;
+    this.player.isDead = true;
+    this.player.health = 0;
+    this.player.deathReason = reason;
+    this.hud.showGameOver(reason);
   }
 
   setObjective(code) {
@@ -105,7 +136,15 @@ export class Engine {
   update(dt) {
     this.elapsedTime += dt;
     const input = this.input.update(dt);
-    const activeVehicle = this.player.inVehicleId
+
+    if (this.player.isDead) {
+      if (input.actionJustPressed) {
+        this.resetMatch();
+      }
+      return;
+    }
+
+    let activeVehicle = this.player.inVehicleId
       ? this.vehicles.find((v) => v.id === this.player.inVehicleId)
       : null;
 
@@ -119,10 +158,15 @@ export class Engine {
       if (input.actionJustPressed) {
         const nearest = findNearestVehicle(this.player.x, this.player.y, this.vehicles);
         if (nearest) {
+          if (nearest.driver === 'npc') {
+            this.trafficManager.evictDriver(nearest, this.player.radius);
+          }
           nearest.driver = 'player';
+          nearest.isParked = false;
           this.player.inVehicleId = nearest.id;
           this.player.insideLocationCode = null;
           this.input.consumeExitTrigger();
+          activeVehicle = nearest;
         }
       }
     } else {
@@ -137,11 +181,20 @@ export class Engine {
         this.player.x = exitPos.x;
         this.player.y = exitPos.y;
         this.input.consumeExitTrigger();
+        activeVehicle = null;
       }
     }
 
+    this.trafficManager.update(dt, this.player, this.vehicles);
+
+    let maxPlayerImpact = 0;
     for (const v of this.vehicles) {
-      updateVehicle(v, input, dt, this.cityMap);
+      if (v.driver === 'npc') continue;
+      if (v.driver !== 'player' && Math.abs(v.x - this.player.x) > 1500) continue;
+      const res = updateVehicle(v, input, dt, this.cityMap);
+      if (v.driver === 'player' && res.impactSpeed > maxPlayerImpact) {
+        maxPlayerImpact = res.impactSpeed;
+      }
       if (v.isDrifting && v.driftIntensity > 0.25) {
         this.skidMarks.push({
           x: v.x,
@@ -155,13 +208,45 @@ export class Engine {
       }
     }
 
-    if (this.player.inVehicleId) {
-      const v = this.vehicles.find((item) => item.id === this.player.inVehicleId);
-      if (v) {
-        this.player.x = v.x;
-        this.player.y = v.y;
-        this.player.angle = v.angle;
+    // Colisão veículo-veículo na área próxima ao jogador
+    const nearbyVehicles = this.vehicles.filter(
+      (v) => Math.abs(v.x - this.player.x) < 1200 && Math.abs(v.y - this.player.y) < 1200
+    );
+    for (let i = 0; i < nearbyVehicles.length; i++) {
+      for (let j = i + 1; j < nearbyVehicles.length; j++) {
+        const vA = nearbyVehicles[i];
+        const vB = nearbyVehicles[j];
+        const pairRes = resolveVehiclePairCollision(vA, vB);
+        if (pairRes.collided && (vA.driver === 'player' || vB.driver === 'player')) {
+          if (pairRes.impactSpeed > maxPlayerImpact) {
+            maxPlayerImpact = pairRes.impactSpeed;
+          }
+        }
       }
+    }
+
+    if (activeVehicle) {
+      this.player.x = activeVehicle.x;
+      this.player.y = activeVehicle.y;
+      this.player.angle = activeVehicle.angle;
+
+      const impact = evaluateVehicleImpact(maxPlayerImpact);
+      if (impact.eject) {
+        const ejectPos = findSafeExitPosition(activeVehicle, this.player.radius, this.cityMap);
+        activeVehicle.driver = null;
+        this.player.inVehicleId = null;
+        this.player.x = ejectPos.x;
+        this.player.y = ejectPos.y;
+        this.player.health = Math.max(0, this.player.health - impact.damage);
+        this.input.consumeExitTrigger();
+        if (this.player.health <= 0) {
+          this.triggerGameOver('Você sofreu uma colisão fatal!');
+        }
+      }
+    }
+
+    if (isInWater(this.player.x, this.player.y, this.cityMap)) {
+      this.triggerGameOver('Você caiu na água nos limites da ilha!');
     }
 
     const loc = this.cityMap.getLocationAt(this.player.x, this.player.y);
@@ -181,7 +266,6 @@ export class Engine {
       this.routePoints = this.pathfinder.findRoute(this.player.x, this.player.y, this.objectiveCode);
     }
 
-    // Atualiza animação de abrir/fechar das portas próximas ao jogador
     const nearbyBlocks = this.cityMap.getVisibleBlocks(
       this.player.x - 400,
       this.player.y - 400,
@@ -209,7 +293,8 @@ export class Engine {
       locationCode: this.player.currentLocationCode,
       vehicle: currentVehicle,
       isDrifting: Boolean(currentVehicle?.isDrifting),
-      objectiveCode: this.objectiveCode
+      objectiveCode: this.objectiveCode,
+      health: this.player.health
     });
   }
 
@@ -218,6 +303,7 @@ export class Engine {
       camera: this.camera,
       cityMap: this.cityMap,
       vehicles: this.vehicles,
+      pedestrians: this.trafficManager ? this.trafficManager.pedestrians : [],
       player: this.player,
       skidMarks: this.skidMarks,
       objectivePoint: this.objectivePoint,
