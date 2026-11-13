@@ -403,9 +403,11 @@ body {
 }
 
 .cutscene-portrait {
-  width: clamp(88px, 16vw, 148px);
-  height: clamp(88px, 16vw, 148px);
-  object-fit: contain;
+  width: clamp(96px, 16vw, 156px);
+  height: clamp(96px, 16vw, 156px);
+  object-fit: cover;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.16);
   filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.6));
 }
 
