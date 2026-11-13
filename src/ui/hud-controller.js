@@ -115,6 +115,22 @@ export class HudController {
     });
     this.syncOrientationAndFullscreen();
     this.#updateIosInstallHint();
+    this.#bindZoomPrevention();
+  }
+
+  #bindZoomPrevention() {
+    if (typeof document === 'undefined') return;
+    const prevent = (e) => {
+      e.preventDefault();
+    };
+    document.addEventListener('gesturestart', prevent, { passive: false });
+    document.addEventListener('gesturechange', prevent, { passive: false });
+    document.addEventListener('gestureend', prevent, { passive: false });
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches && e.touches.length > 1) {
+        e.preventDefault();
+      }
+    }, { passive: false });
   }
 
   #updateIosInstallHint() {

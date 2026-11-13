@@ -104,6 +104,7 @@ function setupGlobals({ width = 844, height = 390, portrait = false, maxTouchPoi
 
   globalThis.document = {
     getElementById: (id) => elements.get(id) || null,
+    addEventListener() {},
     get fullscreenElement() { return fullscreenEl; },
     exitFullscreen: async () => {
       exitFullscreenCount += 1;
