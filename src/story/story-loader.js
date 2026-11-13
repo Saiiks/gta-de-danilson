@@ -28,6 +28,23 @@ async function checkAssetExists(url) {
   }
 }
 
+export function getCharacterSidePngCandidates(basePath, charId, view) {
+  const cleanBase = String(basePath || '').replace(/\/+$/, '');
+  return [
+    `${cleanBase}/characters/${charId}-${view}.png`,
+    `${cleanBase}/characters/${charId}/${charId}-${view}.png`,
+    `${cleanBase}/characters/${charId}.png`,
+    `${cleanBase}/characters/${charId}/${charId}.png`,
+  ];
+}
+
+export async function resolveFirstExistingAsset(candidates, existsFn = checkAssetExists) {
+  for (const url of candidates) {
+    if (await existsFn(url)) return url;
+  }
+  return '';
+}
+
 export async function loadStoryPackage(basePath = './story', cityMap = null) {
   const cleanBase = basePath.replace(/\/+$/, '');
   const manifestUrl = `${cleanBase}/story.md`;
@@ -54,6 +71,15 @@ export async function loadStoryPackage(basePath = './story', cityMap = null) {
 
       const resolvedSprites = {};
       for (const [view, relPath] of Object.entries(character.sprites)) {
+        if (view === 'left' || view === 'right') {
+          const pngOverride = await resolveFirstExistingAsset(
+            getCharacterSidePngCandidates(cleanBase, charId, view),
+          );
+          if (pngOverride) {
+            resolvedSprites[view] = pngOverride;
+            continue;
+          }
+        }
         if (!relPath) {
           resolvedSprites[view] = '';
           continue;

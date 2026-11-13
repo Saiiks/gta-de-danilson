@@ -11,6 +11,10 @@ import {
   validateAssetPath,
   StoryParseError
 } from '../src/story/story-parser.js';
+import {
+  getCharacterSidePngCandidates,
+  resolveFirstExistingAsset
+} from '../src/story/story-loader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const storyDir = path.resolve(__dirname, '../story');
@@ -72,4 +76,17 @@ target: NAO-EXISTE-99
     () => parseMissionMarkdown(badMission, 'missions/err.md', cityMap),
     (err) => err instanceof StoryParseError && err.message.includes('NAO-EXISTE-99')
   );
+});
+
+test('prioriza PNG na pasta do personagem para visão lateral e faz fallback quando ausente', async () => {
+  const candidates = getCharacterSidePngCandidates('./story', 'alex', 'left');
+  assert.equal(candidates[0], './story/characters/alex-left.png');
+  assert.equal(candidates[2], './story/characters/alex.png');
+  assert.equal(candidates[3], './story/characters/alex/alex.png');
+
+  const found = await resolveFirstExistingAsset(candidates, async (url) => url.endsWith('characters/alex.png'));
+  assert.equal(found, './story/characters/alex.png');
+
+  const none = await resolveFirstExistingAsset(candidates, async () => false);
+  assert.equal(none, '');
 });
