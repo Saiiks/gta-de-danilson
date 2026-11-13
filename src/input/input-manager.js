@@ -4,6 +4,11 @@ export class InputManager {
     this.touchDirs = new Set();
     this.touchButtons = new Set();
     this.pointerBindings = new Map();
+    this.touchMoveX = 0;
+    this.touchMoveY = 0;
+    this.analogPointerId = null;
+    this.analogEl = null;
+    this.analogKnobEl = null;
     this.touchContainer = touchContainer;
 
     this.prevAction = false;
@@ -37,7 +42,50 @@ export class InputManager {
       this.touchDirs.clear();
       this.touchButtons.clear();
       this.pointerBindings.clear();
+      this.#resetAnalog();
     });
+  }
+
+  #resetAnalog() {
+    this.analogPointerId = null;
+    this.touchMoveX = 0;
+    this.touchMoveY = 0;
+    this.analogEl?.classList.remove('active');
+    if (this.analogKnobEl) {
+      this.analogKnobEl.style.transform = 'translate(0px, 0px)';
+    }
+  }
+
+  #updateAnalogFromEvent(e) {
+    if (!this.analogEl) return;
+    const rect = this.analogEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const maxRadius = Math.max(24, rect.width * 0.38);
+
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    const clampedDist = Math.min(dist, maxRadius);
+    const angle = Math.atan2(dy, dx);
+    const clampedX = dist > 0 ? Math.cos(angle) * clampedDist : 0;
+    const clampedY = dist > 0 ? Math.sin(angle) * clampedDist : 0;
+
+    if (this.analogKnobEl) {
+      this.analogKnobEl.style.transform = `translate(${clampedX.toFixed(1)}px, ${clampedY.toFixed(1)}px)`;
+    }
+
+    const norm = clampedDist / maxRadius;
+    const deadzone = 0.14;
+    if (norm < deadzone) {
+      this.touchMoveX = 0;
+      this.touchMoveY = 0;
+      return;
+    }
+
+    const scaled = (norm - deadzone) / (1 - deadzone);
+    this.touchMoveX = Math.cos(angle) * scaled;
+    this.touchMoveY = Math.sin(angle) * scaled;
   }
 
   #updateTouchVisibility() {
@@ -54,6 +102,32 @@ export class InputManager {
   }
 
   #bindTouch() {
+    this.analogEl = this.touchContainer.querySelector('#touch-analog');
+    this.analogKnobEl = this.touchContainer.querySelector('#touch-analog-knob');
+
+    if (this.analogEl) {
+      this.analogEl.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        if (this.analogPointerId !== null) return;
+        this.touchContainer.classList.remove('hidden');
+        this.analogPointerId = e.pointerId;
+        this.analogEl.classList.add('active');
+        try {
+          this.analogEl.setPointerCapture?.(e.pointerId);
+        } catch {
+          // Eventos sintéticos podem não suportar pointer capture
+        }
+        this.#updateAnalogFromEvent(e);
+      });
+
+      const onAnalogMove = (e) => {
+        if (e.pointerId !== this.analogPointerId) return;
+        e.preventDefault();
+        this.#updateAnalogFromEvent(e);
+      };
+      window.addEventListener('pointermove', onAnalogMove);
+    }
+
     const buttons = this.touchContainer.querySelectorAll('.touch-btn');
     for (const btn of buttons) {
       btn.addEventListener('pointerdown', (e) => {
@@ -73,6 +147,9 @@ export class InputManager {
     }
 
     const releasePointer = (e) => {
+      if (e.pointerId === this.analogPointerId) {
+        this.#resetAnalog();
+      }
       const binding = this.pointerBindings.get(e.pointerId);
       if (!binding) {
         return;
@@ -127,6 +204,11 @@ export class InputManager {
     if (this.keys.has('ArrowRight') || this.keys.has('KeyD') || this.touchDirs.has('right')) moveX += 1;
     if (this.keys.has('ArrowUp') || this.keys.has('KeyW') || this.touchDirs.has('up')) moveY -= 1;
     if (this.keys.has('ArrowDown') || this.keys.has('KeyS') || this.touchDirs.has('down')) moveY += 1;
+
+    if (Math.abs(this.touchMoveX) > 0 || Math.abs(this.touchMoveY) > 0) {
+      moveX += this.touchMoveX;
+      moveY += this.touchMoveY;
+    }
 
     let actionPressed =
       this.keys.has('Space') ||

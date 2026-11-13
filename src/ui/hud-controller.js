@@ -33,6 +33,8 @@ export class HudController {
     this.missionCompleteTitleEl = document.getElementById('mission-complete-title');
     this.missionCompleteSubtitleEl = document.getElementById('mission-complete-subtitle');
     this.missionCompleteBtn = document.getElementById('mission-complete-btn');
+    this.portraitWarning = document.getElementById('portrait-warning');
+    this.hasStarted = false;
     this.missionCompleteHandler = null;
     this.missionCompleteBtn.addEventListener('click', () => {
       this.missionCompleteScreen.classList.add('hidden');
@@ -40,6 +42,77 @@ export class HudController {
       this.missionCompleteHandler = null;
       cb?.();
     });
+
+    this.#bindOrientationAndFullscreen();
+  }
+
+  isTouchDevice() {
+    return (
+      (typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) ||
+      (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+    );
+  }
+
+  isPortraitOrientation() {
+    if (typeof window === 'undefined') return false;
+    if (window.matchMedia && window.matchMedia('(orientation: portrait)').matches) {
+      return true;
+    }
+    return window.innerHeight > window.innerWidth;
+  }
+
+  isPortraitBlocked() {
+    return Boolean(this.portraitWarning && !this.portraitWarning.classList.contains('hidden'));
+  }
+
+  requestAppFullscreen() {
+    try {
+      if (this.shell?.requestFullscreen && !document.fullscreenElement) {
+        Promise.resolve(this.shell.requestFullscreen()).catch(() => {});
+      }
+    } catch {
+      // Navegador pode restringir fullscreen; mantém 100vw/100dvh
+    }
+  }
+
+  exitAppFullscreen() {
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        Promise.resolve(document.exitFullscreen()).catch(() => {});
+      }
+    } catch {
+      // Ignora erro ao sair do fullscreen
+    }
+  }
+
+  syncOrientationAndFullscreen() {
+    const blocked = this.isTouchDevice() && this.isPortraitOrientation();
+    if (blocked) {
+      this.portraitWarning?.classList.remove('hidden');
+      this.exitAppFullscreen();
+    } else {
+      this.portraitWarning?.classList.add('hidden');
+    }
+    return !blocked;
+  }
+
+  #bindOrientationAndFullscreen() {
+    if (typeof window === 'undefined') return;
+    const onOrientationCheck = () => {
+      this.syncOrientationAndFullscreen();
+    };
+    window.addEventListener('resize', onOrientationCheck);
+    window.addEventListener('orientationchange', onOrientationCheck);
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(orientation: portrait)');
+      mq.addEventListener?.('change', onOrientationCheck);
+    }
+    this.shell?.addEventListener('pointerdown', () => {
+      if (this.hasStarted && this.isTouchDevice() && !this.isPortraitOrientation() && !document.fullscreenElement) {
+        this.requestAppFullscreen();
+      }
+    });
+    this.syncOrientationAndFullscreen();
   }
 
   setStoryHeader({ title, subtitle, splashUrl }) {
@@ -94,12 +167,9 @@ export class HudController {
 
   onStartClick(handler) {
     this.startButton.addEventListener('click', () => {
-      try {
-        if (this.shell.requestFullscreen && !document.fullscreenElement) {
-          Promise.resolve(this.shell.requestFullscreen()).catch(() => {});
-        }
-      } catch {
-        // Navegador pode restringir fullscreen; mantém 100vw/100dvh
+      this.hasStarted = true;
+      if (!this.isPortraitOrientation()) {
+        this.requestAppFullscreen();
       }
       handler();
     });

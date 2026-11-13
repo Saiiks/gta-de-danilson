@@ -179,16 +179,35 @@ body {
   pointer-events: auto;
 }
 
-#touch-dpad {
+.touch-analog {
+  position: relative;
+  width: 126px;
+  height: 126px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: radial-gradient(circle, rgba(20, 24, 34, 0.25) 0%, rgba(20, 24, 34, 0.48) 100%);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.touch-dpad-mid {
-  display: flex;
-  gap: 46px;
+.touch-analog-knob {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.26);
+  pointer-events: none;
+  transform: translate(0px, 0px);
+  transition: transform 0.08s ease-out, background-color 0.1s ease, border-color 0.1s ease;
+}
+
+.touch-analog.active .touch-analog-knob {
+  transition: none;
+  background: rgba(251, 191, 36, 0.55);
+  border-color: #fbbf24;
 }
 
 #touch-actions {
@@ -635,13 +654,21 @@ body {
 }
 
 #portrait-warning {
-  display: none;
   z-index: 30;
+}
+
+.portrait-card {
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+.portrait-icon {
+  font-size: 38px;
+  margin-bottom: 10px;
 }
 
 @media (orientation: portrait) and (pointer: coarse) {
   #portrait-warning {
-    display: flex;
+    display: flex !important;
   }
 
   #controls-hint {
@@ -652,5 +679,50 @@ body {
 @media (pointer: coarse) {
   #controls-hint {
     display: none;
+  }
+}
+
+@media (max-height: 460px) {
+  .overlay-card {
+    padding: 18px 22px;
+  }
+
+  .start-splash {
+    max-height: 108px;
+    margin-bottom: 10px;
+  }
+
+  .retro-title {
+    margin-bottom: 8px;
+  }
+
+  .overlay-subtitle {
+    margin-bottom: 14px;
+    font-size: 14px;
+  }
+
+  #minimap-canvas {
+    width: 112px;
+    height: 112px;
+  }
+
+  .touch-analog {
+    width: 110px;
+    height: 110px;
+  }
+
+  .touch-analog-knob {
+    width: 46px;
+    height: 46px;
+  }
+
+  .touch-action {
+    width: 58px;
+    height: 58px;
+  }
+
+  .touch-primary {
+    width: 66px;
+    height: 66px;
   }
 }

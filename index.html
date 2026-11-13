@@ -45,13 +45,8 @@
       </div>
 
       <div id="touch-controls" class="hidden" aria-label="Controles virtuais">
-        <div id="touch-dpad" class="touch-cluster">
-          <button type="button" class="touch-btn touch-dir" data-dir="up" aria-label="Cima">▲</button>
-          <div class="touch-dpad-mid">
-            <button type="button" class="touch-btn touch-dir" data-dir="left" aria-label="Esquerda">◀</button>
-            <button type="button" class="touch-btn touch-dir" data-dir="right" aria-label="Direita">▶</button>
-          </div>
-          <button type="button" class="touch-btn touch-dir" data-dir="down" aria-label="Baixo">▼</button>
+        <div id="touch-analog" class="touch-cluster touch-analog" role="application" aria-label="Direcional analógico virtual">
+          <div id="touch-analog-knob" class="touch-analog-knob"></div>
         </div>
 
         <div id="touch-actions" class="touch-cluster">
@@ -145,10 +140,11 @@
       </div>
     </section>
 
-    <section id="portrait-warning" class="overlay-screen" role="status">
-      <div class="overlay-card">
-        <h2 class="overlay-heading">Gire o aparelho</h2>
-        <p class="overlay-subtitle">Este jogo funciona apenas na orientação horizontal (paisagem).</p>
+    <section id="portrait-warning" class="overlay-screen hidden" role="alert" aria-live="assertive">
+      <div class="overlay-card portrait-card">
+        <div class="portrait-icon" aria-hidden="true">📱↻</div>
+        <h2 class="overlay-heading">Deite o celular para jogar</h2>
+        <p class="overlay-subtitle">Este jogo funciona apenas na orientação paisagem (horizontal). Gire o aparelho para continuar.</p>
       </div>
     </section>
   </div>
