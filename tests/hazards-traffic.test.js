@@ -183,3 +183,30 @@ test('pedestres dão um passo para trás e desviam ao colidir com jogador ou out
   assert.ok(pedA.dirX < 0);
   assert.ok(pedB.dirX > 0);
 });
+
+test('pedestres colidem com veículos estacionados e desviam de lixeiras paradas', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const road = map.resolveLocationCode('RUA-01');
+  const ped = traffic.pedestrians[0];
+  const player = { x: road.bounds.x + 100, y: road.bounds.y + 100, inVehicleId: null, isDead: false, radius: 11 };
+
+  // Lixeira parada no caminho faz o pedestre desviar
+  ped.x = road.bounds.x + 200;
+  ped.y = road.bounds.y + 64;
+  ped.dirX = 1;
+  ped.dirY = 0;
+  const bin = { id: 'bin-obs', x: ped.x + 20, y: ped.y, vx: 0, vy: 0, radius: 7 };
+  traffic.update(0.016, player, [], [bin]);
+  assert.notEqual(ped.dirY, 0);
+
+  // Veículo estacionado bloqueia passagem e faz o pedestre desviar
+  const parked = createVehicleEntity({ id: 'v-park', kind: 'car', model: 'Sedan', color: '#f00', x: road.bounds.x + 320, y: road.bounds.y + 64, angle: 0 });
+  ped.x = parked.x - parked.length * 0.5 - 8;
+  ped.y = parked.y;
+  ped.dirX = 1;
+  ped.dirY = 0;
+  traffic.update(0.05, player, [parked], []);
+  assert.ok(ped.x <= parked.x - parked.length * 0.5 - (ped.radius || 10) + 0.5);
+  assert.ok(ped.dirX < 0);
+});

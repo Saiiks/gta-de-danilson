@@ -487,7 +487,7 @@ export class Engine {
       }
     }
 
-    this.trafficManager.update(dt, this.player, this.vehicles);
+    this.trafficManager.update(dt, this.player, this.vehicles, this.trashBins);
 
     let maxPlayerImpact = 0;
     let playerHitBuilding = false;

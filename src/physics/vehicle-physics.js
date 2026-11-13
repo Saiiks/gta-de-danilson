@@ -64,6 +64,28 @@ export function createVehicleEntity(spawn) {
   };
 }
 
+export function resolvePedestrianEnvironmentCollisions(x, y, radius, cityMap, vehicles = []) {
+  const colliders = cityMap.getCollidersAround(x, y, 100);
+  const env = resolveEntityCollisions(x, y, radius, colliders);
+  let nx = env.x;
+  let ny = env.y;
+  let collided = env.collided;
+  let hitVehicle = null;
+
+  for (const v of vehicles) {
+    if (Math.abs(v.x - nx) > 80 || Math.abs(v.y - ny) > 80) continue;
+    const hit = resolveCircleOBB(nx, ny, radius, v);
+    if (hit.collided) {
+      nx = hit.x;
+      ny = hit.y;
+      collided = true;
+      hitVehicle = v;
+    }
+  }
+
+  return { x: nx, y: ny, collided, hitVehicle };
+}
+
 export function updatePedestrian(player, input, dt, cityMap, vehicles = []) {
   const walkSpeed = 175;
   const mx = input.moveX;
@@ -78,16 +100,7 @@ export function updatePedestrian(player, input, dt, cityMap, vehicles = []) {
 
   const nextX = player.x + mx * walkSpeed * dt;
   const nextY = player.y + my * walkSpeed * dt;
-  const colliders = cityMap.getCollidersAround(nextX, nextY, 100);
-  let resolved = resolveEntityCollisions(nextX, nextY, player.radius, colliders, cityMap.worldSize);
-
-  for (const v of vehicles) {
-    if (Math.abs(v.x - resolved.x) > 80 || Math.abs(v.y - resolved.y) > 80) continue;
-    const hit = resolveCircleOBB(resolved.x, resolved.y, player.radius, v);
-    if (hit.collided) {
-      resolved = hit;
-    }
-  }
+  const resolved = resolvePedestrianEnvironmentCollisions(nextX, nextY, player.radius, cityMap, vehicles);
 
   player.x = resolved.x;
   player.y = resolved.y;

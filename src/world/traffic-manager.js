@@ -1,4 +1,4 @@
-import { findSafeExitPosition } from '../physics/vehicle-physics.js';
+import { findSafeExitPosition, resolvePedestrianEnvironmentCollisions } from '../physics/vehicle-physics.js';
 import { resolveEntityCollisions } from '../physics/collision.js';
 
 const PED_COLORS = [
@@ -105,7 +105,7 @@ export class TrafficManager {
     return npc;
   }
 
-  update(dt, player, vehicles) {
+  update(dt, player, vehicles, trashBins = []) {
     const activeRadius = 1500;
 
     // Atualiza veículos de tráfego próximos ao jogador
@@ -216,13 +216,38 @@ export class TrafficManager {
         }
       }
 
+      const pedRadius = ped.radius || 10;
+
+      // Desvia de lixeiras paradas ou lentas no caminho
+      for (const bin of trashBins) {
+        const binSpeed = Math.hypot(bin.vx || 0, bin.vy || 0);
+        if (binSpeed > 45) continue;
+        const dx = ped.x - bin.x;
+        const dy = ped.y - bin.y;
+        const avoidDist = pedRadius + (bin.radius || 7) + 14;
+        if (Math.abs(dx) >= avoidDist || Math.abs(dy) >= avoidDist) continue;
+        const d = Math.hypot(dx, dy);
+        if (d < avoidDist) {
+          const nx = d > 1e-4 ? dx / d : 1;
+          const ny = d > 1e-4 ? dy / d : 0;
+          const minBinDist = pedRadius + (bin.radius || 7);
+          if (d < minBinDist) {
+            ped.x = bin.x + nx * minBinDist;
+            ped.y = bin.y + ny * minBinDist;
+          }
+          // Desvia se estiver caminhando na direção da lixeira
+          if (ped.dirX * -nx + ped.dirY * -ny > 0.1) {
+            this.#steerPedestrianAvoidance(ped, nx, ny, 1);
+          }
+        }
+      }
+
       const targetSpeed = ped.state === 'fleeing' ? 158 : (ped.baseSpeed || 62);
       ped.speed += (targetSpeed - ped.speed) * Math.min(1, dt * (ped.state === 'fleeing' ? 7 : 4));
 
       const nextX = ped.x + ped.dirX * ped.speed * dt;
       const nextY = ped.y + ped.dirY * ped.speed * dt;
-      const colliders = this.cityMap.getCollidersAround(nextX, nextY, 80);
-      const res = resolveEntityCollisions(nextX, nextY, ped.radius || 10, colliders);
+      const res = resolvePedestrianEnvironmentCollisions(nextX, nextY, pedRadius, this.cityMap, vehicles);
 
       const nearEdge =
         res.x < 40 ||
@@ -230,7 +255,14 @@ export class TrafficManager {
         res.x > this.cityMap.worldWidth - 40 ||
         res.y > this.cityMap.worldHeight - 40;
 
-      if (res.collided || nearEdge) {
+      if (res.hitVehicle && res.hitVehicle.speed <= 18) {
+        ped.x = res.x;
+        ped.y = res.y;
+        const dx = ped.x - res.hitVehicle.x;
+        const dy = ped.y - res.hitVehicle.y;
+        const d = Math.hypot(dx, dy) || 1;
+        this.#steerPedestrianAvoidance(ped, dx / d, dy / d, 1);
+      } else if (res.collided || nearEdge) {
         ped.dirX = -ped.dirX;
         ped.dirY = -ped.dirY;
         ped.angle = Math.atan2(ped.dirY, ped.dirX);
