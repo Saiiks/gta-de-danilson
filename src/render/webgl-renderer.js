@@ -252,20 +252,7 @@ export class WebGLRenderer {
       }
     }
 
-    // Marcas de drift
-    for (const mark of skidMarks) {
-      if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
-      this.#pushQuad(mark.x - 4, mark.y - 4, 8, 8, mark.angle, 'solid', [0.06, 0.06, 0.08, mark.alpha]);
-    }
-
-    // Marcas de sangue de arrasto e impacto
-    for (const mark of bloodMarks) {
-      if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
-      const s = mark.size || 8;
-      this.#pushQuad(mark.x - s * 0.5, mark.y - s * 0.5, s, s, mark.angle || 0, 'solid', [0.58, 0.04, 0.05, mark.alpha]);
-    }
-
-    // Quarteirões visíveis
+    // Quarteirões visíveis: primeiro o piso (calçadas e gramado das praças)
     const visibleBlocks = cityMap.getVisibleBlocks(minX, minY, maxX, maxY);
     for (const block of visibleBlocks) {
       const b = block.bounds;
@@ -276,6 +263,25 @@ export class WebGLRenderer {
       if (block.plaza) {
         const pb = block.plaza.bounds;
         this.#pushQuad(pb.x, pb.y, pb.w, pb.h, 0, 'grass', [1, 1, 1, 1]);
+      }
+    }
+
+    // Marcas de drift (sobre asfalto, calçada e gramado)
+    for (const mark of skidMarks) {
+      if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
+      this.#pushQuad(mark.x - 4, mark.y - 4, 8, 8, mark.angle, 'solid', [0.06, 0.06, 0.08, mark.alpha]);
+    }
+
+    // Marcas de sangue de arrasto e impacto (sobre asfalto, calçada e gramado)
+    for (const mark of bloodMarks) {
+      if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
+      const s = mark.size || 8;
+      this.#pushQuad(mark.x - s * 0.5, mark.y - s * 0.5, s, s, mark.angle || 0, 'solid', [0.58, 0.04, 0.05, mark.alpha]);
+    }
+
+    // Mobiliário de praça, obstáculos e edificações
+    for (const block of visibleBlocks) {
+      if (block.plaza) {
         for (const prop of block.plaza.props) {
           if (prop.kind === 'fountain') {
             this.#pushQuad(prop.x - 4, prop.y - 4, prop.w + 8, prop.h + 8, 0, 'solid', [0.75, 0.77, 0.8, 1]);
@@ -382,6 +388,12 @@ export class WebGLRenderer {
         v.kind,
         rgba
       );
+      if (v.kind === 'moto' && v.driver === 'npc') {
+        const riderScale = sinkScale;
+        const riderAlpha = v.sinkAlpha ?? 1;
+        this.#pushQuad(v.x - 10 * riderScale, v.y - 10 * riderScale, 20 * riderScale, 20 * riderScale, v.angle, 'solid', [0.22, 0.45, 0.72, riderAlpha]);
+        this.#pushQuad(v.x + Math.cos(v.angle) * 3 * riderScale - 5 * riderScale, v.y + Math.sin(v.angle) * 3 * riderScale - 5 * riderScale, 10 * riderScale, 10 * riderScale, v.angle, 'solid', [0.92, 0.72, 0.52, riderAlpha]);
+      }
     }
 
     // Pedestres NPC (caminhando na calçada ou caídos no chão)
@@ -401,15 +413,18 @@ export class WebGLRenderer {
       }
     }
 
-    // Jogador a pé com movimento simples de braços e pernas (ou afundando na água)
-    if (!player.inVehicleId) {
-      const pScale = player.sinkScale ?? 1;
-      const pAlpha = player.sinkAlpha ?? 1;
-      if (player.sinkProgress > 0) {
+    // Jogador a pé ou montado em moto (que não possui teto)
+    const playerVehicle = player.inVehicleId ? vehicles.find((v) => v.id === player.inVehicleId) : null;
+    const ridingMoto = Boolean(playerVehicle && playerVehicle.kind === 'moto');
+
+    if (!player.inVehicleId || ridingMoto) {
+      const pScale = ridingMoto ? (playerVehicle.sinkScale ?? 1) : (player.sinkScale ?? 1);
+      const pAlpha = ridingMoto ? (playerVehicle.sinkAlpha ?? 1) : (player.sinkAlpha ?? 1);
+      if (!ridingMoto && player.sinkProgress > 0) {
         const ring = 20 + player.sinkProgress * 28;
         this.#pushQuad(player.x - ring * 0.5, player.y - ring * 0.5, ring, ring, 0, 'solid', [0.75, 0.92, 1, (1 - player.sinkProgress) * 0.5]);
       }
-      const swing = player.speed > 5 && !player.ejected?.active ? Math.sin(player.walkPhase || 0) * 6 : 0;
+      const swing = !ridingMoto && player.speed > 5 && !player.ejected?.active ? Math.sin(player.walkPhase || 0) * 6 : 0;
       const cos = Math.cos(player.angle);
       const sin = Math.sin(player.angle);
       const drawLimb = (forwardOffset, sideOffset, w, h, color) => {
@@ -418,20 +433,26 @@ export class WebGLRenderer {
         this.#pushQuad(lx - w * 0.5 * pScale, ly - h * 0.5 * pScale, w * pScale, h * pScale, player.angle, 'solid', [color[0], color[1], color[2], pAlpha]);
       };
 
-      // Pernas alternadas
-      drawLimb(swing, -5, 9, 6, [0.15, 0.22, 0.35]);
-      drawLimb(-swing, 5, 9, 6, [0.15, 0.22, 0.35]);
-      // Braços alternados (opostos às pernas)
-      drawLimb(-swing * 0.85 + 2, -11, 8, 5, [0.92, 0.72, 0.52]);
-      drawLimb(swing * 0.85 + 2, 11, 8, 5, [0.92, 0.72, 0.52]);
+      if (ridingMoto) {
+        // Braços estendidos segurando o guidão
+        drawLimb(8, -7, 9, 4, [0.92, 0.72, 0.52]);
+        drawLimb(8, 7, 9, 4, [0.92, 0.72, 0.52]);
+      } else {
+        // Pernas alternadas
+        drawLimb(swing, -5, 9, 6, [0.15, 0.22, 0.35]);
+        drawLimb(-swing, 5, 9, 6, [0.15, 0.22, 0.35]);
+        // Braços alternados (opostos às pernas)
+        drawLimb(-swing * 0.85 + 2, -11, 8, 5, [0.92, 0.72, 0.52]);
+        drawLimb(swing * 0.85 + 2, 11, 8, 5, [0.92, 0.72, 0.52]);
+      }
 
       this.#pushQuad(player.x - 14 * pScale, player.y - 14 * pScale, 28 * pScale, 28 * pScale, player.angle, 'player', [1, 1, 1, pAlpha]);
     }
 
-    // Marcador de objetivo ativo no mundo
+    // Marcador de objetivo ativo no mundo + personagem do ponto de encontro
     if (objectivePoint) {
       const pulse = 1 + Math.sin(time * 5) * 0.18;
-      const size = 28 * pulse;
+      const size = 34 * pulse;
       this.#pushQuad(
         objectivePoint.x - size * 0.5,
         objectivePoint.y - size * 0.5,
@@ -439,7 +460,16 @@ export class WebGLRenderer {
         size,
         0,
         'solid',
-        [0.98, 0.75, 0.14, 0.65]
+        [0.98, 0.75, 0.14, 0.55]
+      );
+      this.#pushQuad(
+        objectivePoint.x - 12,
+        objectivePoint.y - 12,
+        24,
+        24,
+        Math.PI * 0.5,
+        'pedestrian',
+        [0.92, 0.25, 0.25, 1]
       );
     }
 

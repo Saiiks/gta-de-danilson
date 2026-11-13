@@ -1,0 +1,266 @@
+export class StoryParseError extends Error {
+  constructor(fileName, line, message) {
+    const loc = line ? `${fileName}:${line}` : fileName;
+    super(`[${loc}] ${message}`);
+    this.name = 'StoryParseError';
+    this.fileName = fileName;
+    this.line = line || 0;
+  }
+}
+
+export function validateAssetPath(rawPath, fileName, line = 1) {
+  const value = String(rawPath || '').trim();
+  if (!value) return '';
+  if (
+    value.startsWith('/') ||
+    value.startsWith('\\') ||
+    value.includes('..') ||
+    /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)
+  ) {
+    throw new StoryParseError(
+      fileName,
+      line,
+      `Caminho de recurso inválido "${value}". Use apenas caminhos relativos dentro da pasta da história.`,
+    );
+  }
+  return value.replace(/^\.\//, '');
+}
+
+export function parseFrontmatter(rawText, fileName = 'arquivo.md') {
+  const normalized = String(rawText || '').replace(/\r\n/g, '\n');
+  const lines = normalized.split('\n');
+
+  if (lines[0]?.trim() !== '---') {
+    throw new StoryParseError(fileName, 1, 'Cabeçalho frontmatter "---" ausente na primeira linha.');
+  }
+
+  let endIndex = -1;
+  for (let i = 1; i < lines.length; i += 1) {
+    if (lines[i].trim() === '---') {
+      endIndex = i;
+      break;
+    }
+  }
+
+  if (endIndex === -1) {
+    throw new StoryParseError(fileName, 1, 'Fechamento "---" do frontmatter não encontrado.');
+  }
+
+  const meta = {};
+  for (let i = 1; i < endIndex; i += 1) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const colonIndex = trimmed.indexOf(':');
+    if (colonIndex <= 0) {
+      throw new StoryParseError(fileName, i + 1, `Linha inválida no frontmatter: "${trimmed}". Esperado "chave: valor".`);
+    }
+
+    const key = trimmed.slice(0, colonIndex).trim();
+    const val = trimmed.slice(colonIndex + 1).trim();
+    meta[key] = val;
+  }
+
+  const body = lines.slice(endIndex + 1).join('\n').trim();
+  return { meta, body, bodyStartLine: endIndex + 2 };
+}
+
+function parseListField(rawValue) {
+  return String(rawValue || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+export function parseStoryManifest(rawText, fileName = 'story.md') {
+  const { meta, body } = parseFrontmatter(rawText, fileName);
+
+  if (!meta.title) {
+    throw new StoryParseError(fileName, 2, 'Campo obrigatório "title" ausente em story.md.');
+  }
+
+  const characters = parseListField(meta.characters);
+  if (characters.length === 0) {
+    throw new StoryParseError(fileName, 2, 'Campo obrigatório "characters" deve listar ao menos um personagem.');
+  }
+
+  const missions = parseListField(meta.missions);
+  if (missions.length === 0) {
+    throw new StoryParseError(fileName, 2, 'Campo obrigatório "missions" deve listar ao menos uma missão.');
+  }
+
+  return {
+    title: meta.title,
+    subtitle: meta.subtitle || '',
+    splash: validateAssetPath(meta.splash || '', fileName, 2),
+    characters,
+    missions,
+    description: body,
+  };
+}
+
+export function parseCharacterMarkdown(rawText, fileName = 'character.md') {
+  const { meta } = parseFrontmatter(rawText, fileName);
+
+  if (!meta.id || !meta.name) {
+    throw new StoryParseError(fileName, 2, 'Personagem deve definir "id" e "name" no frontmatter.');
+  }
+
+  return {
+    id: meta.id,
+    name: meta.name,
+    profile: meta.profile || '',
+    traits: meta.traits || '',
+    sprites: {
+      top: validateAssetPath(meta.sprite_top || '', fileName, 2),
+      front: validateAssetPath(meta.sprite_front || '', fileName, 2),
+      left: validateAssetPath(meta.sprite_left || '', fileName, 2),
+      right: validateAssetPath(meta.sprite_right || '', fileName, 2),
+    },
+  };
+}
+
+function parseCutsceneBlock(blockLines, startLine, fileName) {
+  const cutscene = {
+    leftChar: '',
+    rightChar: '',
+    background: '',
+    steps: [],
+  };
+
+  let pendingChoices = null;
+
+  for (let i = 0; i < blockLines.length; i += 1) {
+    const lineNum = startLine + i;
+    const trimmed = blockLines[i].trim();
+    if (!trimmed) continue;
+
+    if (trimmed.startsWith('- OPCAO:')) {
+      const optionBody = trimmed.slice('- OPCAO:'.length).trim();
+      const arrowIdx = optionBody.indexOf('->');
+      if (arrowIdx === -1) {
+        throw new StoryParseError(
+          fileName,
+          lineNum,
+          'Opção malformada. Use "- OPCAO: Texto -> COMPLETE" ou "-> GAMEOVER: motivo".',
+        );
+      }
+
+      const label = optionBody.slice(0, arrowIdx).trim();
+      const targetRaw = optionBody.slice(arrowIdx + 2).trim();
+      let outcome = 'complete';
+      let reason = '';
+
+      if (targetRaw.toUpperCase().startsWith('GAMEOVER')) {
+        outcome = 'gameover';
+        const colonIdx = targetRaw.indexOf(':');
+        reason = colonIdx !== -1 ? targetRaw.slice(colonIdx + 1).trim() : 'Você fez a escolha errada.';
+      } else if (targetRaw.toUpperCase() === 'NEXT') {
+        outcome = 'next';
+      } else if (targetRaw.toUpperCase() === 'COMPLETE') {
+        outcome = 'complete';
+      } else {
+        throw new StoryParseError(
+          fileName,
+          lineNum,
+          `Destino de opção desconhecido "${targetRaw}". Use COMPLETE, NEXT ou GAMEOVER: motivo.`,
+        );
+      }
+
+      if (!pendingChoices) {
+        if (cutscene.steps.length === 0) {
+          cutscene.steps.push({ speaker: '', text: 'Escolha uma ação:', choices: [] });
+        }
+        const lastStep = cutscene.steps[cutscene.steps.length - 1];
+        lastStep.choices = lastStep.choices || [];
+        pendingChoices = lastStep.choices;
+      }
+
+      pendingChoices.push({ label, outcome, reason });
+      continue;
+    }
+
+    pendingChoices = null;
+
+    if (trimmed.startsWith('- ')) {
+      const speech = trimmed.slice(2).trim();
+      const colonIdx = speech.indexOf(':');
+      if (colonIdx <= 0) {
+        throw new StoryParseError(fileName, lineNum, `Fala malformada: "${trimmed}". Use "- Personagem: Fala".`);
+      }
+      const speaker = speech.slice(0, colonIdx).trim();
+      const text = speech.slice(colonIdx + 1).trim();
+      cutscene.steps.push({ speaker, text });
+      continue;
+    }
+
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx > 0) {
+      const key = trimmed.slice(0, colonIdx).trim().toLowerCase();
+      const value = trimmed.slice(colonIdx + 1).trim();
+      if (key === 'left') cutscene.leftChar = value;
+      else if (key === 'right') cutscene.rightChar = value;
+      else if (key === 'bg') cutscene.background = value;
+    }
+  }
+
+  return cutscene;
+}
+
+export function parseMissionMarkdown(rawText, fileName = 'mission.md', cityMap = null) {
+  const { meta, body, bodyStartLine } = parseFrontmatter(rawText, fileName);
+
+  if (!meta.id || !meta.title || !meta.start || !meta.target) {
+    throw new StoryParseError(
+      fileName,
+      2,
+      'Missão deve definir "id", "title", "start" e "target" no frontmatter.',
+    );
+  }
+
+  if (cityMap) {
+    try {
+      cityMap.resolveLocationCode(meta.start);
+    } catch (err) {
+      throw new StoryParseError(fileName, 2, `Local de início inválido ("start: ${meta.start}"): ${err.message}`);
+    }
+    try {
+      cityMap.resolveLocationCode(meta.target);
+    } catch (err) {
+      throw new StoryParseError(fileName, 2, `Local de destino inválido ("target: ${meta.target}"): ${err.message}`);
+    }
+  }
+
+  const lines = body ? body.split('\n') : [];
+  const sections = { CUTSCENE_INICIO: [], CUTSCENE_FIM: [] };
+  const sectionStarts = { CUTSCENE_INICIO: bodyStartLine, CUTSCENE_FIM: bodyStartLine };
+  let activeSection = null;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith('## ')) {
+      const name = trimmed.slice(3).trim().toUpperCase();
+      if (name === 'CUTSCENE_INICIO' || name === 'CUTSCENE_FIM') {
+        activeSection = name;
+        sectionStarts[name] = bodyStartLine + i + 1;
+      } else {
+        activeSection = null;
+      }
+      continue;
+    }
+    if (activeSection) {
+      sections[activeSection].push(lines[i]);
+    }
+  }
+
+  return {
+    id: meta.id,
+    title: meta.title,
+    startLocation: meta.start,
+    targetLocation: meta.target,
+    objective: meta.objective || `Vá até ${meta.target}`,
+    introCutscene: parseCutsceneBlock(sections.CUTSCENE_INICIO, sectionStarts.CUTSCENE_INICIO, fileName),
+    outroCutscene: parseCutsceneBlock(sections.CUTSCENE_FIM, sectionStarts.CUTSCENE_FIM, fileName),
+  };
+}

@@ -3,7 +3,7 @@ import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js';
 import { InputManager } from '../input/input-manager.js';
 import { WebGLRenderer } from '../render/webgl-renderer.js';
-import { isInWater, resolveVehiclePairCollision } from '../physics/collision.js';
+import { isInWater, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js';
 import {
   createVehicleEntity,
   evaluateVehicleImpact,
@@ -16,14 +16,24 @@ import {
 import { Minimap } from '../ui/minimap.js';
 
 export class Engine {
-  constructor(canvas, minimapCanvas, touchControlsEl, hud) {
+  constructor(canvas, minimapCanvas, touchControlsEl, hud, options = {}) {
     this.canvas = canvas;
     this.hud = hud;
     this.renderer = new WebGLRenderer(canvas);
     this.minimap = new Minimap(minimapCanvas);
     this.input = new InputManager(touchControlsEl);
 
-    this.cityMap = null;
+    this.cityMap = options.cityMap || null;
+    this.storyPackage = options.storyPackage || null;
+    this.cutscene = options.cutscene || null;
+    this.pauseMenu = options.pauseMenu || null;
+    this.onExitToTitle = options.onExitToTitle || null;
+
+    this.currentMissionIndex = 0;
+    this.freeRoamMode = !this.storyPackage;
+    this.missionOutTriggered = false;
+    this.paused = false;
+
     this.pathfinder = null;
     this.trafficManager = null;
     this.vehicles = [];
@@ -58,31 +68,140 @@ export class Engine {
     };
 
     this.camera = { x: 0, y: 0 };
-    this.hud.onRestartClick(() => this.resetMatch());
+    this.hud.onRestartClick(() => {
+      if (this.storyPackage && !this.freeRoamMode) {
+        this.startMission(this.currentMissionIndex, { skipIntro: true });
+      } else {
+        this.resetMatch();
+      }
+    });
+
+    this.#onKeyDown = (e) => {
+      if (!this.running || this.player.isDead || this.cutscene?.active) return;
+      if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+        if (this.pauseMenu?.isOpen) this.pauseMenu.close();
+        else this.pauseMenu?.open();
+      }
+    };
+    window.addEventListener('keydown', this.#onKeyDown);
   }
+
+  #onKeyDown = null;
 
   initWorld() {
     this.hud.showLoading(35, 'Gerando ilha e cidade-base 30x30...');
-    this.cityMap = new CityMap();
+    if (!this.cityMap) {
+      this.cityMap = new CityMap();
+    }
     this.pathfinder = new RoadPathfinder(this.cityMap);
 
     this.hud.showLoading(70, 'Iniciando tráfego e pedestres...');
     this.resetMatch();
 
     this.#handleResize();
-    window.addEventListener('resize', () => this.#handleResize());
+    this.#onResize = () => this.#handleResize();
+    window.addEventListener('resize', this.#onResize);
 
     this.hud.showLoading(100, 'Pronto!');
     console.info('[Engine] Cidade-ilha inicializada com', this.cityMap.locationsByCode.size, 'locais codificados.');
   }
 
-  resetMatch() {
+  #onResize = null;
+
+  stop() {
+    this.running = false;
+    if (this.#onKeyDown) window.removeEventListener('keydown', this.#onKeyDown);
+    if (this.#onResize) window.removeEventListener('resize', this.#onResize);
+  }
+
+  startMission(index, { skipIntro = false, preserveState = false } = {}) {
+    if (!this.storyPackage || !this.storyPackage.missions?.length) {
+      this.freeRoamMode = true;
+      this.resetMatch();
+      return;
+    }
+
+    const clamped = Math.max(0, Math.min(index, this.storyPackage.missions.length - 1));
+    this.currentMissionIndex = clamped;
+    this.freeRoamMode = false;
+    this.missionOutTriggered = false;
+    const mission = this.storyPackage.missions[clamped];
+
+    if (preserveState) {
+      const currentVehicle = this.player.inVehicleId
+        ? this.vehicles.find((v) => v.id === this.player.inVehicleId)
+        : null;
+      this.player.speed = 0;
+      if (currentVehicle) {
+        currentVehicle.vx = 0;
+        currentVehicle.vy = 0;
+        currentVehicle.speed = 0;
+      }
+      this.setObjective(mission.targetLocation);
+      this.hud.hideGameOver();
+      this.missionCheckpoint = {
+        missionIndex: clamped,
+        x: this.player.x,
+        y: this.player.y,
+        angle: this.player.angle,
+        health: this.player.health,
+        inVehicleId: this.player.inVehicleId,
+        vehiclePos: currentVehicle ? { x: currentVehicle.x, y: currentVehicle.y, angle: currentVehicle.angle } : null
+      };
+    } else if (this.missionCheckpoint && this.missionCheckpoint.missionIndex === clamped) {
+      const cp = this.missionCheckpoint;
+      this.resetMatch(mission.startLocation, mission.targetLocation);
+      this.player.x = cp.x;
+      this.player.y = cp.y;
+      this.player.angle = cp.angle;
+      this.player.health = cp.health;
+      this.player.inVehicleId = cp.inVehicleId;
+      if (cp.inVehicleId && cp.vehiclePos) {
+        const v = this.vehicles.find((veh) => veh.id === cp.inVehicleId);
+        if (v) {
+          v.x = cp.vehiclePos.x;
+          v.y = cp.vehiclePos.y;
+          v.angle = cp.vehiclePos.angle;
+          v.driver = 'player';
+          v.isParked = false;
+        }
+      }
+      this.camera.x = this.player.x;
+      this.camera.y = this.player.y;
+    } else {
+      this.missionCheckpoint = null;
+      this.resetMatch(mission.startLocation, mission.targetLocation);
+    }
+
+    this.pauseMenu?.configure(this.storyPackage.missions, clamped, {
+      onPauseChange: (isPaused) => {
+        this.paused = isPaused;
+      },
+      onRestartMission: () => {
+        this.startMission(this.currentMissionIndex);
+      },
+      onSelectMission: (missionIdx) => {
+        this.missionCheckpoint = null;
+        this.startMission(missionIdx);
+      },
+      onExitToTitle: () => {
+        this.onExitToTitle?.();
+      }
+    });
+
+    if (!skipIntro && mission.introCutscene?.steps?.length > 0 && this.cutscene) {
+      this.cutscene.play(mission.introCutscene, this.storyPackage.characters, () => {});
+    }
+  }
+
+  resetMatch(startCode = 'CASA-01', targetCode = null) {
     this.vehicles = this.cityMap.vehicleSpawns.map(createVehicleEntity);
     this.trafficManager = new TrafficManager(this.cityMap);
     this.skidMarks = [];
     this.bloodMarks = [];
+    this.missionOutTriggered = false;
 
-    const startLoc = this.cityMap.resolveLocationCode('CASA-01');
+    const startLoc = this.cityMap.resolveLocationCode(startCode);
     this.player.x = startLoc.spawnPoint.x;
     this.player.y = startLoc.spawnPoint.y;
     this.player.angle = 0;
@@ -102,7 +221,7 @@ export class Engine {
     this.camera.x = this.player.x;
     this.camera.y = this.player.y;
 
-    this.setObjective('PRACA-01');
+    this.setObjective(targetCode);
     this.hud.hideGameOver();
   }
 
@@ -136,6 +255,38 @@ export class Engine {
     this.routePoints = this.pathfinder.findRoute(this.player.x, this.player.y, this.objectiveCode);
   }
 
+  #handleMissionArrival() {
+    const mission = this.storyPackage.missions[this.currentMissionIndex];
+    if (!mission) return;
+
+    this.player.speed = 0;
+    const finishMission = () => {
+      const hasNext = this.currentMissionIndex + 1 < this.storyPackage.missions.length;
+      this.paused = true;
+      this.hud.showMissionComplete(mission.title, hasNext, () => {
+        this.paused = false;
+        if (hasNext) {
+          this.startMission(this.currentMissionIndex + 1, { preserveState: true });
+        } else {
+          this.freeRoamMode = true;
+          this.setObjective(null);
+        }
+      });
+    };
+
+    if (mission.outroCutscene?.steps?.length > 0 && this.cutscene) {
+      this.cutscene.play(mission.outroCutscene, this.storyPackage.characters, (result) => {
+        if (result?.outcome === 'gameover') {
+          this.triggerGameOver(result.reason || 'Você falhou na missão.');
+        } else {
+          finishMission();
+        }
+      });
+    } else {
+      finishMission();
+    }
+  }
+
   #handleResize() {
     this.renderer.resize(window.innerWidth, window.innerHeight);
   }
@@ -159,9 +310,35 @@ export class Engine {
     this.elapsedTime += dt;
     const input = this.input.update(dt);
 
+    if (input.pauseJustPressed && !this.player.isDead && !this.cutscene?.active && !this.hud.isMissionCompleteOpen()) {
+      if (this.pauseMenu?.isOpen) this.pauseMenu.close();
+      else this.pauseMenu?.open();
+      return;
+    }
+
+    if (this.paused) {
+      if (this.hud.isMissionCompleteOpen()) {
+        if (input.actionJustPressed) {
+          this.hud.confirmMissionComplete();
+        }
+      } else {
+        this.pauseMenu?.updateInput(input);
+      }
+      return;
+    }
+
+    if (this.cutscene?.active) {
+      this.cutscene.updateInput(input);
+      return;
+    }
+
     if (this.player.isDead) {
       if (input.actionJustPressed) {
-        this.resetMatch();
+        if (this.storyPackage && !this.freeRoamMode) {
+          this.startMission(this.currentMissionIndex, { skipIntro: true });
+        } else {
+          this.resetMatch();
+        }
       }
       return;
     }
@@ -276,6 +453,7 @@ export class Engine {
     this.trafficManager.update(dt, this.player, this.vehicles);
 
     let maxPlayerImpact = 0;
+    let playerHitBuilding = false;
     let impactMoveVx = activeVehicle ? activeVehicle.vx : 0;
     let impactMoveVy = activeVehicle ? activeVehicle.vy : 0;
     for (const v of this.vehicles) {
@@ -286,6 +464,7 @@ export class Engine {
       const res = updateVehicle(v, input, dt, this.cityMap);
       if (v.driver === 'player' && res.impactSpeed > maxPlayerImpact) {
         maxPlayerImpact = res.impactSpeed;
+        playerHitBuilding = Boolean(res.collided);
         impactMoveVx = preVx;
         impactMoveVy = preVy;
       }
@@ -319,6 +498,73 @@ export class Engine {
       }
     }
 
+    // Atropelamento de pessoas caídas no chão: desloca o corpo e deixa trilha de sangue
+    const downedPeds = this.trafficManager.pedestrians.filter((p) => p.state === 'downed');
+    for (const v of nearbyVehicles) {
+      if (v.speed > 12) {
+        const hitRadius = Math.max(v.width, v.height) * 0.45;
+        for (const ped of downedPeds) {
+          if (Math.hypot(v.x - ped.x, v.y - ped.y) < hitRadius) {
+            const vLen = Math.hypot(v.vx, v.vy) || 1;
+            const pushSpeed = Math.max(140, v.speed * 1.15);
+            ped.vx = (v.vx / vLen) * pushSpeed;
+            ped.vy = (v.vy / vLen) * pushSpeed;
+            if (!ped.runOver) {
+              ped.runOver = true;
+              this.bloodMarks.push({
+                x: ped.x,
+                y: ped.y,
+                size: 16,
+                angle: v.angle,
+                alpha: 0.85
+              });
+            }
+            v.bloodTireTimer = 1.8;
+          }
+        }
+      }
+      if (v.bloodTireTimer > 0) {
+        v.bloodTireTimer = Math.max(0, v.bloodTireTimer - dt);
+        if (v.speed > 12) {
+          this.bloodMarks.push({
+            x: v.x,
+            y: v.y,
+            size: 7,
+            angle: v.angle,
+            alpha: Math.min(0.75, v.bloodTireTimer * 0.45)
+          });
+          while (this.bloodMarks.length > 260) {
+            this.bloodMarks.shift();
+          }
+        }
+      }
+    }
+
+    for (const ped of downedPeds) {
+      const pSpeed = Math.hypot(ped.vx || 0, ped.vy || 0);
+      if (pSpeed > 10) {
+        const nextX = ped.x + ped.vx * dt;
+        const nextY = ped.y + ped.vy * dt;
+        const colliders = this.cityMap.getCollidersAround(nextX, nextY, 80);
+        const res = resolveEntityCollisions(nextX, nextY, 10, colliders);
+        ped.x = res.x;
+        ped.y = res.y;
+        const damp = Math.exp(-4.8 * dt);
+        ped.vx = res.collided ? -ped.vx * 0.3 : ped.vx * damp;
+        ped.vy = res.collided ? -ped.vy * 0.3 : ped.vy * damp;
+        this.bloodMarks.push({
+          x: ped.x,
+          y: ped.y,
+          size: 8,
+          angle: Math.atan2(ped.vy, ped.vx),
+          alpha: 0.72
+        });
+        while (this.bloodMarks.length > 260) {
+          this.bloodMarks.shift();
+        }
+      }
+    }
+
     if (activeVehicle) {
       this.player.x = activeVehicle.x;
       this.player.y = activeVehicle.y;
@@ -327,14 +573,22 @@ export class Engine {
       const impact = evaluateVehicleImpact(maxPlayerImpact);
       if (impact.eject) {
         const moveLen = Math.hypot(impactMoveVx, impactMoveVy);
-        const dirX = moveLen > 1 ? impactMoveVx / moveLen : Math.cos(activeVehicle.angle);
-        const dirY = moveLen > 1 ? impactMoveVy / moveLen : Math.sin(activeVehicle.angle);
+        let dirX = moveLen > 1 ? impactMoveVx / moveLen : Math.cos(activeVehicle.angle);
+        let dirY = moveLen > 1 ? impactMoveVy / moveLen : Math.sin(activeVehicle.angle);
+        if (playerHitBuilding) {
+          dirX = -dirX;
+          dirY = -dirY;
+        }
         const ejectSpeed = Math.min(460, Math.max(240, maxPlayerImpact * 0.95));
 
         activeVehicle.driver = null;
         this.player.inVehicleId = null;
-        this.player.x = activeVehicle.x + dirX * (activeVehicle.radius + this.player.radius + 4);
-        this.player.y = activeVehicle.y + dirY * (activeVehicle.radius + this.player.radius + 4);
+        const spawnX = activeVehicle.x + dirX * (activeVehicle.radius + this.player.radius + 4);
+        const spawnY = activeVehicle.y + dirY * (activeVehicle.radius + this.player.radius + 4);
+        const safeColliders = this.cityMap.getCollidersAround(spawnX, spawnY, 80);
+        const safePos = resolveEntityCollisions(spawnX, spawnY, this.player.radius, safeColliders);
+        this.player.x = safePos.x;
+        this.player.y = safePos.y;
         this.player.angle = Math.atan2(dirY, dirX);
         this.player.ejected = {
           active: true,
@@ -371,8 +625,19 @@ export class Engine {
         ? loc.code
         : null;
 
-    if (this.objectivePoint && Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 48) {
-      this.setObjective(null);
+    const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
+    const reachedTarget =
+      this.objectivePoint &&
+      (Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 76 ||
+        (activeMission && this.player.insideLocationCode === activeMission.targetLocation));
+
+    if (this.objectivePoint && !this.missionOutTriggered && reachedTarget) {
+      if (this.storyPackage && !this.freeRoamMode) {
+        this.missionOutTriggered = true;
+        this.#handleMissionArrival();
+      } else {
+        this.setObjective(null);
+      }
     }
 
     this.routeTimer += dt;

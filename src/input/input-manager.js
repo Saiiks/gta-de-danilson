@@ -7,6 +7,8 @@ export class InputManager {
     this.touchContainer = touchContainer;
 
     this.prevAction = false;
+    this.prevSecondary = false;
+    this.prevPause = false;
     this.prevCombo = false;
     this.secondaryHeldTime = 0;
     this.exitCooldown = 0;
@@ -20,7 +22,7 @@ export class InputManager {
 
   #bindKeyboard() {
     window.addEventListener('keydown', (e) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Enter'].includes(e.code)) {
         e.preventDefault();
       }
       this.keys.add(e.code);
@@ -111,9 +113,10 @@ export class InputManager {
 
       const action = Boolean(gp.buttons[0]?.pressed);
       const secondary = Boolean(gp.buttons[1]?.pressed || gp.buttons[2]?.pressed);
-      return { moveX, moveY, action, secondary };
+      const pause = Boolean(gp.buttons[9]?.pressed);
+      return { moveX, moveY, action, secondary, pause };
     }
-    return { moveX: 0, moveY: 0, action: false, secondary: false };
+    return { moveX: 0, moveY: 0, action: false, secondary: false, pause: false };
   }
 
   update(dt) {
@@ -143,6 +146,7 @@ export class InputManager {
     if (Math.abs(gp.moveY) > 0) moveY = gp.moveY;
     actionPressed = actionPressed || gp.action;
     secondaryPressed = secondaryPressed || gp.secondary;
+    const pausePressed = Boolean(gp.pause);
 
     const len = Math.hypot(moveX, moveY);
     if (len > 1) {
@@ -151,6 +155,8 @@ export class InputManager {
     }
 
     const actionJustPressed = actionPressed && !this.prevAction;
+    const secondaryJustPressed = secondaryPressed && !this.prevSecondary;
+    const pauseJustPressed = pausePressed && !this.prevPause;
     const comboNow = actionPressed && secondaryPressed;
     const comboExitJustPressed = comboNow && !this.prevCombo;
 
@@ -165,6 +171,8 @@ export class InputManager {
     }
 
     this.prevAction = actionPressed;
+    this.prevSecondary = secondaryPressed;
+    this.prevPause = pausePressed;
     this.prevCombo = comboNow;
 
     return {
@@ -173,6 +181,8 @@ export class InputManager {
       actionPressed,
       actionJustPressed,
       secondaryPressed,
+      secondaryJustPressed,
+      pauseJustPressed,
       secondaryHeldTime: this.secondaryHeldTime,
       comboExitJustPressed,
       canTriggerHoldExit: this.exitCooldown === 0 && this.secondaryHeldTime >= 0.6

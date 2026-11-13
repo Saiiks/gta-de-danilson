@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Cidade Aberta Retrô</title>
-  <link rel="stylesheet" href="./styles/main.css">
+  <link rel="stylesheet" href="./styles/main.css?v=4">
 </head>
 <body>
   <div id="game-shell">
@@ -12,19 +12,22 @@
     <div id="damage-flash" aria-hidden="true"></div>
 
     <div id="hud-layer" class="hidden" aria-live="polite">
-      <div id="top-bar">
-        <div id="location-badge" class="hud-pill">
-          <span class="hud-label">LOCAL</span>
-          <span id="location-code">---</span>
+      <div id="top-left-stack">
+        <div id="top-bar">
+          <div id="location-badge" class="hud-pill">
+            <span class="hud-label">LOCAL</span>
+            <span id="location-code">---</span>
+          </div>
+          <div id="vehicle-badge" class="hud-pill">
+            <span id="vehicle-status">A pé</span>
+          </div>
+          <div id="health-badge" class="hud-pill">
+            <span class="hud-label">VIDA</span>
+            <div class="health-track"><div id="health-fill" class="health-fill"></div></div>
+            <span id="health-value">100</span>
+          </div>
         </div>
-        <div id="vehicle-badge" class="hud-pill">
-          <span id="vehicle-status">A pé</span>
-        </div>
-        <div id="health-badge" class="hud-pill">
-          <span class="hud-label">VIDA</span>
-          <div class="health-track"><div id="health-fill" class="health-fill"></div></div>
-          <span id="health-value">100</span>
-        </div>
+        <button id="pause-button" type="button" class="hud-pill pause-button" aria-label="Pausar jogo">PAUSA</button>
       </div>
 
       <div id="minimap-container" aria-label="Minimapa">
@@ -54,9 +57,10 @@
     </div>
 
     <section id="start-screen" class="overlay-screen">
-      <div class="overlay-card">
-        <h1 class="retro-title">CIDADE ABERTA</h1>
-        <p class="overlay-subtitle">Explore a cidade, entre em estabelecimentos térreos e dirija carros, motos e vans.</p>
+      <div class="overlay-card start-card">
+        <img id="start-splash" class="start-splash hidden" alt="Capa da história">
+        <h1 id="start-title" class="retro-title">CIDADE ABERTA</h1>
+        <p id="start-subtitle" class="overlay-subtitle">Explore a cidade, entre em estabelecimentos térreos e dirija carros, motos e vans.</p>
         <button id="start-button" type="button" class="primary-button">Entrar na Cidade</button>
       </div>
     </section>
@@ -83,6 +87,56 @@
         <h2 class="gameover-title">SE DEU MAL</h2>
         <p id="gameover-reason" class="overlay-subtitle"></p>
         <button id="restart-button" type="button" class="primary-button">Reiniciar</button>
+      </div>
+    </section>
+
+    <section id="cutscene-screen" class="overlay-screen cutscene-overlay hidden" aria-live="polite">
+      <div class="cutscene-stage">
+        <div id="cutscene-bg-label" class="cutscene-bg-label">Cena Lateral</div>
+        <div class="cutscene-actors">
+          <div id="cutscene-left-slot" class="cutscene-actor">
+            <img id="cutscene-left-img" class="cutscene-portrait" alt="">
+            <span id="cutscene-left-name" class="cutscene-actor-name"></span>
+          </div>
+          <div id="cutscene-right-slot" class="cutscene-actor">
+            <img id="cutscene-right-img" class="cutscene-portrait" alt="">
+            <span id="cutscene-right-name" class="cutscene-actor-name"></span>
+          </div>
+        </div>
+        <div class="cutscene-dialog-box">
+          <div id="cutscene-speaker" class="cutscene-speaker"></div>
+          <p id="cutscene-text" class="cutscene-text"></p>
+          <div id="cutscene-choices" class="cutscene-choices hidden"></div>
+          <button id="cutscene-next-btn" type="button" class="primary-button cutscene-next-btn">Continuar</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="mission-complete-screen" class="overlay-screen hidden" aria-live="polite">
+      <div class="overlay-card mission-complete-card">
+        <h2 id="mission-complete-title" class="retro-title">MISSÃO CONCLUÍDA</h2>
+        <p id="mission-complete-subtitle" class="overlay-subtitle"></p>
+        <button id="mission-complete-btn" type="button" class="primary-button">Continuar</button>
+      </div>
+    </section>
+
+    <section id="pause-screen" class="overlay-screen hidden" role="dialog" aria-label="Menu de Pausa">
+      <div class="overlay-card pause-card">
+        <h2 class="retro-title">PAUSA</h2>
+        <div class="pause-actions">
+          <button id="pause-resume-btn" type="button" class="primary-button">Continuar</button>
+          <button id="pause-restart-btn" type="button" class="secondary-button">REINICIAR MISSÃO</button>
+          <button id="pause-choose-btn" type="button" class="secondary-button">ESCOLHER MISSÃO</button>
+          <button id="pause-exit-btn" type="button" class="danger-button">SAIR</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="mission-select-screen" class="overlay-screen hidden" role="dialog" aria-label="Escolher Missão">
+      <div class="overlay-card mission-select-card">
+        <h2 class="retro-title">ESCOLHER MISSÃO</h2>
+        <div id="pause-mission-list" class="pause-mission-list"></div>
+        <button id="mission-select-back-btn" type="button" class="secondary-button mission-select-back-btn">Voltar</button>
       </div>
     </section>
 
