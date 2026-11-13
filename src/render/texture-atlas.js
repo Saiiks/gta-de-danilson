@@ -207,5 +207,36 @@ export function createTextureAtlas() {
     c.fill();
   });
 
+  register('circle', 4, 1, (c, x, y, s) => {
+    const cx = x + s / 2;
+    const cy = y + s / 2;
+    const r = s * 0.48;
+    const grad = c.createRadialGradient(cx, cy, 0, cx, cy, r);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    grad.addColorStop(0.55, 'rgba(255, 255, 255, 0.72)');
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    c.fillStyle = grad;
+    c.beginPath();
+    c.arc(cx, cy, r, 0, Math.PI * 2);
+    c.fill();
+  });
+
+  register('shockwave', 5, 1, (c, x, y, s) => {
+    const cx = x + s / 2;
+    const cy = y + s / 2;
+    const r = s * 0.49;
+    const grad = c.createRadialGradient(cx, cy, r * 0.52, cx, cy, r);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    grad.addColorStop(0.45, 'rgba(255, 255, 255, 0.14)');
+    grad.addColorStop(0.72, 'rgba(255, 255, 255, 0.85)');
+    grad.addColorStop(0.84, 'rgba(255, 255, 255, 1)');
+    grad.addColorStop(0.95, 'rgba(255, 255, 255, 0.3)');
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    c.fillStyle = grad;
+    c.beginPath();
+    c.arc(cx, cy, r, 0, Math.PI * 2);
+    c.fill();
+  });
+
   return { canvas, uvs };
 }

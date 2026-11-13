@@ -2,10 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CityMap } from '../src/world/city-map.js';
 import {
+  computeShockwaveDamage,
+  computeShockwaveFalloff,
   createVehicleEntity,
   findSafeExitPosition,
   updatePedestrian,
-  updateVehicle
+  updateVehicle,
+  updateVehicleCriticalState
 } from '../src/physics/vehicle-physics.js';
 
 test('colisão sólida impede jogador a pé de atravessar parede de edificação', () => {
@@ -102,4 +105,38 @@ test('veículo não pode entrar pela porta de uma construção', () => {
   }
 
   assert.ok(moto.y >= house.bounds.y + house.bounds.h + moto.radius - 0.5);
+});
+
+test('veículo com menos de 10% de integridade solta fumaça por 10s e explode automaticamente', () => {
+  const car = createVehicleEntity({ id: 'v-crit', kind: 'car', model: 'Sedan', color: '#f00', x: 0, y: 0, angle: 0 });
+  car.health = 15;
+  assert.deepEqual(updateVehicleCriticalState(car, 5), { smokingCritical: false, shouldExplode: false });
+
+  car.health = 9;
+  const at5s = updateVehicleCriticalState(car, 5);
+  assert.equal(at5s.smokingCritical, true);
+  assert.equal(at5s.shouldExplode, false);
+
+  const at9s = updateVehicleCriticalState(car, 4.5);
+  assert.equal(at9s.smokingCritical, true);
+  assert.equal(at9s.shouldExplode, false);
+
+  const at10s = updateVehicleCriticalState(car, 0.5);
+  assert.equal(at10s.smokingCritical, true);
+  assert.equal(at10s.shouldExplode, true);
+});
+
+test('deslocamento de ar da explosão enfraquece e causa menos dano conforme se espalha', () => {
+  const maxRadius = 215;
+  const maxDamage = 95;
+  const dmgNear = computeShockwaveDamage(20, maxRadius, maxDamage);
+  const dmgMid = computeShockwaveDamage(105, maxRadius, maxDamage);
+  const dmgFar = computeShockwaveDamage(190, maxRadius, maxDamage);
+  const dmgOut = computeShockwaveDamage(220, maxRadius, maxDamage);
+
+  assert.ok(dmgNear > dmgMid);
+  assert.ok(dmgMid > dmgFar);
+  assert.ok(dmgFar > 0);
+  assert.equal(dmgOut, 0);
+  assert.ok(computeShockwaveFalloff(50, maxRadius) > computeShockwaveFalloff(150, maxRadius));
 });

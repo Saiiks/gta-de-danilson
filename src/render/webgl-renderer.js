@@ -470,52 +470,109 @@ export class WebGLRenderer {
     for (const p of smokeParticles) {
       if (p.x < minX || p.x > maxX || p.y < minY || p.y > maxY) continue;
       const fade = 1 - p.life / p.maxLife;
-      this.#pushQuad(p.x - p.size * 0.5, p.y - p.size * 0.5, p.size, p.size, p.life * 2, 'solid', [p.dark, p.dark, p.dark, p.alpha * fade]);
+      this.#pushQuad(p.x - p.size * 0.5, p.y - p.size * 0.5, p.size, p.size, p.life * 2, 'circle', [p.dark, p.dark, p.dark, p.alpha * fade]);
     }
 
     for (const ex of explosions) {
       const progress = Math.min(1, ex.timer / ex.duration);
       const easeOut = 1 - Math.pow(1 - progress, 3);
       const alpha = 1 - progress;
-      const shockSize = ex.radius * 2.1 * easeOut;
 
-      // Onda de choque externa
-      this.#pushQuad(
-        ex.x - shockSize * 0.5,
-        ex.y - shockSize * 0.5,
-        shockSize,
-        shockSize,
-        progress * 1.2,
-        'solid',
-        [0.92, 0.25, 0.06, alpha * 0.45]
-      );
+      // Círculo de deslocamento de ar (onda de choque que se expande e se desfaz)
+      const shockDuration = ex.shockDuration || ex.duration * 0.65;
+      const shockProgress = Math.min(1, ex.timer / shockDuration);
+      if (shockProgress < 1) {
+        const shockRadius = ex.shockRadius || (ex.shockMaxRadius || ex.radius * 1.6) * (1 - Math.pow(1 - shockProgress, 2.2));
+        const shockDiameter = shockRadius * 2;
+        const shockAlpha = Math.pow(1 - shockProgress, 1.35) * 0.88;
+        this.#pushQuad(
+          ex.x - shockRadius,
+          ex.y - shockRadius,
+          shockDiameter,
+          shockDiameter,
+          0,
+          'shockwave',
+          [1, 0.92, 0.78, shockAlpha]
+        );
+        // Anel interno de pressão secundário
+        if (shockProgress > 0.08) {
+          const innerR = shockRadius * 0.74;
+          this.#pushQuad(
+            ex.x - innerR,
+            ex.y - innerR,
+            innerR * 2,
+            innerR * 2,
+            0,
+            'shockwave',
+            [1, 0.68, 0.3, shockAlpha * 0.52]
+          );
+        }
+      }
 
-      // Lóbulos de fogo giratórios
-      for (let k = 0; k < 4; k++) {
-        const angle = progress * 2.4 + (Math.PI * 0.5 * k);
-        const offset = ex.radius * 0.34 * easeOut;
-        const fx = ex.x + Math.cos(angle) * offset;
-        const fy = ex.y + Math.sin(angle) * offset;
-        const lobeSize = ex.radius * 0.85 * Math.sin(Math.min(1, progress * 1.15) * Math.PI);
+      // Clarão inicial quente
+      if (progress < 0.32) {
+        const flashAlpha = (1 - progress / 0.32) * 0.78;
+        const flashSize = ex.radius * (0.9 + progress * 2.2);
+        this.#pushQuad(
+          ex.x - flashSize * 0.5,
+          ex.y - flashSize * 0.5,
+          flashSize,
+          flashSize,
+          0,
+          'circle',
+          [1, 0.88, 0.45, flashAlpha]
+        );
+      }
+
+      // Bolas de fogo dinâmicas que se expandem e esfriam para fumaça escura
+      const lobes = ex.lobes || [
+        { angle: 0.2, distScale: 0.35, sizeScale: 0.85, delay: 0 },
+        { angle: 1.7, distScale: 0.38, sizeScale: 0.8, delay: 0.04 },
+        { angle: 3.3, distScale: 0.34, sizeScale: 0.85, delay: 0.08 },
+        { angle: 4.9, distScale: 0.4, sizeScale: 0.75, delay: 0.03 }
+      ];
+      for (const lobe of lobes) {
+        const lp = Math.max(0, Math.min(1, (progress - lobe.delay) / (1 - lobe.delay)));
+        if (lp <= 0 || lp >= 1) continue;
+        const lEase = 1 - Math.pow(1 - lp, 2.4);
+        const offset = ex.radius * lobe.distScale * lEase;
+        const fx = ex.x + Math.cos(lobe.angle) * offset;
+        const fy = ex.y + Math.sin(lobe.angle) * offset;
+        const lobeSize = ex.radius * lobe.sizeScale * Math.sin(lp * Math.PI);
         if (lobeSize > 2) {
-          this.#pushQuad(fx - lobeSize * 0.5, fy - lobeSize * 0.5, lobeSize, lobeSize, angle, 'solid', [0.98, 0.48, 0.08, alpha * 0.8]);
+          const cool = Math.min(1, lp * 1.25);
+          const rCol = 0.98 * (1 - cool * 0.72);
+          const gCol = 0.55 * (1 - cool * 0.85);
+          const bCol = 0.1 * (1 - cool * 0.4);
+          this.#pushQuad(
+            fx - lobeSize * 0.5,
+            fy - lobeSize * 0.5,
+            lobeSize,
+            lobeSize,
+            lobe.angle,
+            'circle',
+            [rCol, gCol, bCol, (1 - lp) * 0.88]
+          );
         }
       }
 
       // Núcleo branco-amarelado brilhante
-      const coreSize = ex.radius * 0.95 * Math.sin(Math.min(1, progress * 1.35) * Math.PI);
-      if (coreSize > 2) {
-        this.#pushQuad(ex.x - coreSize * 0.5, ex.y - coreSize * 0.5, coreSize, coreSize, -progress * 2.5, 'solid', [1, 0.92, 0.42, alpha * 0.95]);
+      const coreSize = ex.radius * 0.92 * Math.sin(Math.min(1, progress * 1.55) * Math.PI);
+      if (coreSize > 2 && progress < 0.65) {
+        const coreAlpha = (1 - progress / 0.65) * 0.95;
+        this.#pushQuad(ex.x - coreSize * 0.5, ex.y - coreSize * 0.5, coreSize, coreSize, 0, 'circle', [1, 0.95, 0.58, coreAlpha]);
       }
 
-      // Faíscas radiantes
-      if (progress < 0.7) {
-        for (let s = 0; s < 8; s++) {
-          const sa = (Math.PI * 2 * s) / 8 + 0.3;
-          const dist = ex.radius * (0.2 + progress * 1.15);
-          const sx = ex.x + Math.cos(sa) * dist;
-          const sy = ex.y + Math.sin(sa) * dist;
-          this.#pushQuad(sx - 4, sy - 4, 8, 8, sa, 'solid', [1, 0.82, 0.2, (1 - progress / 0.7) * 0.95]);
+      // Faíscas radiantes de alta velocidade
+      if (progress < 0.78) {
+        const sparks = ex.sparks || [];
+        const spAlpha = (1 - progress / 0.78) * 0.95;
+        for (const sp of sparks) {
+          const dist = ex.radius * (0.14 + easeOut * 1.35 * sp.speed);
+          const sx = ex.x + Math.cos(sp.angle) * dist;
+          const sy = ex.y + Math.sin(sp.angle) * dist;
+          const sz = sp.size * (1 - progress * 0.65);
+          this.#pushQuad(sx - sz * 0.5, sy - sz * 0.5, sz, sz, sp.angle, 'circle', [1, 0.84, 0.25, spAlpha]);
         }
       }
     }

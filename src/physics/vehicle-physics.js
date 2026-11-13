@@ -197,6 +197,44 @@ export function applyVehicleDamage(vehicle, impactSpeed, minImpact = 75) {
   };
 }
 
+export function updateVehicleCriticalState(vehicle, dt) {
+  if (!vehicle || vehicle.destroyed) {
+    return { smokingCritical: false, shouldExplode: false };
+  }
+  const health = vehicle.health ?? 100;
+  if (health <= 0) {
+    return { smokingCritical: false, shouldExplode: true };
+  }
+  if (health >= 10) {
+    vehicle.criticalTimer = null;
+    return { smokingCritical: false, shouldExplode: false };
+  }
+  if (typeof vehicle.criticalTimer !== 'number') {
+    vehicle.criticalTimer = 10;
+  }
+  vehicle.criticalTimer = Math.max(0, vehicle.criticalTimer - dt);
+  return {
+    smokingCritical: true,
+    shouldExplode: vehicle.criticalTimer <= 0
+  };
+}
+
+export function computeShockwaveFalloff(distance, maxRadius) {
+  if (maxRadius <= 0 || distance >= maxRadius) {
+    return 0;
+  }
+  const ratio = Math.max(0, Math.min(1, distance / maxRadius));
+  return Math.pow(1 - ratio, 1.35);
+}
+
+export function computeShockwaveDamage(distance, maxRadius, maxDamage) {
+  const strength = computeShockwaveFalloff(distance, maxRadius);
+  if (strength <= 0) {
+    return 0;
+  }
+  return Math.max(1, Math.round(maxDamage * strength));
+}
+
 export function updateEjectedPlayer(player, dt, cityMap, vehicles = []) {
   const ej = player.ejected;
   if (!ej || !ej.active) {

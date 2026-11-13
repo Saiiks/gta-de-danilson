@@ -6,13 +6,16 @@ import { WebGLRenderer } from '../render/webgl-renderer.js';
 import { isInWater, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js';
 import {
   applyVehicleDamage,
+  computeShockwaveDamage,
+  computeShockwaveFalloff,
   createVehicleEntity,
   evaluateVehicleImpact,
   findNearestVehicle,
   findSafeExitPosition,
   updateEjectedPlayer,
   updatePedestrian,
-  updateVehicle
+  updateVehicle,
+  updateVehicleCriticalState
 } from '../physics/vehicle-physics.js';
 import { Minimap } from '../ui/minimap.js';
 
@@ -518,11 +521,21 @@ export class Engine {
       }
     }
 
+    // Contagem regressiva de 10s para veículos com menos de 10% de integridade
+    for (const v of this.vehicles) {
+      if (v.destroyed) continue;
+      const crit = updateVehicleCriticalState(v, dt);
+      if (crit.shouldExplode) {
+        this.#triggerVehicleExplosion(v);
+      }
+    }
+
     // Fumaça em veículos com <= 50% de integridade formando trilha que se dissipa com o tempo
     for (const v of nearbyVehicles) {
       if (!v.destroyed && (v.health ?? 100) <= 50) {
+        const isCritical = (v.health ?? 100) < 10;
         v.smokeTimer = (v.smokeTimer || 0) - dt;
-        const interval = v.health < 25 ? 0.035 : 0.07;
+        const interval = isCritical ? 0.026 : v.health < 25 ? 0.035 : 0.07;
         if (v.smokeTimer <= 0) {
           v.smokeTimer = interval;
           const hoodX = v.x + Math.cos(v.angle) * (v.length * 0.28);
@@ -530,15 +543,15 @@ export class Engine {
           this.smokeParticles.push({
             x: hoodX + (Math.random() - 0.5) * 6,
             y: hoodY + (Math.random() - 0.5) * 6,
-            vx: -v.vx * 0.08 + (Math.random() - 0.5) * 14,
-            vy: -v.vy * 0.08 - 6 + (Math.random() - 0.5) * 14,
-            size: 11 + Math.random() * 7,
-            alpha: v.health < 25 ? 0.72 : 0.48,
-            dark: v.health < 25 ? 0.16 : 0.45,
+            vx: -v.vx * 0.08 + (Math.random() - 0.5) * (isCritical ? 22 : 14),
+            vy: -v.vy * 0.08 - (isCritical ? 12 : 6) + (Math.random() - 0.5) * 14,
+            size: (isCritical ? 14 : 11) + Math.random() * 8,
+            alpha: isCritical ? 0.85 : v.health < 25 ? 0.72 : 0.48,
+            dark: isCritical ? 0.1 : v.health < 25 ? 0.16 : 0.45,
             life: 0,
-            maxLife: 1.6
+            maxLife: isCritical ? 1.9 : 1.6
           });
-          while (this.smokeParticles.length > 260) {
+          while (this.smokeParticles.length > 280) {
             this.smokeParticles.shift();
           }
         }
@@ -546,6 +559,7 @@ export class Engine {
     }
 
     this.#updateParticles(dt);
+    this.#updateExplosions(dt);
 
     // Atropelamento de pessoas caídas no chão: desloca o corpo e deixa trilha de sangue
     const downedPeds = this.trafficManager.pedestrians.filter((p) => p.state === 'downed');
@@ -745,10 +759,82 @@ export class Engine {
       p.y += p.vy * dt;
       p.size += 12 * dt;
     }
+  }
 
+  #updateExplosions(dt) {
     for (let i = this.explosions.length - 1; i >= 0; i--) {
       const ex = this.explosions[i];
       ex.timer += dt;
+
+      const shockProgress = Math.min(1, ex.timer / ex.shockDuration);
+      const shockEase = 1 - Math.pow(1 - shockProgress, 2.2);
+      ex.shockRadius = ex.shockMaxRadius * shockEase;
+
+      if (!ex.shockDone) {
+        if (!ex.hitIds.has('player') && this.player.inVehicleId == null) {
+          const pDist = Math.hypot(this.player.x - ex.x, this.player.y - ex.y);
+          if (pDist <= ex.shockRadius) {
+            ex.hitIds.add('player');
+            const dmg = computeShockwaveDamage(pDist, ex.shockMaxRadius, 95);
+            if (dmg > 0) {
+              this.applyDamage(dmg, 'Você foi atingido pelo deslocamento de ar da explosão!');
+            }
+          }
+        }
+
+        if (this.trafficManager?.pedestrians) {
+          for (const ped of this.trafficManager.pedestrians) {
+            const key = `ped:${ped.id}`;
+            if (ex.hitIds.has(key)) continue;
+            const d = Math.hypot(ped.x - ex.x, ped.y - ex.y);
+            if (d <= ex.shockRadius) {
+              ex.hitIds.add(key);
+              const strength = computeShockwaveFalloff(d, ex.shockMaxRadius);
+              if (strength > 0) {
+                const ang = Math.atan2(ped.y - ex.y, ped.x - ex.x);
+                ped.vx = Math.cos(ang) * 240 * strength;
+                ped.vy = Math.sin(ang) * 240 * strength;
+                if (strength >= 0.25) {
+                  ped.state = 'downed';
+                  ped.runOver = true;
+                  this.bloodMarks.push({
+                    x: ped.x,
+                    y: ped.y,
+                    size: 14,
+                    angle: ang,
+                    alpha: 0.82
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        for (const other of this.vehicles) {
+          if (other.id === ex.sourceVehicleId || other.destroyed) continue;
+          const key = `veh:${other.id}`;
+          if (ex.hitIds.has(key)) continue;
+          const d = Math.hypot(other.x - ex.x, other.y - ex.y);
+          if (d <= ex.shockRadius) {
+            ex.hitIds.add(key);
+            const strength = computeShockwaveFalloff(d, ex.shockMaxRadius);
+            if (strength > 0) {
+              const ang = Math.atan2(other.y - ex.y, other.x - ex.x);
+              other.vx += Math.cos(ang) * 190 * strength;
+              other.vy += Math.sin(ang) * 190 * strength;
+              const splashSpeed = Math.round(340 * strength);
+              if (applyVehicleDamage(other, splashSpeed, 35).exploded) {
+                this.#triggerVehicleExplosion(other);
+              }
+            }
+          }
+        }
+
+        if (shockProgress >= 1) {
+          ex.shockDone = true;
+        }
+      }
+
       if (ex.timer >= ex.duration) {
         this.explosions.splice(i, 1);
       }
@@ -784,82 +870,79 @@ export class Engine {
     if (!vehicle || vehicle.destroyed) return;
     vehicle.destroyed = true;
     vehicle.health = 0;
+    vehicle.criticalTimer = 0;
     vehicle.driver = null;
     vehicle.vx = 0;
     vehicle.vy = 0;
     vehicle.speed = 0;
     vehicle.isDrifting = false;
 
-    const blastRadius = 135;
-    this.shakeTimer = 0.45;
+    const blastRadius = 155;
+    const shockMaxRadius = 215;
+    const shockDuration = 0.62;
+    const lobes = [];
+    for (let i = 0; i < 7; i++) {
+      lobes.push({
+        angle: (Math.PI * 2 * i) / 7 + (Math.random() - 0.5) * 0.45,
+        distScale: 0.28 + Math.random() * 0.42,
+        sizeScale: 0.62 + Math.random() * 0.42,
+        delay: Math.random() * 0.14
+      });
+    }
+    const sparks = [];
+    for (let i = 0; i < 18; i++) {
+      sparks.push({
+        angle: (Math.PI * 2 * i) / 18 + (Math.random() - 0.5) * 0.35,
+        speed: 0.75 + Math.random() * 0.75,
+        size: 5 + Math.random() * 5
+      });
+    }
+
+    const hitIds = new Set();
+    if (this.player.inVehicleId === vehicle.id) {
+      this.player.inVehicleId = null;
+      hitIds.add('player');
+      this.applyDamage(100, 'Seu veículo explodiu!');
+    }
+
+    this.shakeTimer = 0.55;
     this.explosions.push({
       x: vehicle.x,
       y: vehicle.y,
+      sourceVehicleId: vehicle.id,
       timer: 0,
-      duration: 0.95,
-      radius: blastRadius
+      duration: 1.35,
+      radius: blastRadius,
+      shockMaxRadius,
+      shockDuration,
+      shockRadius: 0,
+      shockDone: false,
+      hitIds,
+      lobes,
+      sparks
     });
 
     this.skidMarks.push({
       x: vehicle.x,
       y: vehicle.y,
       angle: vehicle.angle,
-      alpha: 0.75
+      alpha: 0.78
     });
 
-    for (let i = 0; i < 14; i++) {
-      const a = (Math.PI * 2 * i) / 14;
-      const spd = 35 + Math.random() * 55;
+    for (let i = 0; i < 18; i++) {
+      const a = (Math.PI * 2 * i) / 18 + (Math.random() - 0.5) * 0.25;
+      const spd = 40 + Math.random() * 75;
       this.smokeParticles.push({
         x: vehicle.x,
         y: vehicle.y,
         vx: Math.cos(a) * spd,
-        vy: Math.sin(a) * spd - 15,
-        size: 16 + Math.random() * 12,
-        alpha: 0.85,
-        dark: 0.14,
+        vy: Math.sin(a) * spd - 16,
+        size: 16 + Math.random() * 14,
+        alpha: 0.88,
+        dark: 0.12,
         life: 0,
-        maxLife: 1.1
+        maxLife: 1.25 + Math.random() * 0.45
       });
-    }
-
-    if (this.player.inVehicleId === vehicle.id) {
-      this.player.inVehicleId = null;
-      this.applyDamage(100, 'Seu veículo explodiu!');
-    } else {
-      const pDist = Math.hypot(this.player.x - vehicle.x, this.player.y - vehicle.y);
-      if (pDist < blastRadius) {
-        const dmg = Math.max(20, Math.round((1 - pDist / blastRadius) * 110));
-        this.applyDamage(dmg, 'Você foi atingido pela explosão de um veículo!');
-      }
-    }
-
-    if (this.trafficManager?.pedestrians) {
-      for (const ped of this.trafficManager.pedestrians) {
-        const d = Math.hypot(ped.x - vehicle.x, ped.y - vehicle.y);
-        if (d < blastRadius) {
-          ped.state = 'downed';
-          ped.runOver = true;
-          this.bloodMarks.push({
-            x: ped.x,
-            y: ped.y,
-            size: 14,
-            angle: Math.atan2(ped.y - vehicle.y, ped.x - vehicle.x),
-            alpha: 0.82
-          });
-        }
-      }
-    }
-
-    for (const other of this.vehicles) {
-      if (other.id === vehicle.id || other.destroyed) continue;
-      const d = Math.hypot(other.x - vehicle.x, other.y - vehicle.y);
-      if (d < blastRadius) {
-        const splashSpeed = Math.round(280 * (1 - d / blastRadius));
-        if (applyVehicleDamage(other, splashSpeed, 40).exploded) {
-          this.#triggerVehicleExplosion(other);
-        }
-      }
     }
   }
 }
