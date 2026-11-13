@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Cidade Aberta Retrô</title>
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+  <div id="game-shell">
+    <canvas id="game-canvas" aria-label="Área do jogo"></canvas>
+
+    <div id="hud-layer" class="hidden" aria-live="polite">
+      <div id="top-bar">
+        <div id="location-badge" class="hud-pill">
+          <span class="hud-label">LOCAL</span>
+          <span id="location-code">---</span>
+        </div>
+        <div id="vehicle-badge" class="hud-pill">
+          <span id="vehicle-status">A pé</span>
+        </div>
+      </div>
+
+      <div id="minimap-container" aria-label="Minimapa">
+        <canvas id="minimap-canvas" width="168" height="168"></canvas>
+        <div id="objective-hint">Livre</div>
+      </div>
+
+      <div id="controls-hint" class="hud-pill">
+        Setas/WASD: Mover · Espaço: Ação/Acelerar · Shift/X: Freio/Ré · Espaço+Shift ou segurar Shift parado: Sair
+      </div>
+
+      <div id="touch-controls" class="hidden" aria-label="Controles virtuais">
+        <div id="touch-dpad" class="touch-cluster">
+          <button type="button" class="touch-btn touch-dir" data-dir="up" aria-label="Cima">▲</button>
+          <div class="touch-dpad-mid">
+            <button type="button" class="touch-btn touch-dir" data-dir="left" aria-label="Esquerda">◀</button>
+            <button type="button" class="touch-btn touch-dir" data-dir="right" aria-label="Direita">▶</button>
+          </div>
+          <button type="button" class="touch-btn touch-dir" data-dir="down" aria-label="Baixo">▼</button>
+        </div>
+
+        <div id="touch-actions" class="touch-cluster">
+          <button type="button" class="touch-btn touch-action" data-btn="secondary" aria-label="Freio ou Ré">B</button>
+          <button type="button" class="touch-btn touch-action touch-primary" data-btn="action" aria-label="Ação ou Acelerar">A</button>
+        </div>
+      </div>
+    </div>
+
+    <section id="start-screen" class="overlay-screen">
+      <div class="overlay-card">
+        <h1 class="retro-title">CIDADE ABERTA</h1>
+        <p class="overlay-subtitle">Explore a cidade, entre em estabelecimentos térreos e dirija carros, motos e vans.</p>
+        <button id="start-button" type="button" class="primary-button">Entrar na Cidade</button>
+      </div>
+    </section>
+
+    <section id="loading-screen" class="overlay-screen hidden">
+      <div class="overlay-card">
+        <h2 class="overlay-heading">Carregando cidade...</h2>
+        <div class="progress-track">
+          <div id="loading-bar" class="progress-fill"></div>
+        </div>
+        <p id="loading-text" class="overlay-subtitle">Preparando mapa e texturas</p>
+      </div>
+    </section>
+
+    <section id="error-screen" class="overlay-screen hidden" role="alert">
+      <div class="overlay-card error-card">
+        <h2 class="overlay-heading">Não foi possível iniciar o jogo</h2>
+        <p id="error-message" class="error-message"></p>
+      </div>
+    </section>
+
+    <section id="portrait-warning" class="overlay-screen" role="status">
+      <div class="overlay-card">
+        <h2 class="overlay-heading">Gire o aparelho</h2>
+        <p class="overlay-subtitle">Este jogo funciona apenas na orientação horizontal (paisagem).</p>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
