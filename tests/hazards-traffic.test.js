@@ -146,3 +146,40 @@ test('veículos e lixeiras causam dano em pedestres na rua', () => {
   assert.equal(ped.health, 0);
   assert.equal(ped.state, 'downed');
 });
+
+test('pedestres dão um passo para trás e desviam ao colidir com jogador ou outros pedestres', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const road = map.resolveLocationCode('RUA-01');
+  const pedA = traffic.pedestrians[0];
+  const pedB = traffic.pedestrians[1];
+
+  // Colisão jogador <-> pedestre
+  pedA.x = road.bounds.x + 120;
+  pedA.y = road.bounds.y + 64;
+  pedA.dirX = -1;
+  pedA.dirY = 0;
+  const player = { x: pedA.x - 8, y: pedA.y, inVehicleId: null, isDead: false, radius: 11 };
+
+  traffic.update(0.016, player, []);
+  const distPlayerPed = Math.hypot(pedA.x - player.x, pedA.y - player.y);
+  assert.ok(distPlayerPed >= 21);
+  assert.ok(pedA.dirX > 0);
+  assert.notEqual(pedA.dirY, 0);
+
+  // Colisão pedestre <-> pedestre
+  pedA.x = road.bounds.x + 240;
+  pedA.y = road.bounds.y + 64;
+  pedB.x = pedA.x + 6;
+  pedB.y = pedA.y;
+  pedA.dirX = 1;
+  pedA.dirY = 0;
+  pedB.dirX = -1;
+  pedB.dirY = 0;
+
+  traffic.update(0.016, player, []);
+  const distPedPed = Math.hypot(pedB.x - pedA.x, pedB.y - pedA.y);
+  assert.ok(distPedPed >= 20);
+  assert.ok(pedA.dirX < 0);
+  assert.ok(pedB.dirX > 0);
+});

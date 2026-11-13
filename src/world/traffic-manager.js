@@ -240,5 +240,87 @@ export class TrafficManager {
         ped.walkPhase += dt * (ped.state === 'fleeing' ? 18 : 9);
       }
     }
+
+    // Colisão jogador <-> pedestre e pedestre <-> pedestre: dão um passo para trás e desviam
+    const standing = this.pedestrians.filter(
+      (p) =>
+        p.state !== 'downed' &&
+        Math.abs(p.x - player.x) <= activeRadius &&
+        Math.abs(p.y - player.y) <= activeRadius
+    );
+
+    if (!player.inVehicleId && !player.isDead) {
+      const pRadius = player.radius || 11;
+      for (const ped of standing) {
+        const pedRadius = ped.radius || 10;
+        const minDist = pRadius + pedRadius;
+        const dx = ped.x - player.x;
+        const dy = ped.y - player.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < minDist) {
+          const nx = dist > 1e-4 ? dx / dist : 1;
+          const ny = dist > 1e-4 ? dy / dist : 0;
+          const stepBack = minDist - dist + 3;
+          const target = resolveEntityCollisions(
+            ped.x + nx * stepBack,
+            ped.y + ny * stepBack,
+            pedRadius,
+            this.cityMap.getCollidersAround(ped.x, ped.y, 60)
+          );
+          ped.x = target.x;
+          ped.y = target.y;
+          this.#steerPedestrianAvoidance(ped, nx, ny, 1);
+        }
+      }
+    }
+
+    for (let i = 0; i < standing.length; i++) {
+      const pedA = standing[i];
+      const radA = pedA.radius || 10;
+      for (let j = i + 1; j < standing.length; j++) {
+        const pedB = standing[j];
+        const radB = pedB.radius || 10;
+        const minDist = radA + radB;
+        const dx = pedB.x - pedA.x;
+        const dy = pedB.y - pedA.y;
+        if (Math.abs(dx) >= minDist || Math.abs(dy) >= minDist) continue;
+        const dist = Math.hypot(dx, dy);
+        if (dist < minDist) {
+          const nx = dist > 1e-4 ? dx / dist : 1;
+          const ny = dist > 1e-4 ? dy / dist : 0;
+          const push = (minDist - dist) * 0.5 + 1.5;
+
+          const resA = resolveEntityCollisions(
+            pedA.x - nx * push,
+            pedA.y - ny * push,
+            radA,
+            this.cityMap.getCollidersAround(pedA.x, pedA.y, 60)
+          );
+          const resB = resolveEntityCollisions(
+            pedB.x + nx * push,
+            pedB.y + ny * push,
+            radB,
+            this.cityMap.getCollidersAround(pedB.x, pedB.y, 60)
+          );
+          pedA.x = resA.x;
+          pedA.y = resA.y;
+          pedB.x = resB.x;
+          pedB.y = resB.y;
+          this.#steerPedestrianAvoidance(pedA, -nx, -ny, 1);
+          this.#steerPedestrianAvoidance(pedB, nx, ny, 1);
+        }
+      }
+    }
+  }
+
+  #steerPedestrianAvoidance(ped, awayX, awayY, side = 1) {
+    // Combina passo para trás (away) com desvio lateral perpendicular
+    const sx = awayX * 0.65 - awayY * 0.76 * side;
+    const sy = awayY * 0.65 + awayX * 0.76 * side;
+    const len = Math.hypot(sx, sy) || 1;
+    ped.dirX = sx / len;
+    ped.dirY = sy / len;
+    ped.angle = Math.atan2(ped.dirY, ped.dirX);
+    ped.crossTimer = Math.max(ped.crossTimer || 0, 1.2);
   }
 }
