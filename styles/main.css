@@ -402,6 +402,20 @@ body {
   transform: scale(1.03);
 }
 
+@keyframes speaking-bob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.cutscene-actor.speaking .cutscene-portrait {
+  animation: speaking-bob 0.24s ease-in-out infinite;
+  border-color: rgba(251, 191, 36, 0.7);
+}
+
 .cutscene-portrait {
   width: clamp(96px, 16vw, 156px);
   height: clamp(96px, 16vw, 156px);
