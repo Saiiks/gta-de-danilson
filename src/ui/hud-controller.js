@@ -68,6 +68,26 @@ export class HudController {
     this.missionCompleteScreen.classList.remove('hidden');
   }
 
+  isMissionCompleteOpen() {
+    return !this.missionCompleteScreen.classList.contains('hidden');
+  }
+
+  confirmMissionComplete() {
+    if (this.isMissionCompleteOpen()) {
+      this.missionCompleteBtn.click();
+    }
+  }
+
+  isStartScreenOpen() {
+    return !this.startScreen.classList.contains('hidden');
+  }
+
+  triggerStart() {
+    if (this.isStartScreenOpen()) {
+      this.startButton.click();
+    }
+  }
+
   onStartClick(handler) {
     this.startButton.addEventListener('click', () => {
       try {

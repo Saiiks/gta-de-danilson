@@ -11,6 +11,10 @@ export class PauseMenuController {
     this.exitBtn = document.getElementById('pause-exit-btn');
 
     this.isOpen = false;
+    this.inMissionSelect = false;
+    this.selectedIndex = 0;
+    this.prevUp = false;
+    this.prevDown = false;
     this.callbacks = {};
 
     this.pauseButton.addEventListener('click', () => {
@@ -25,20 +29,84 @@ export class PauseMenuController {
       this.callbacks.onRestartMission?.();
     });
 
-    this.chooseMissionBtn.addEventListener('click', () => {
-      this.screen.classList.add('hidden');
-      this.missionSelectScreen.classList.remove('hidden');
-    });
+    this.chooseMissionBtn.addEventListener('click', () => this.openMissionSelect());
 
-    this.missionSelectBackBtn.addEventListener('click', () => {
-      this.missionSelectScreen.classList.add('hidden');
-      this.screen.classList.remove('hidden');
-    });
+    this.missionSelectBackBtn.addEventListener('click', () => this.closeMissionSelect());
 
     this.exitBtn.addEventListener('click', () => {
       this.close();
       this.callbacks.onExitToTitle?.();
     });
+  }
+
+  getActiveButtons() {
+    if (this.inMissionSelect) {
+      return [...this.missionListEl.querySelectorAll('button'), this.missionSelectBackBtn];
+    }
+    return [this.resumeBtn, this.restartMissionBtn, this.chooseMissionBtn, this.exitBtn];
+  }
+
+  highlightSelection() {
+    const allButtons = [
+      this.resumeBtn,
+      this.restartMissionBtn,
+      this.chooseMissionBtn,
+      this.exitBtn,
+      this.missionSelectBackBtn,
+      ...this.missionListEl.querySelectorAll('button')
+    ];
+    allButtons.forEach((b) => b.classList.remove('menu-selected'));
+
+    const active = this.getActiveButtons();
+    if (active.length === 0) return;
+    this.selectedIndex = Math.max(0, Math.min(this.selectedIndex, active.length - 1));
+    const current = active[this.selectedIndex];
+    current.classList.add('menu-selected');
+    current.scrollIntoView?.({ block: 'nearest' });
+  }
+
+  openMissionSelect() {
+    this.inMissionSelect = true;
+    this.selectedIndex = 0;
+    this.screen.classList.add('hidden');
+    this.missionSelectScreen.classList.remove('hidden');
+    this.highlightSelection();
+  }
+
+  closeMissionSelect() {
+    this.inMissionSelect = false;
+    this.selectedIndex = 0;
+    this.missionSelectScreen.classList.add('hidden');
+    this.screen.classList.remove('hidden');
+    this.highlightSelection();
+  }
+
+  updateInput(input) {
+    if (!this.isOpen) return;
+    const active = this.getActiveButtons();
+    if (active.length === 0) return;
+
+    const up = Boolean(input.moveY < -0.5);
+    const down = Boolean(input.moveY > 0.5);
+
+    if (up && !this.prevUp) {
+      this.selectedIndex = (this.selectedIndex - 1 + active.length) % active.length;
+      this.highlightSelection();
+    }
+    if (down && !this.prevDown) {
+      this.selectedIndex = (this.selectedIndex + 1) % active.length;
+      this.highlightSelection();
+    }
+
+    if (input.actionJustPressed) {
+      active[this.selectedIndex]?.click();
+    } else if (input.secondaryJustPressed) {
+      if (this.inMissionSelect) this.closeMissionSelect();
+      else this.close();
+    }
+
+    this.prevUp = up;
+    this.prevDown = down;
   }
 
   configure(missions, currentMissionIndex, callbacks) {
@@ -62,14 +130,20 @@ export class PauseMenuController {
   open() {
     if (this.isOpen) return;
     this.isOpen = true;
+    this.inMissionSelect = false;
+    this.selectedIndex = 0;
+    this.prevUp = false;
+    this.prevDown = false;
     this.missionSelectScreen.classList.add('hidden');
     this.screen.classList.remove('hidden');
+    this.highlightSelection();
     this.callbacks.onPauseChange?.(true);
   }
 
   close() {
     if (!this.isOpen) return;
     this.isOpen = false;
+    this.inMissionSelect = false;
     this.missionSelectScreen.classList.add('hidden');
     this.screen.classList.add('hidden');
     this.callbacks.onPauseChange?.(false);

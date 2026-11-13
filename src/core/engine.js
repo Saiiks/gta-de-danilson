@@ -262,10 +262,25 @@ export class Engine {
   }
 
   update(dt) {
-    if (this.paused) return;
-
     this.elapsedTime += dt;
     const input = this.input.update(dt);
+
+    if (input.pauseJustPressed && !this.player.isDead && !this.cutscene?.active && !this.hud.isMissionCompleteOpen()) {
+      if (this.pauseMenu?.isOpen) this.pauseMenu.close();
+      else this.pauseMenu?.open();
+      return;
+    }
+
+    if (this.paused) {
+      if (this.hud.isMissionCompleteOpen()) {
+        if (input.actionJustPressed) {
+          this.hud.confirmMissionComplete();
+        }
+      } else {
+        this.pauseMenu?.updateInput(input);
+      }
+      return;
+    }
 
     if (this.cutscene?.active) {
       this.cutscene.updateInput(input);

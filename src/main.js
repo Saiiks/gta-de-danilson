@@ -55,6 +55,35 @@ async function boot() {
       hud.showError(error?.message || 'Erro inesperado ao inicializar o motor do jogo.');
     }
   });
+
+  window.addEventListener('keydown', (e) => {
+    if (hud.isStartScreenOpen() && (e.code === 'Enter' || e.code === 'Space')) {
+      e.preventDefault();
+      hud.triggerStart();
+    }
+  });
+
+  let prevGpAction = false;
+  const pollStartGamepad = () => {
+    if (hud.isStartScreenOpen() && navigator.getGamepads) {
+      const gps = navigator.getGamepads();
+      let gpAction = false;
+      for (const gp of gps) {
+        if (gp?.connected && gp.buttons[0]?.pressed) {
+          gpAction = true;
+          break;
+        }
+      }
+      if (gpAction && !prevGpAction) {
+        hud.triggerStart();
+      }
+      prevGpAction = gpAction;
+    } else {
+      prevGpAction = true;
+    }
+    requestAnimationFrame(pollStartGamepad);
+  };
+  requestAnimationFrame(pollStartGamepad);
 }
 
 if (document.readyState === 'loading') {

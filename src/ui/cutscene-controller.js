@@ -120,7 +120,7 @@ export class CutsceneController {
 
     const up = Boolean(inputState.moveY < -0.5);
     const down = Boolean(inputState.moveY > 0.5);
-    const action = Boolean(inputState.action);
+    const action = Boolean(inputState.actionPressed ?? inputState.action);
 
     if (step.choices && step.choices.length > 0) {
       if (up && !this.prevUp) {
