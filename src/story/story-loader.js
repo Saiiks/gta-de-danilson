@@ -38,6 +38,22 @@ export function getCharacterSidePngCandidates(basePath, charId, view) {
   ];
 }
 
+export function getSplashPngCandidates(basePath, manifestSplash = '') {
+  const cleanBase = String(basePath || '').replace(/\/+$/, '');
+  const candidates = [
+    `${cleanBase}/splash.png`,
+    `${cleanBase}/assets/splash.png`,
+  ];
+  if (manifestSplash) {
+    const pngVariant = manifestSplash.replace(/\.[^./]+$/, '.png');
+    const fullVariant = `${cleanBase}/${pngVariant}`;
+    if (!candidates.includes(fullVariant)) {
+      candidates.push(fullVariant);
+    }
+  }
+  return candidates;
+}
+
 export async function resolveFirstExistingAsset(candidates, existsFn = checkAssetExists) {
   for (const url of candidates) {
     if (await existsFn(url)) return url;
@@ -52,8 +68,10 @@ export async function loadStoryPackage(basePath = './story', cityMap = null) {
   const manifestRaw = await fetchText(manifestUrl, 'story.md');
   const manifest = parseStoryManifest(manifestRaw, 'story.md');
 
-  let splashUrl = '';
-  if (manifest.splash) {
+  let splashUrl = await resolveFirstExistingAsset(
+    getSplashPngCandidates(cleanBase, manifest.splash),
+  );
+  if (!splashUrl && manifest.splash) {
     const candidateSplash = `${cleanBase}/${manifest.splash}`;
     if (await checkAssetExists(candidateSplash)) {
       splashUrl = candidateSplash;

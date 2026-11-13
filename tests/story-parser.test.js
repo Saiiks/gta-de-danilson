@@ -13,6 +13,7 @@ import {
 } from '../src/story/story-parser.js';
 import {
   getCharacterSidePngCandidates,
+  getSplashPngCandidates,
   resolveFirstExistingAsset
 } from '../src/story/story-loader.js';
 
@@ -89,4 +90,22 @@ test('prioriza PNG na pasta do personagem para visão lateral e faz fallback qua
 
   const none = await resolveFirstExistingAsset(candidates, async () => false);
   assert.equal(none, '');
+});
+
+test('prioriza PNG personalizado para tela de abertura e faz fallback para padrão quando ausente', async () => {
+  const candidates = getSplashPngCandidates('./story', 'assets/splash.svg');
+  assert.deepEqual(candidates, ['./story/splash.png', './story/assets/splash.png']);
+
+  const customCandidates = getSplashPngCandidates('./story', 'assets/capa.svg');
+  assert.deepEqual(customCandidates, [
+    './story/splash.png',
+    './story/assets/splash.png',
+    './story/assets/capa.png',
+  ]);
+
+  const found = await resolveFirstExistingAsset(candidates, async (url) => url === './story/splash.png');
+  assert.equal(found, './story/splash.png');
+
+  const fallback = await resolveFirstExistingAsset(candidates, async () => false);
+  assert.equal(fallback, '');
 });
