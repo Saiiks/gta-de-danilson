@@ -25,6 +25,7 @@
           <div class="health-track"><div id="health-fill" class="health-fill"></div></div>
           <span id="health-value">100</span>
         </div>
+        <button id="pause-button" type="button" class="hud-pill pause-button" aria-label="Pausar jogo">PAUSA</button>
       </div>
 
       <div id="minimap-container" aria-label="Minimapa">
@@ -105,6 +106,27 @@
           <p id="cutscene-text" class="cutscene-text"></p>
           <div id="cutscene-choices" class="cutscene-choices hidden"></div>
           <button id="cutscene-next-btn" type="button" class="primary-button cutscene-next-btn">Continuar</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="mission-complete-screen" class="overlay-screen hidden" aria-live="polite">
+      <div class="overlay-card mission-complete-card">
+        <h2 id="mission-complete-title" class="retro-title">MISSÃO CONCLUÍDA</h2>
+        <p id="mission-complete-subtitle" class="overlay-subtitle"></p>
+        <button id="mission-complete-btn" type="button" class="primary-button">Continuar</button>
+      </div>
+    </section>
+
+    <section id="pause-screen" class="overlay-screen hidden" role="dialog" aria-label="Menu de Pausa">
+      <div class="overlay-card pause-card">
+        <h2 class="retro-title">PAUSA</h2>
+        <div class="pause-actions">
+          <button id="pause-resume-btn" type="button" class="primary-button">Continuar</button>
+          <button id="pause-restart-btn" type="button" class="secondary-button">REINICIAR MISSÃO</button>
+          <button id="pause-choose-btn" type="button" class="secondary-button">ESCOLHER MISSÃO</button>
+          <div id="pause-mission-list" class="pause-mission-list hidden"></div>
+          <button id="pause-exit-btn" type="button" class="danger-button">SAIR</button>
         </div>
       </div>
     </section>

@@ -464,6 +464,85 @@ body {
   font-size: 14px;
 }
 
+.pause-button {
+  pointer-events: auto;
+  cursor: pointer;
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.pause-button:hover {
+  border-color: #fbbf24;
+  color: #fbbf24;
+}
+
+.pause-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.secondary-button,
+.danger-button {
+  appearance: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 12px 20px;
+  cursor: pointer;
+}
+
+.secondary-button {
+  background: #273244;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.secondary-button:hover {
+  border-color: #fbbf24;
+}
+
+.danger-button {
+  background: #991b1b;
+  color: #fef2f2;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+}
+
+.danger-button:hover {
+  background: #b91c1c;
+}
+
+.pause-mission-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 6px;
+  background: rgba(15, 23, 42, 0.75);
+  border-radius: 8px;
+}
+
+.pause-mission-item {
+  appearance: none;
+  text-align: left;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pause-mission-item.current,
+.pause-mission-item:hover {
+  border-color: #fbbf24;
+  color: #fbbf24;
+}
+
 #portrait-warning {
   display: none;
   z-index: 30;

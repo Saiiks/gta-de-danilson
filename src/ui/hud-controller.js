@@ -20,6 +20,52 @@ export class HudController {
     this.restartButton = document.getElementById('restart-button');
     this.damageFlashEl = document.getElementById('damage-flash');
     this.damageFlashTimer = null;
+
+    this.startTitleEl = document.getElementById('start-title');
+    this.startSubtitleEl = document.getElementById('start-subtitle');
+    this.startSplashEl = document.getElementById('start-splash');
+
+    this.missionCompleteScreen = document.getElementById('mission-complete-screen');
+    this.missionCompleteTitleEl = document.getElementById('mission-complete-title');
+    this.missionCompleteSubtitleEl = document.getElementById('mission-complete-subtitle');
+    this.missionCompleteBtn = document.getElementById('mission-complete-btn');
+    this.missionCompleteHandler = null;
+    this.missionCompleteBtn.addEventListener('click', () => {
+      this.missionCompleteScreen.classList.add('hidden');
+      const cb = this.missionCompleteHandler;
+      this.missionCompleteHandler = null;
+      cb?.();
+    });
+  }
+
+  setStoryHeader({ title, subtitle, splashUrl }) {
+    if (title) this.startTitleEl.textContent = title;
+    if (subtitle) this.startSubtitleEl.textContent = subtitle;
+    if (splashUrl) {
+      this.startSplashEl.src = splashUrl;
+      this.startSplashEl.classList.remove('hidden');
+    } else {
+      this.startSplashEl.classList.add('hidden');
+    }
+  }
+
+  showStartScreen() {
+    this.hudLayer.classList.add('hidden');
+    this.gameoverScreen.classList.add('hidden');
+    this.missionCompleteScreen.classList.add('hidden');
+    this.loadingScreen.classList.add('hidden');
+    this.errorScreen.classList.add('hidden');
+    this.startScreen.classList.remove('hidden');
+  }
+
+  showMissionComplete(missionTitle, hasNextMission, onContinue) {
+    this.missionCompleteTitleEl.textContent = hasNextMission ? 'MISSÃO CONCLUÍDA' : 'HISTÓRIA CONCLUÍDA';
+    this.missionCompleteSubtitleEl.textContent = hasNextMission
+      ? `${missionTitle} finalizada. Prepare-se para a próxima missão.`
+      : `${missionTitle} finalizada! Todas as missões foram concluídas. Modo exploração livre ativado.`;
+    this.missionCompleteBtn.textContent = hasNextMission ? 'Próxima Missão' : 'Explorar Livremente';
+    this.missionCompleteHandler = onContinue;
+    this.missionCompleteScreen.classList.remove('hidden');
   }
 
   onStartClick(handler) {
