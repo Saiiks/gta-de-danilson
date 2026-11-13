@@ -553,12 +553,12 @@ export class Engine {
       }
     }
 
-    // Fumaça em veículos com <= 50% de integridade formando trilha que se dissipa com o tempo
+    // Fumaça em veículos com <= 50% de integridade (cinza) e <= 30% (preta + faíscas de fogo)
     for (const v of nearbyVehicles) {
       if (!v.destroyed && (v.health ?? 100) <= 50) {
         const isCritical = (v.health ?? 100) <= 30;
         v.smokeTimer = (v.smokeTimer || 0) - dt;
-        const interval = isCritical ? 0.026 : v.health < 25 ? 0.035 : 0.07;
+        const interval = isCritical ? 0.026 : 0.07;
         if (v.smokeTimer <= 0) {
           v.smokeTimer = interval;
           const hoodX = v.x + Math.cos(v.angle) * (v.length * 0.28);
@@ -569,31 +569,65 @@ export class Engine {
             vx: -v.vx * 0.08 + (Math.random() - 0.5) * (isCritical ? 22 : 14),
             vy: -v.vy * 0.08 - (isCritical ? 12 : 6) + (Math.random() - 0.5) * 14,
             size: (isCritical ? 14 : 11) + Math.random() * 8,
-            alpha: isCritical ? 0.85 : v.health < 25 ? 0.72 : 0.48,
-            dark: isCritical ? 0.1 : v.health < 25 ? 0.16 : 0.45,
+            alpha: isCritical ? 0.88 : 0.52,
+            dark: isCritical ? 0.05 : 0.58,
             life: 0,
             maxLife: isCritical ? 1.9 : 1.6
           });
-          while (this.smokeParticles.length > 280) {
+          if (isCritical && Math.random() < 0.45) {
+            const flamePalette = [
+              [1, 0.9, 0.22],
+              [1, 0.48, 0.06],
+              [0.95, 0.16, 0.04]
+            ];
+            this.smokeParticles.push({
+              x: hoodX + (Math.random() - 0.5) * 8,
+              y: hoodY + (Math.random() - 0.5) * 8,
+              vx: -v.vx * 0.05 + (Math.random() - 0.5) * 26,
+              vy: -18 + (Math.random() - 0.5) * 18,
+              size: 7 + Math.random() * 5,
+              alpha: 0.95,
+              color: flamePalette[Math.floor(Math.random() * flamePalette.length)],
+              life: 0,
+              maxLife: 0.35 + Math.random() * 0.2
+            });
+          }
+          while (this.smokeParticles.length > 320) {
             this.smokeParticles.shift();
           }
         }
       } else if (v.destroyed && v.burning) {
         v.burnSmokeTimer = (v.burnSmokeTimer || 0) - dt;
         if (v.burnSmokeTimer <= 0) {
-          v.burnSmokeTimer = 0.06;
+          v.burnSmokeTimer = 0.055;
           this.smokeParticles.push({
             x: v.x + (Math.random() - 0.5) * 18,
             y: v.y + (Math.random() - 0.5) * 18,
             vx: (Math.random() - 0.5) * 16,
             vy: -16 + (Math.random() - 0.5) * 12,
             size: 16 + Math.random() * 10,
-            alpha: 0.78,
-            dark: 0.1,
+            alpha: 0.86,
+            dark: 0.05,
             life: 0,
             maxLife: 1.8
           });
-          while (this.smokeParticles.length > 280) {
+          const flamePalette = [
+            [1, 0.9, 0.2],
+            [1, 0.46, 0.05],
+            [0.96, 0.14, 0.04]
+          ];
+          this.smokeParticles.push({
+            x: v.x + (Math.random() - 0.5) * 20,
+            y: v.y + (Math.random() - 0.5) * 14,
+            vx: (Math.random() - 0.5) * 18,
+            vy: -20 - Math.random() * 14,
+            size: 10 + Math.random() * 7,
+            alpha: 0.95,
+            color: flamePalette[Math.floor(Math.random() * flamePalette.length)],
+            life: 0,
+            maxLife: 0.4 + Math.random() * 0.25
+          });
+          while (this.smokeParticles.length > 320) {
             this.smokeParticles.shift();
           }
         }

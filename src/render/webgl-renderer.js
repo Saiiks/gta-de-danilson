@@ -408,7 +408,7 @@ export class WebGLRenderer {
       if (v.destroyed && v.burning) {
         const cos = Math.cos(v.angle);
         const sin = Math.sin(v.angle);
-        const glowSize = Math.max(v.length, v.width) * (1.28 + Math.sin(time * 11 + v.x) * 0.1);
+        const glowSize = Math.max(v.length, v.width) * (1.34 + Math.sin(time * 11 + v.x) * 0.12);
         this.#pushQuad(
           v.x - glowSize * 0.5,
           v.y - glowSize * 0.5,
@@ -416,7 +416,7 @@ export class WebGLRenderer {
           glowSize,
           0,
           'circle',
-          [1, 0.34, 0.04, 0.44]
+          [0.95, 0.14, 0.04, 0.52]
         );
         const offsets = [-0.26, 0.0, 0.25];
         for (let fi = 0; fi < offsets.length; fi++) {
@@ -424,10 +424,12 @@ export class WebGLRenderer {
           const wobble = Math.sin(time * 15 + fi * 2.1 + v.y) * 3.5;
           const fx = v.x + cos * dist - sin * wobble;
           const fy = v.y + sin * dist + cos * wobble;
-          const fSize = (18 + Math.sin(time * 18 + fi * 1.7) * 5) * sinkScale;
-          this.#pushQuad(fx - fSize * 0.5, fy - fSize * 0.5, fSize, fSize, 0, 'circle', [1, 0.5, 0.08, 0.88]);
-          const core = fSize * 0.55;
-          this.#pushQuad(fx - core * 0.5, fy - core * 0.5, core, core, 0, 'circle', [1, 0.9, 0.35, 0.92]);
+          const outerSize = (22 + Math.sin(time * 16 + fi * 1.7) * 5) * sinkScale;
+          const midSize = outerSize * 0.76;
+          const coreSize = outerSize * 0.48;
+          this.#pushQuad(fx - outerSize * 0.5, fy - outerSize * 0.5, outerSize, outerSize, 0, 'circle', [0.96, 0.16, 0.04, 0.9]);
+          this.#pushQuad(fx - midSize * 0.5, fy - midSize * 0.5, midSize, midSize, 0, 'circle', [1, 0.48, 0.05, 0.94]);
+          this.#pushQuad(fx - coreSize * 0.5, fy - coreSize * 0.5, coreSize, coreSize, 0, 'circle', [1, 0.92, 0.22, 0.96]);
         }
       }
       if (v.kind === 'moto' && v.driver === 'npc') {
@@ -491,11 +493,14 @@ export class WebGLRenderer {
       this.#pushQuad(player.x - 14 * pScale, player.y - 14 * pScale, 28 * pScale, 28 * pScale, player.angle, 'player', [1, 1, 1, pAlpha]);
     }
 
-    // Fumaça de veículos danificados e explosões
+    // Fumaça (cinza/preta) e partículas de fogo (amarelo/laranja/vermelho)
     for (const p of smokeParticles) {
       if (p.x < minX || p.x > maxX || p.y < minY || p.y > maxY) continue;
       const fade = 1 - p.life / p.maxLife;
-      this.#pushQuad(p.x - p.size * 0.5, p.y - p.size * 0.5, p.size, p.size, p.life * 2, 'circle', [p.dark, p.dark, p.dark, p.alpha * fade]);
+      const rgba = p.color
+        ? [p.color[0], p.color[1], p.color[2], p.alpha * fade]
+        : [p.dark, p.dark, p.dark, p.alpha * fade];
+      this.#pushQuad(p.x - p.size * 0.5, p.y - p.size * 0.5, p.size, p.size, p.life * 2, 'circle', rgba);
     }
 
     for (const ex of explosions) {
