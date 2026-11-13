@@ -517,27 +517,27 @@ export class Engine {
       }
     }
 
-    // Fumaça em veículos danificados e atualização de partículas/explosões
+    // Fumaça em veículos com <= 50% de integridade formando trilha que se dissipa com o tempo
     for (const v of nearbyVehicles) {
-      if (!v.destroyed && (v.health ?? 100) < 55) {
+      if (!v.destroyed && (v.health ?? 100) <= 50) {
         v.smokeTimer = (v.smokeTimer || 0) - dt;
-        const interval = v.health < 25 ? 0.05 : 0.12;
+        const interval = v.health < 25 ? 0.035 : 0.07;
         if (v.smokeTimer <= 0) {
           v.smokeTimer = interval;
           const hoodX = v.x + Math.cos(v.angle) * (v.length * 0.28);
           const hoodY = v.y + Math.sin(v.angle) * (v.length * 0.28);
           this.smokeParticles.push({
-            x: hoodX + (Math.random() - 0.5) * 8,
-            y: hoodY + (Math.random() - 0.5) * 8,
-            vx: (Math.random() - 0.5) * 18,
-            vy: -22 - Math.random() * 18,
-            size: 10 + Math.random() * 8,
-            alpha: v.health < 25 ? 0.78 : 0.5,
+            x: hoodX + (Math.random() - 0.5) * 6,
+            y: hoodY + (Math.random() - 0.5) * 6,
+            vx: -v.vx * 0.08 + (Math.random() - 0.5) * 14,
+            vy: -v.vy * 0.08 - 6 + (Math.random() - 0.5) * 14,
+            size: 11 + Math.random() * 7,
+            alpha: v.health < 25 ? 0.72 : 0.48,
             dark: v.health < 25 ? 0.16 : 0.45,
             life: 0,
-            maxLife: 0.75
+            maxLife: 1.6
           });
-          if (this.smokeParticles.length > 160) {
+          while (this.smokeParticles.length > 260) {
             this.smokeParticles.shift();
           }
         }
@@ -551,9 +551,12 @@ export class Engine {
         this.smokeParticles.splice(i, 1);
         continue;
       }
+      const damp = Math.exp(-2.0 * dt);
+      p.vx *= damp;
+      p.vy *= damp;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.size += 14 * dt;
+      p.size += 12 * dt;
     }
 
     for (let i = this.explosions.length - 1; i >= 0; i--) {
