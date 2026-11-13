@@ -338,6 +338,7 @@ export class Engine {
     }
 
     if (this.player.isDead) {
+      this.#updateParticles(dt);
       if (input.actionJustPressed) {
         if (this.storyPackage && !this.freeRoamMode) {
           this.startMission(this.currentMissionIndex, { skipIntro: true });
@@ -544,28 +545,7 @@ export class Engine {
       }
     }
 
-    for (let i = this.smokeParticles.length - 1; i >= 0; i--) {
-      const p = this.smokeParticles[i];
-      p.life += dt;
-      if (p.life >= p.maxLife) {
-        this.smokeParticles.splice(i, 1);
-        continue;
-      }
-      const damp = Math.exp(-2.0 * dt);
-      p.vx *= damp;
-      p.vy *= damp;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.size += 12 * dt;
-    }
-
-    for (let i = this.explosions.length - 1; i >= 0; i--) {
-      const ex = this.explosions[i];
-      ex.timer += dt;
-      if (ex.timer >= ex.duration) {
-        this.explosions.splice(i, 1);
-      }
-    }
+    this.#updateParticles(dt);
 
     // Atropelamento de pessoas caídas no chão: desloca o corpo e deixa trilha de sangue
     const downedPeds = this.trafficManager.pedestrians.filter((p) => p.state === 'downed');
@@ -747,9 +727,45 @@ export class Engine {
     });
   }
 
+  #updateParticles(dt) {
+    if (this.shakeTimer > 0) {
+      this.shakeTimer = Math.max(0, this.shakeTimer - dt);
+    }
+    for (let i = this.smokeParticles.length - 1; i >= 0; i--) {
+      const p = this.smokeParticles[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) {
+        this.smokeParticles.splice(i, 1);
+        continue;
+      }
+      const damp = Math.exp(-2.0 * dt);
+      p.vx *= damp;
+      p.vy *= damp;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.size += 12 * dt;
+    }
+
+    for (let i = this.explosions.length - 1; i >= 0; i--) {
+      const ex = this.explosions[i];
+      ex.timer += dt;
+      if (ex.timer >= ex.duration) {
+        this.explosions.splice(i, 1);
+      }
+    }
+  }
+
   render() {
+    const shakeAmp = this.shakeTimer > 0 ? this.shakeTimer * 18 : 0;
+    const renderCam =
+      shakeAmp > 0
+        ? {
+            x: this.camera.x + (Math.random() - 0.5) * shakeAmp,
+            y: this.camera.y + (Math.random() - 0.5) * shakeAmp
+          }
+        : this.camera;
     this.renderer.renderFrame({
-      camera: this.camera,
+      camera: renderCam,
       cityMap: this.cityMap,
       vehicles: this.vehicles,
       pedestrians: this.trafficManager ? this.trafficManager.pedestrians : [],
@@ -775,11 +791,12 @@ export class Engine {
     vehicle.isDrifting = false;
 
     const blastRadius = 135;
+    this.shakeTimer = 0.45;
     this.explosions.push({
       x: vehicle.x,
       y: vehicle.y,
       timer: 0,
-      duration: 0.8,
+      duration: 0.95,
       radius: blastRadius
     });
 

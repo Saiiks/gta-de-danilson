@@ -475,12 +475,48 @@ export class WebGLRenderer {
 
     for (const ex of explosions) {
       const progress = Math.min(1, ex.timer / ex.duration);
-      const outerSize = ex.radius * 2 * (0.25 + progress * 0.85);
-      const innerSize = ex.radius * 1.15 * Math.sin(progress * Math.PI);
+      const easeOut = 1 - Math.pow(1 - progress, 3);
       const alpha = 1 - progress;
-      this.#pushQuad(ex.x - outerSize * 0.5, ex.y - outerSize * 0.5, outerSize, outerSize, progress * 1.4, 'solid', [0.95, 0.32, 0.08, alpha * 0.65]);
-      if (innerSize > 2) {
-        this.#pushQuad(ex.x - innerSize * 0.5, ex.y - innerSize * 0.5, innerSize, innerSize, -progress * 2, 'solid', [1, 0.85, 0.22, alpha * 0.9]);
+      const shockSize = ex.radius * 2.1 * easeOut;
+
+      // Onda de choque externa
+      this.#pushQuad(
+        ex.x - shockSize * 0.5,
+        ex.y - shockSize * 0.5,
+        shockSize,
+        shockSize,
+        progress * 1.2,
+        'solid',
+        [0.92, 0.25, 0.06, alpha * 0.45]
+      );
+
+      // Lóbulos de fogo giratórios
+      for (let k = 0; k < 4; k++) {
+        const angle = progress * 2.4 + (Math.PI * 0.5 * k);
+        const offset = ex.radius * 0.34 * easeOut;
+        const fx = ex.x + Math.cos(angle) * offset;
+        const fy = ex.y + Math.sin(angle) * offset;
+        const lobeSize = ex.radius * 0.85 * Math.sin(Math.min(1, progress * 1.15) * Math.PI);
+        if (lobeSize > 2) {
+          this.#pushQuad(fx - lobeSize * 0.5, fy - lobeSize * 0.5, lobeSize, lobeSize, angle, 'solid', [0.98, 0.48, 0.08, alpha * 0.8]);
+        }
+      }
+
+      // Núcleo branco-amarelado brilhante
+      const coreSize = ex.radius * 0.95 * Math.sin(Math.min(1, progress * 1.35) * Math.PI);
+      if (coreSize > 2) {
+        this.#pushQuad(ex.x - coreSize * 0.5, ex.y - coreSize * 0.5, coreSize, coreSize, -progress * 2.5, 'solid', [1, 0.92, 0.42, alpha * 0.95]);
+      }
+
+      // Faíscas radiantes
+      if (progress < 0.7) {
+        for (let s = 0; s < 8; s++) {
+          const sa = (Math.PI * 2 * s) / 8 + 0.3;
+          const dist = ex.radius * (0.2 + progress * 1.15);
+          const sx = ex.x + Math.cos(sa) * dist;
+          const sy = ex.y + Math.sin(sa) * dist;
+          this.#pushQuad(sx - 4, sy - 4, 8, 8, sa, 'solid', [1, 0.82, 0.2, (1 - progress / 0.7) * 0.95]);
+        }
       }
     }
 
