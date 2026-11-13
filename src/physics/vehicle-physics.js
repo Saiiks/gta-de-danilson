@@ -57,7 +57,8 @@ export function createVehicleEntity(spawn) {
     length: profile.length,
     width: profile.width,
     radius: profile.radius,
-    driver: null
+    isParked: Boolean(spawn.isParked),
+    driver: spawn.driver || null
   };
 }
 

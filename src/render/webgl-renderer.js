@@ -190,7 +190,7 @@ export class WebGLRenderer {
     this.quadCount++;
   }
 
-  renderFrame({ camera, cityMap, vehicles, player, skidMarks, objectivePoint, time }) {
+  renderFrame({ camera, cityMap, vehicles, pedestrians = [], player, skidMarks, objectivePoint, time }) {
     const gl = this.gl;
     this.quadCount = 0;
 
@@ -369,6 +369,23 @@ export class WebGLRenderer {
         v.kind,
         hexToRgba(v.color)
       );
+    }
+
+    // Pedestres NPC (caminhando na calçada ou caídos no chão)
+    for (const ped of pedestrians) {
+      if (ped.x < minX || ped.x > maxX || ped.y < minY || ped.y > maxY) continue;
+      if (ped.state === 'downed') {
+        this.#pushQuad(ped.x - 14, ped.y - 6, 28, 12, ped.angle, 'solid', ped.color);
+        this.#pushQuad(ped.x + Math.cos(ped.angle) * 11 - 5, ped.y + Math.sin(ped.angle) * 11 - 5, 10, 10, ped.angle, 'solid', [0.92, 0.72, 0.52, 1]);
+      } else {
+        const swing = Math.sin(ped.walkPhase || 0) * 5;
+        const cos = Math.cos(ped.angle);
+        const sin = Math.sin(ped.angle);
+        this.#pushQuad(ped.x + cos * swing - sin * -4 - 4, ped.y + sin * swing + cos * -4 - 3, 8, 6, ped.angle, 'solid', [0.15, 0.2, 0.3, 1]);
+        this.#pushQuad(ped.x - cos * swing - sin * 4 - 4, ped.y - sin * swing + cos * 4 - 3, 8, 6, ped.angle, 'solid', [0.15, 0.2, 0.3, 1]);
+        this.#pushQuad(ped.x - 10, ped.y - 10, 20, 20, ped.angle, 'solid', ped.color);
+        this.#pushQuad(ped.x + cos * 6 - 5, ped.y + sin * 6 - 5, 10, 10, ped.angle, 'solid', [0.92, 0.72, 0.52, 1]);
+      }
     }
 
     // Jogador a pé com movimento simples de braços e pernas
