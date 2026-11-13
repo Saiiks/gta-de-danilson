@@ -139,7 +139,7 @@ export class CityMap {
             w: bW,
             h: bH,
             doorSide: 'south',
-            seed: seed >> 3
+            seed: seed >>> 3
           });
 
           block.buildings.push(topBuilding, botBuilding);

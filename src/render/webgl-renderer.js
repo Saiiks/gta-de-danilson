@@ -31,9 +31,9 @@ const FRAGMENT_SHADER = `
   }
 `;
 
-function hexToRgba(hex, alpha = 1) {
-  const clean = hex.replace('#', '');
-  const num = parseInt(clean, 16);
+function hexToRgba(hex = '#ffffff', alpha = 1) {
+  const clean = String(hex || '#ffffff').replace('#', '');
+  const num = parseInt(clean, 16) || 0;
   return [
     ((num >> 16) & 255) / 255,
     ((num >> 8) & 255) / 255,
