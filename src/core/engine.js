@@ -3,7 +3,7 @@ import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js';
 import { InputManager } from '../input/input-manager.js';
 import { WebGLRenderer } from '../render/webgl-renderer.js';
-import { isInWater, resolveVehiclePairCollision } from '../physics/collision.js';
+import { isInWater, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js';
 import {
   createVehicleEntity,
   evaluateVehicleImpact,
@@ -393,6 +393,7 @@ export class Engine {
     this.trafficManager.update(dt, this.player, this.vehicles);
 
     let maxPlayerImpact = 0;
+    let playerHitBuilding = false;
     let impactMoveVx = activeVehicle ? activeVehicle.vx : 0;
     let impactMoveVy = activeVehicle ? activeVehicle.vy : 0;
     for (const v of this.vehicles) {
@@ -403,6 +404,7 @@ export class Engine {
       const res = updateVehicle(v, input, dt, this.cityMap);
       if (v.driver === 'player' && res.impactSpeed > maxPlayerImpact) {
         maxPlayerImpact = res.impactSpeed;
+        playerHitBuilding = Boolean(res.collided);
         impactMoveVx = preVx;
         impactMoveVy = preVy;
       }
@@ -482,14 +484,22 @@ export class Engine {
       const impact = evaluateVehicleImpact(maxPlayerImpact);
       if (impact.eject) {
         const moveLen = Math.hypot(impactMoveVx, impactMoveVy);
-        const dirX = moveLen > 1 ? impactMoveVx / moveLen : Math.cos(activeVehicle.angle);
-        const dirY = moveLen > 1 ? impactMoveVy / moveLen : Math.sin(activeVehicle.angle);
+        let dirX = moveLen > 1 ? impactMoveVx / moveLen : Math.cos(activeVehicle.angle);
+        let dirY = moveLen > 1 ? impactMoveVy / moveLen : Math.sin(activeVehicle.angle);
+        if (playerHitBuilding) {
+          dirX = -dirX;
+          dirY = -dirY;
+        }
         const ejectSpeed = Math.min(460, Math.max(240, maxPlayerImpact * 0.95));
 
         activeVehicle.driver = null;
         this.player.inVehicleId = null;
-        this.player.x = activeVehicle.x + dirX * (activeVehicle.radius + this.player.radius + 4);
-        this.player.y = activeVehicle.y + dirY * (activeVehicle.radius + this.player.radius + 4);
+        const spawnX = activeVehicle.x + dirX * (activeVehicle.radius + this.player.radius + 4);
+        const spawnY = activeVehicle.y + dirY * (activeVehicle.radius + this.player.radius + 4);
+        const safeColliders = this.cityMap.getCollidersAround(spawnX, spawnY, 80);
+        const safePos = resolveEntityCollisions(spawnX, spawnY, this.player.radius, safeColliders);
+        this.player.x = safePos.x;
+        this.player.y = safePos.y;
         this.player.angle = Math.atan2(dirY, dirX);
         this.player.ejected = {
           active: true,
