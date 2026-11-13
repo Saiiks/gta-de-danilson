@@ -436,6 +436,44 @@ export class Engine {
       }
     }
 
+    // Atropelamento de pessoas caídas no chão: veículo passa por cima e deixa trilha de sangue
+    const downedPeds = this.trafficManager.pedestrians.filter((p) => p.state === 'downed');
+    for (const v of nearbyVehicles) {
+      if (v.speed > 12) {
+        const hitRadius = Math.max(v.width, v.height) * 0.45;
+        for (const ped of downedPeds) {
+          if (Math.hypot(v.x - ped.x, v.y - ped.y) < hitRadius) {
+            if (!ped.runOver) {
+              ped.runOver = true;
+              this.bloodMarks.push({
+                x: ped.x,
+                y: ped.y,
+                size: 16,
+                angle: v.angle,
+                alpha: 0.85
+              });
+            }
+            v.bloodTireTimer = 1.8;
+          }
+        }
+      }
+      if (v.bloodTireTimer > 0) {
+        v.bloodTireTimer = Math.max(0, v.bloodTireTimer - dt);
+        if (v.speed > 12) {
+          this.bloodMarks.push({
+            x: v.x,
+            y: v.y,
+            size: 7,
+            angle: v.angle,
+            alpha: Math.min(0.75, v.bloodTireTimer * 0.45)
+          });
+          while (this.bloodMarks.length > 260) {
+            this.bloodMarks.shift();
+          }
+        }
+      }
+    }
+
     if (activeVehicle) {
       this.player.x = activeVehicle.x;
       this.player.y = activeVehicle.y;
