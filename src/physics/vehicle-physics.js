@@ -341,3 +341,84 @@ export function findSafeExitPosition(vehicle, playerRadius, cityMap) {
   }
   return { x: vehicle.x, y: vehicle.y };
 }
+
+export function createTrashBinEntity(spawn) {
+  return {
+    id: spawn.id,
+    x: spawn.x,
+    y: spawn.y,
+    vx: 0,
+    vy: 0,
+    angle: 0,
+    angVel: 0,
+    radius: 7,
+    size: 14
+  };
+}
+
+export function hitTrashBin(bin, impactVx, impactVy, sourceX, sourceY, launchBoost = 135) {
+  if (!bin) return;
+  const dx = bin.x - sourceX;
+  const dy = bin.y - sourceY;
+  const dist = Math.hypot(dx, dy) || 1;
+  const dirX = dx / dist;
+  const dirY = dy / dist;
+
+  const vx = impactVx * 1.45 + dirX * launchBoost;
+  const vy = impactVy * 1.45 + dirY * launchBoost;
+  const speed = Math.hypot(vx, vy);
+  const maxSpeed = 580;
+  const scale = speed > maxSpeed ? maxSpeed / speed : 1;
+
+  bin.vx = vx * scale;
+  bin.vy = vy * scale;
+  bin.angVel = ((bin.vx - bin.vy) * 0.04) || 6;
+  // Separa levemente do ponto de impacto para não re-engatilhar no mesmo frame
+  bin.x += dirX * 4;
+  bin.y += dirY * 4;
+}
+
+export function updateTrashBin(bin, dt, cityMap) {
+  const speed = Math.hypot(bin.vx, bin.vy);
+  if (speed < 3 && Math.abs(bin.angVel) < 0.05) {
+    bin.vx = 0;
+    bin.vy = 0;
+    bin.angVel = 0;
+    return { bounced: false };
+  }
+
+  const damp = Math.exp(-2.6 * dt);
+  bin.vx *= damp;
+  bin.vy *= damp;
+  bin.angVel *= Math.exp(-3.0 * dt);
+
+  const nextX = bin.x + bin.vx * dt;
+  const nextY = bin.y + bin.vy * dt;
+  bin.angle += bin.angVel * dt;
+
+  const colliders = cityMap.getCollidersAround(nextX, nextY, 48, true);
+  const resolved = resolveEntityCollisions(nextX, nextY, bin.radius, colliders);
+  let bounced = false;
+
+  if (resolved.collided) {
+    const pushX = resolved.x - nextX;
+    const pushY = resolved.y - nextY;
+    const pushLen = Math.hypot(pushX, pushY);
+    if (pushLen > 1e-4) {
+      const nx = pushX / pushLen;
+      const ny = pushY / pushLen;
+      const dot = bin.vx * nx + bin.vy * ny;
+      if (dot < 0) {
+        const restitution = 0.7;
+        bin.vx -= (1 + restitution) * dot * nx;
+        bin.vy -= (1 + restitution) * dot * ny;
+        bin.angVel = -bin.angVel * 0.75;
+        bounced = true;
+      }
+    }
+  }
+
+  bin.x = resolved.x;
+  bin.y = resolved.y;
+  return { bounced };
+}

@@ -238,5 +238,19 @@ export function createTextureAtlas() {
     c.fill();
   });
 
+  register('trashbin', 6, 1, (c, x, y, s) => {
+    c.fillStyle = 'rgba(0,0,0,0.34)';
+    c.fillRect(x + 22, y + 24, s - 36, s - 36);
+    c.fillStyle = '#334155';
+    c.fillRect(x + 18, y + 18, s - 36, s - 36);
+    c.strokeStyle = '#64748b';
+    c.lineWidth = 6;
+    c.strokeRect(x + 20, y + 20, s - 40, s - 40);
+    c.fillStyle = '#15803d';
+    c.fillRect(x + 28, y + 28, s - 56, s - 56);
+    c.fillStyle = '#0f172a';
+    c.fillRect(x + 42, y + 54, s - 84, 20);
+  });
+
   return { canvas, uvs };
 }

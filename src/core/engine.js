@@ -8,13 +8,16 @@ import {
   applyVehicleDamage,
   computeShockwaveDamage,
   computeShockwaveFalloff,
+  createTrashBinEntity,
   createVehicleEntity,
   evaluateVehicleImpact,
   findNearestVehicle,
   findSafeExitPosition,
+  hitTrashBin,
   isTouchingVehicle,
   updateEjectedPlayer,
   updatePedestrian,
+  updateTrashBin,
   updateVehicle,
   updateVehicleCriticalState
 } from '../physics/vehicle-physics.js';
@@ -203,6 +206,7 @@ export class Engine {
 
   resetMatch(startCode = 'CASA-01', targetCode = null) {
     this.vehicles = this.cityMap.vehicleSpawns.map(createVehicleEntity);
+    this.trashBins = (this.cityMap.trashBinSpawns || []).map(createTrashBinEntity);
     this.trafficManager = new TrafficManager(this.cityMap);
     this.skidMarks = [];
     this.bloodMarks = [];
@@ -674,6 +678,7 @@ export class Engine {
 
     this.#updateParticles(dt);
     this.#updateExplosions(dt);
+    this.#updateTrashBins(dt, nearbyVehicles);
 
     // Atropelamento de pessoas caídas no chão: desloca o corpo e deixa trilha de sangue
     const downedPeds = this.trafficManager.pedestrians.filter((p) => p.state === 'downed');
@@ -875,6 +880,33 @@ export class Engine {
     }
   }
 
+  #updateTrashBins(dt, nearbyVehicles) {
+    if (!this.trashBins || this.trashBins.length === 0) return;
+
+    for (const bin of this.trashBins) {
+      for (const v of nearbyVehicles) {
+        if (v.speed <= 12) continue;
+        if (Math.abs(bin.x - v.x) > 48 || Math.abs(bin.y - v.y) > 48) continue;
+        if (isTouchingVehicle(bin.x, bin.y, bin.radius, v, 1)) {
+          hitTrashBin(bin, v.vx, v.vy, v.x, v.y);
+        }
+      }
+
+      if (!this.player.inVehicleId && !this.player.isDead && this.player.speed > 10) {
+        const d = Math.hypot(bin.x - this.player.x, bin.y - this.player.y);
+        if (d < bin.radius + this.player.radius) {
+          const pvx = Math.cos(this.player.angle) * this.player.speed * 0.85;
+          const pvy = Math.sin(this.player.angle) * this.player.speed * 0.85;
+          hitTrashBin(bin, pvx, pvy, this.player.x, this.player.y, 75);
+        }
+      }
+
+      if (bin.vx !== 0 || bin.vy !== 0 || bin.angVel !== 0) {
+        updateTrashBin(bin, dt, this.cityMap);
+      }
+    }
+  }
+
   #updateExplosions(dt) {
     for (let i = this.explosions.length - 1; i >= 0; i--) {
       const ex = this.explosions[i];
@@ -944,6 +976,22 @@ export class Engine {
           }
         }
 
+        if (this.trashBins) {
+          for (const bin of this.trashBins) {
+            const key = `bin:${bin.id}`;
+            if (ex.hitIds.has(key)) continue;
+            const d = Math.hypot(bin.x - ex.x, bin.y - ex.y);
+            if (d <= ex.shockRadius) {
+              ex.hitIds.add(key);
+              const strength = computeShockwaveFalloff(d, ex.shockMaxRadius);
+              if (strength > 0) {
+                const ang = Math.atan2(bin.y - ex.y, bin.x - ex.x);
+                hitTrashBin(bin, Math.cos(ang) * 280 * strength, Math.sin(ang) * 280 * strength, ex.x, ex.y, 120 * strength);
+              }
+            }
+          }
+        }
+
         if (shockProgress >= 1) {
           ex.shockDone = true;
         }
@@ -968,6 +1016,7 @@ export class Engine {
       camera: renderCam,
       cityMap: this.cityMap,
       vehicles: this.vehicles,
+      trashBins: this.trashBins || [],
       pedestrians: this.trafficManager ? this.trafficManager.pedestrians : [],
       player: this.player,
       skidMarks: this.skidMarks,

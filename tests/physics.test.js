@@ -4,10 +4,13 @@ import { CityMap } from '../src/world/city-map.js';
 import {
   computeShockwaveDamage,
   computeShockwaveFalloff,
+  createTrashBinEntity,
   createVehicleEntity,
   findSafeExitPosition,
+  hitTrashBin,
   isTouchingVehicle,
   updatePedestrian,
+  updateTrashBin,
   updateVehicle,
   updateVehicleCriticalState
 } from '../src/physics/vehicle-physics.js';
@@ -146,4 +149,32 @@ test('detecta contato com veículo destruído em chamas para causar dano', () =>
   const car = createVehicleEntity({ id: 'v-burn', kind: 'car', model: 'Sedan', color: '#f00', x: 100, y: 100, angle: 0 });
   assert.equal(isTouchingVehicle(100 + car.length * 0.5 + 8, 100, 11, car, 7), true);
   assert.equal(isTouchingVehicle(100 + car.length * 0.5 + 35, 100, 11, car, 7), false);
+});
+
+test('lixeiras substituem postes, são arremessadas, rebatem em obstáculos e não danificam veículos', () => {
+  const map = new CityMap();
+  const hasLamp = map.blocks.flat().some((b) => b.obstacles.some((o) => o.kind === 'lamp'));
+  assert.equal(hasLamp, false);
+  assert.ok(map.trashBinSpawns.length > 0);
+
+  const car = createVehicleEntity({ id: 'v-bin', kind: 'car', model: 'Sedan', color: '#f00', x: 500, y: 500, angle: 0 });
+  car.vx = 240;
+  car.speed = 240;
+  const bin = createTrashBinEntity({ id: 'bin-test', x: 520, y: 500 });
+  hitTrashBin(bin, car.vx, car.vy, car.x, car.y);
+  assert.ok(bin.vx > 200);
+  assert.equal(car.health, 100);
+
+  // Testa rebote contra parede de uma construção
+  const house = map.resolveLocationCode('CASA-01');
+  const bounceBin = createTrashBinEntity({
+    id: 'bin-bounce',
+    x: house.bounds.x - 10,
+    y: house.bounds.y + house.bounds.h * 0.5
+  });
+  bounceBin.vx = 300;
+  bounceBin.vy = 0;
+  const res = updateTrashBin(bounceBin, 0.03, map);
+  assert.equal(res.bounced, true);
+  assert.ok(bounceBin.vx < 0);
 });

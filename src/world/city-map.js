@@ -30,6 +30,7 @@ export class CityMap {
     this.verticalRoads = [];
     this.blocks = [];
     this.vehicleSpawns = [];
+    this.trashBinSpawns = [];
 
     this.#buildRoads();
     this.#buildBlocks();
@@ -95,11 +96,12 @@ export class CityMap {
           isPlaza,
           buildings: [],
           plaza: null,
-          obstacles: [
-            { x: blockX + 8, y: blockY + 8, w: 10, h: 10, kind: 'lamp' },
-            { x: blockX + bw - 18, y: blockY + bh - 18, w: 10, h: 10, kind: 'lamp' }
-          ]
+          obstacles: []
         };
+        this.trashBinSpawns.push(
+          { id: `bin-${bx}-${by}-nw`, x: blockX + 13, y: blockY + 13 },
+          { id: `bin-${bx}-${by}-se`, x: blockX + bw - 13, y: blockY + bh - 13 }
+        );
 
         if (isPlaza) {
           const code = formatCode('PRACA', plazaIdx++);

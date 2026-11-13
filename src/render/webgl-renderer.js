@@ -190,7 +190,7 @@ export class WebGLRenderer {
     this.quadCount++;
   }
 
-  renderFrame({ camera, cityMap, vehicles, pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, time }) {
+  renderFrame({ camera, cityMap, vehicles, trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, time }) {
     const gl = this.gl;
     this.quadCount = 0;
 
@@ -368,6 +368,13 @@ export class WebGLRenderer {
           [0.45, 0.28, 0.14, 1]
         );
       }
+    }
+
+    // Lixeiras dinâmicas nas esquinas (podem ser arremessadas e rebater)
+    for (const bin of trashBins) {
+      if (bin.x < minX || bin.x > maxX || bin.y < minY || bin.y > maxY) continue;
+      const sz = bin.size || 14;
+      this.#pushQuad(bin.x - sz * 0.5, bin.y - sz * 0.5, sz, sz, bin.angle || 0, 'trashbin', [1, 1, 1, 1]);
     }
 
     // Veículos visíveis (com escala/transparência ao afundar na água)
