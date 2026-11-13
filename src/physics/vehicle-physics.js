@@ -150,9 +150,11 @@ export function updateVehicle(vehicle, input, dt, cityMap) {
   const nextX = vehicle.x + vehicle.vx * dt;
   const nextY = vehicle.y + vehicle.vy * dt;
   const colliders = cityMap.getCollidersAround(nextX, nextY, 120);
-  const resolved = resolveEntityCollisions(nextX, nextY, vehicle.radius, colliders, cityMap.worldSize);
+  const resolved = resolveEntityCollisions(nextX, nextY, vehicle.radius, colliders);
 
+  let impactSpeed = 0;
   if (resolved.collided) {
+    impactSpeed = Math.hypot(vehicle.vx, vehicle.vy);
     vehicle.vx *= 0.35;
     vehicle.vy *= 0.35;
     vehicle.speed = Math.hypot(vehicle.vx, vehicle.vy);
@@ -160,6 +162,15 @@ export function updateVehicle(vehicle, input, dt, cityMap) {
 
   vehicle.x = resolved.x;
   vehicle.y = resolved.y;
+  return { collided: resolved.collided, impactSpeed };
+}
+
+export function evaluateVehicleImpact(impactSpeed, threshold = 270) {
+  if (impactSpeed < threshold) {
+    return { eject: false, damage: 0 };
+  }
+  const damage = Math.min(85, Math.round((impactSpeed - threshold) * 0.35 + 22));
+  return { eject: true, damage };
 }
 
 export function findNearestVehicle(x, y, vehicles, maxDist = 52) {
@@ -189,7 +200,7 @@ export function findSafeExitPosition(vehicle, playerRadius, cityMap) {
 
   const colliders = cityMap.getCollidersAround(vehicle.x, vehicle.y, 120);
   for (const pos of candidates) {
-    if (isPositionFree(pos.x, pos.y, playerRadius, colliders, cityMap.worldSize)) {
+    if (isPositionFree(pos.x, pos.y, playerRadius, colliders, cityMap)) {
       return pos;
     }
   }
