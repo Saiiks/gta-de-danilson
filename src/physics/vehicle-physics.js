@@ -84,13 +84,21 @@ export function updatePedestrian(player, input, dt, cityMap) {
 
 export function updateVehicle(vehicle, input, dt, cityMap) {
   const profile = VEHICLE_PROFILES[vehicle.kind] || VEHICLE_PROFILES.car;
-  const cos = Math.cos(vehicle.angle);
-  const sin = Math.sin(vehicle.angle);
-
-  let forwardSpeed = vehicle.vx * cos + vehicle.vy * sin;
-  let lateralSpeed = -vehicle.vx * sin + vehicle.vy * cos;
 
   if (vehicle.driver === 'player') {
+    const prevCos = Math.cos(vehicle.angle);
+    const prevSin = Math.sin(vehicle.angle);
+    const prevForward = vehicle.vx * prevCos + vehicle.vy * prevSin;
+    const speedFactor = Math.min(1, Math.abs(prevForward) / 90);
+    const directionSign = prevForward >= -5 ? 1 : -1;
+    const steer = input.moveX;
+    vehicle.angle += steer * profile.turnRate * speedFactor * directionSign * dt;
+
+    const cos = Math.cos(vehicle.angle);
+    const sin = Math.sin(vehicle.angle);
+    let forwardSpeed = vehicle.vx * cos + vehicle.vy * sin;
+    let lateralSpeed = -vehicle.vx * sin + vehicle.vy * cos;
+
     if (input.actionPressed && !input.secondaryPressed) {
       forwardSpeed += profile.accel * dt;
     } else if (input.secondaryPressed && !input.actionPressed) {
@@ -106,11 +114,6 @@ export function updateVehicle(vehicle, input, dt, cityMap) {
 
     forwardSpeed = Math.max(-profile.reverseMax, Math.min(profile.maxSpeed, forwardSpeed));
 
-    const speedFactor = Math.min(1, Math.abs(forwardSpeed) / 90);
-    const directionSign = forwardSpeed >= -5 ? 1 : -1;
-    const steer = input.moveX;
-    vehicle.angle += steer * profile.turnRate * speedFactor * directionSign * dt;
-
     const drifting =
       Math.abs(forwardSpeed) > profile.maxSpeed * 0.42 &&
       Math.abs(steer) > 0.2;
@@ -120,18 +123,20 @@ export function updateVehicle(vehicle, input, dt, cityMap) {
 
     vehicle.isDrifting = drifting || Math.abs(lateralSpeed) > 45;
     vehicle.driftIntensity = Math.min(1, Math.abs(lateralSpeed) / 140);
+
+    vehicle.vx = forwardSpeed * cos - lateralSpeed * sin;
+    vehicle.vy = forwardSpeed * sin + lateralSpeed * cos;
   } else {
+    const cos = Math.cos(vehicle.angle);
+    const sin = Math.sin(vehicle.angle);
     const idleDrag = Math.exp(-4.0 * dt);
-    forwardSpeed *= idleDrag;
-    lateralSpeed *= idleDrag;
+    const forwardSpeed = (vehicle.vx * cos + vehicle.vy * sin) * idleDrag;
+    const lateralSpeed = (-vehicle.vx * sin + vehicle.vy * cos) * idleDrag;
     vehicle.isDrifting = false;
     vehicle.driftIntensity = 0;
+    vehicle.vx = forwardSpeed * cos - lateralSpeed * sin;
+    vehicle.vy = forwardSpeed * sin + lateralSpeed * cos;
   }
-
-  const nCos = Math.cos(vehicle.angle);
-  const nSin = Math.sin(vehicle.angle);
-  vehicle.vx = forwardSpeed * nCos - lateralSpeed * nSin;
-  vehicle.vy = forwardSpeed * nSin + lateralSpeed * nCos;
   vehicle.speed = Math.hypot(vehicle.vx, vehicle.vy);
 
   const nextX = vehicle.x + vehicle.vx * dt;
