@@ -241,6 +241,19 @@ body {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
 }
 
+.start-card {
+  max-width: 540px;
+}
+
+.start-splash {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
 .retro-title {
   font-size: clamp(28px, 5vw, 44px);
   font-weight: 900;
