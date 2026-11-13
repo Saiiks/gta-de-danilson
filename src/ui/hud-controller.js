@@ -15,6 +15,9 @@ export class HudController {
     this.objectiveHintEl = document.getElementById('objective-hint');
     this.healthFillEl = document.getElementById('health-fill');
     this.healthValueEl = document.getElementById('health-value');
+    this.vehicleHealthBadgeEl = document.getElementById('vehicle-health-badge');
+    this.vehicleHealthFillEl = document.getElementById('vehicle-health-fill');
+    this.vehicleHealthValueEl = document.getElementById('vehicle-health-value');
     this.gameoverScreen = document.getElementById('gameover-screen');
     this.gameoverReasonEl = document.getElementById('gameover-reason');
     this.restartButton = document.getElementById('restart-button');
@@ -164,5 +167,18 @@ export class HudController {
     this.healthFillEl.style.width = `${clampedHealth}%`;
     this.healthFillEl.style.backgroundColor =
       clampedHealth > 50 ? '#22c55e' : clampedHealth > 25 ? '#f59e0b' : '#ef4444';
+
+    if (this.vehicleHealthBadgeEl) {
+      if (vehicle) {
+        const vHealth = Math.max(0, Math.min(100, Math.round(vehicle.health ?? 100)));
+        this.vehicleHealthBadgeEl.classList.remove('hidden');
+        this.vehicleHealthValueEl.textContent = String(vHealth);
+        this.vehicleHealthFillEl.style.width = `${vHealth}%`;
+        this.vehicleHealthFillEl.style.backgroundColor =
+          vHealth > 55 ? '#38bdf8' : vHealth > 25 ? '#f59e0b' : '#ef4444';
+      } else {
+        this.vehicleHealthBadgeEl.classList.add('hidden');
+      }
+    }
   }
 }

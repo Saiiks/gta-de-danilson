@@ -3,7 +3,14 @@ import assert from 'node:assert/strict';
 import { CityMap } from '../src/world/city-map.js';
 import { TrafficManager } from '../src/world/traffic-manager.js';
 import { isInWater, resolveVehiclePairCollision } from '../src/physics/collision.js';
-import { createVehicleEntity, evaluateVehicleImpact, updateEjectedPlayer } from '../src/physics/vehicle-physics.js';
+import {
+  applyVehicleDamage,
+  createVehicleEntity,
+  evaluateVehicleImpact,
+  findNearestVehicle,
+  updateEjectedPlayer,
+  updateVehicle
+} from '../src/physics/vehicle-physics.js';
 
 test('detecta queda na água ao ultrapassar os limites da ilha', () => {
   const map = new CityMap();
@@ -73,4 +80,31 @@ test('jogador ejetado arrasta na direção do movimento e sofre dano extra ao ba
   }
 
   assert.ok(totalExtra > 0);
+});
+
+test('veículo sofre dano proporcional ao impacto, sinaliza explosão ao zerar barra e não se move destruído', () => {
+  const map = new CityMap();
+  const v = createVehicleEntity({ id: 'car-1', kind: 'car', model: 'Sedan', color: '#f00', x: 500, y: 500, angle: 0 });
+  assert.equal(v.health, 100);
+
+  const light = applyVehicleDamage(v, 40);
+  assert.equal(light.damaged, false);
+  assert.equal(v.health, 100);
+
+  const med = applyVehicleDamage(v, 180);
+  assert.equal(med.damaged, true);
+  assert.equal(med.exploded, false);
+  assert.ok(v.health < 100 && v.health > 0);
+
+  applyVehicleDamage(v, 500);
+  const finalHit = applyVehicleDamage(v, 500);
+  assert.equal(finalHit.exploded, true);
+  assert.equal(v.health, 0);
+
+  v.destroyed = true;
+  v.driver = 'player';
+  const moveRes = updateVehicle(v, { moveX: 0, moveY: -1, actionPressed: true, secondaryPressed: false }, 0.05, map);
+  assert.equal(moveRes.collided, false);
+  assert.equal(v.speed, 0);
+  assert.equal(findNearestVehicle(500, 500, [v]), null);
 });

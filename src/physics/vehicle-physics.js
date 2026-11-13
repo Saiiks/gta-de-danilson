@@ -58,7 +58,9 @@ export function createVehicleEntity(spawn) {
     width: profile.width,
     radius: profile.radius,
     isParked: Boolean(spawn.isParked),
-    driver: spawn.driver || null
+    driver: spawn.driver || null,
+    health: 100,
+    destroyed: false
   };
 }
 
@@ -92,6 +94,14 @@ export function updatePedestrian(player, input, dt, cityMap, vehicles = []) {
 }
 
 export function updateVehicle(vehicle, input, dt, cityMap) {
+  if (vehicle.destroyed) {
+    vehicle.vx = 0;
+    vehicle.vy = 0;
+    vehicle.speed = 0;
+    vehicle.isDrifting = false;
+    vehicle.driftIntensity = 0;
+    return { collided: false, impactSpeed: 0 };
+  }
   const profile = VEHICLE_PROFILES[vehicle.kind] || VEHICLE_PROFILES.car;
 
   if (vehicle.driver === 'player') {
@@ -174,6 +184,19 @@ export function evaluateVehicleImpact(impactSpeed, threshold = 270) {
   return { eject: true, damage };
 }
 
+export function applyVehicleDamage(vehicle, impactSpeed, minImpact = 75) {
+  if (!vehicle || vehicle.destroyed || impactSpeed < minImpact) {
+    return { damaged: false, exploded: false, damage: 0 };
+  }
+  const damage = Math.min(65, Math.max(4, Math.round((impactSpeed - minImpact) * 0.18 + 6)));
+  vehicle.health = Math.max(0, (vehicle.health ?? 100) - damage);
+  return {
+    damaged: true,
+    exploded: vehicle.health <= 0,
+    damage
+  };
+}
+
 export function updateEjectedPlayer(player, dt, cityMap, vehicles = []) {
   const ej = player.ejected;
   if (!ej || !ej.active) {
@@ -237,6 +260,7 @@ export function findNearestVehicle(x, y, vehicles, maxDist = 52) {
   let nearest = null;
   let bestDist = maxDist;
   for (const v of vehicles) {
+    if (v.destroyed) continue;
     const dist = Math.hypot(v.x - x, v.y - y);
     if (dist <= bestDist) {
       bestDist = dist;

@@ -190,7 +190,7 @@ export class WebGLRenderer {
     this.quadCount++;
   }
 
-  renderFrame({ camera, cityMap, vehicles, pedestrians = [], player, skidMarks, bloodMarks = [], objectivePoint, time }) {
+  renderFrame({ camera, cityMap, vehicles, pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, time }) {
     const gl = this.gl;
     this.quadCount = 0;
 
@@ -374,20 +374,37 @@ export class WebGLRenderer {
     for (const v of vehicles) {
       if (v.x < minX || v.x > maxX || v.y < minY || v.y > maxY) continue;
       const sinkScale = v.sinkScale ?? 1;
-      const rgba = hexToRgba(v.color, v.sinkAlpha ?? 1);
+      const vHealth = v.health ?? 100;
+      const baseRgba = hexToRgba(v.color, v.sinkAlpha ?? 1);
+      const shade = v.destroyed ? 0.22 : 0.45 + 0.55 * (vHealth / 100);
+      const rgba = [baseRgba[0] * shade, baseRgba[1] * shade, baseRgba[2] * shade, baseRgba[3]];
       if (v.sinkProgress > 0) {
         const ring = 24 + v.sinkProgress * 34;
         this.#pushQuad(v.x - ring * 0.5, v.y - ring * 0.5, ring, ring, 0, 'solid', [0.75, 0.92, 1, (1 - v.sinkProgress) * 0.45]);
       }
+      const dentWidth = vHealth < 75 ? v.width * (0.9 + 0.1 * (vHealth / 100)) : v.width;
+      const dentLength = vHealth < 75 ? v.length * (0.93 + 0.07 * (vHealth / 100)) : v.length;
       this.#pushQuad(
-        v.x - v.length * 0.5 * sinkScale,
-        v.y - v.width * 0.5 * sinkScale,
-        v.length * sinkScale,
-        v.width * sinkScale,
+        v.x - dentLength * 0.5 * sinkScale,
+        v.y - dentWidth * 0.5 * sinkScale,
+        dentLength * sinkScale,
+        dentWidth * sinkScale,
         v.angle,
         v.kind,
         rgba
       );
+      if (vHealth < 75 && !v.destroyed) {
+        const cos = Math.cos(v.angle);
+        const sin = Math.sin(v.angle);
+        const fx = v.x + cos * (v.length * 0.26);
+        const fy = v.y + sin * (v.length * 0.26);
+        this.#pushQuad(fx - 6, fy - 4, 12, 8, v.angle + 0.25, 'solid', [0.1, 0.1, 0.12, 0.55]);
+        if (vHealth < 40) {
+          const rx = v.x - cos * (v.length * 0.22);
+          const ry = v.y - sin * (v.length * 0.22);
+          this.#pushQuad(rx - 7, ry - 4, 14, 8, v.angle - 0.3, 'solid', [0.08, 0.08, 0.1, 0.65]);
+        }
+      }
       if (v.kind === 'moto' && v.driver === 'npc') {
         const riderScale = sinkScale;
         const riderAlpha = v.sinkAlpha ?? 1;
@@ -447,6 +464,24 @@ export class WebGLRenderer {
       }
 
       this.#pushQuad(player.x - 14 * pScale, player.y - 14 * pScale, 28 * pScale, 28 * pScale, player.angle, 'player', [1, 1, 1, pAlpha]);
+    }
+
+    // Fumaça de veículos danificados e explosões
+    for (const p of smokeParticles) {
+      if (p.x < minX || p.x > maxX || p.y < minY || p.y > maxY) continue;
+      const fade = 1 - p.life / p.maxLife;
+      this.#pushQuad(p.x - p.size * 0.5, p.y - p.size * 0.5, p.size, p.size, p.life * 2, 'solid', [p.dark, p.dark, p.dark, p.alpha * fade]);
+    }
+
+    for (const ex of explosions) {
+      const progress = Math.min(1, ex.timer / ex.duration);
+      const outerSize = ex.radius * 2 * (0.25 + progress * 0.85);
+      const innerSize = ex.radius * 1.15 * Math.sin(progress * Math.PI);
+      const alpha = 1 - progress;
+      this.#pushQuad(ex.x - outerSize * 0.5, ex.y - outerSize * 0.5, outerSize, outerSize, progress * 1.4, 'solid', [0.95, 0.32, 0.08, alpha * 0.65]);
+      if (innerSize > 2) {
+        this.#pushQuad(ex.x - innerSize * 0.5, ex.y - innerSize * 0.5, innerSize, innerSize, -progress * 2, 'solid', [1, 0.85, 0.22, alpha * 0.9]);
+      }
     }
 
     // Marcador de objetivo ativo no mundo + personagem do ponto de encontro
