@@ -388,6 +388,12 @@ export class WebGLRenderer {
         v.kind,
         rgba
       );
+      if (v.kind === 'moto' && v.driver === 'npc') {
+        const riderScale = sinkScale;
+        const riderAlpha = v.sinkAlpha ?? 1;
+        this.#pushQuad(v.x - 10 * riderScale, v.y - 10 * riderScale, 20 * riderScale, 20 * riderScale, v.angle, 'solid', [0.22, 0.45, 0.72, riderAlpha]);
+        this.#pushQuad(v.x + Math.cos(v.angle) * 3 * riderScale - 5 * riderScale, v.y + Math.sin(v.angle) * 3 * riderScale - 5 * riderScale, 10 * riderScale, 10 * riderScale, v.angle, 'solid', [0.92, 0.72, 0.52, riderAlpha]);
+      }
     }
 
     // Pedestres NPC (caminhando na calçada ou caídos no chão)
@@ -407,15 +413,18 @@ export class WebGLRenderer {
       }
     }
 
-    // Jogador a pé com movimento simples de braços e pernas (ou afundando na água)
-    if (!player.inVehicleId) {
-      const pScale = player.sinkScale ?? 1;
-      const pAlpha = player.sinkAlpha ?? 1;
-      if (player.sinkProgress > 0) {
+    // Jogador a pé ou montado em moto (que não possui teto)
+    const playerVehicle = player.inVehicleId ? vehicles.find((v) => v.id === player.inVehicleId) : null;
+    const ridingMoto = Boolean(playerVehicle && playerVehicle.kind === 'moto');
+
+    if (!player.inVehicleId || ridingMoto) {
+      const pScale = ridingMoto ? (playerVehicle.sinkScale ?? 1) : (player.sinkScale ?? 1);
+      const pAlpha = ridingMoto ? (playerVehicle.sinkAlpha ?? 1) : (player.sinkAlpha ?? 1);
+      if (!ridingMoto && player.sinkProgress > 0) {
         const ring = 20 + player.sinkProgress * 28;
         this.#pushQuad(player.x - ring * 0.5, player.y - ring * 0.5, ring, ring, 0, 'solid', [0.75, 0.92, 1, (1 - player.sinkProgress) * 0.5]);
       }
-      const swing = player.speed > 5 && !player.ejected?.active ? Math.sin(player.walkPhase || 0) * 6 : 0;
+      const swing = !ridingMoto && player.speed > 5 && !player.ejected?.active ? Math.sin(player.walkPhase || 0) * 6 : 0;
       const cos = Math.cos(player.angle);
       const sin = Math.sin(player.angle);
       const drawLimb = (forwardOffset, sideOffset, w, h, color) => {
@@ -424,12 +433,18 @@ export class WebGLRenderer {
         this.#pushQuad(lx - w * 0.5 * pScale, ly - h * 0.5 * pScale, w * pScale, h * pScale, player.angle, 'solid', [color[0], color[1], color[2], pAlpha]);
       };
 
-      // Pernas alternadas
-      drawLimb(swing, -5, 9, 6, [0.15, 0.22, 0.35]);
-      drawLimb(-swing, 5, 9, 6, [0.15, 0.22, 0.35]);
-      // Braços alternados (opostos às pernas)
-      drawLimb(-swing * 0.85 + 2, -11, 8, 5, [0.92, 0.72, 0.52]);
-      drawLimb(swing * 0.85 + 2, 11, 8, 5, [0.92, 0.72, 0.52]);
+      if (ridingMoto) {
+        // Braços estendidos segurando o guidão
+        drawLimb(8, -7, 9, 4, [0.92, 0.72, 0.52]);
+        drawLimb(8, 7, 9, 4, [0.92, 0.72, 0.52]);
+      } else {
+        // Pernas alternadas
+        drawLimb(swing, -5, 9, 6, [0.15, 0.22, 0.35]);
+        drawLimb(-swing, 5, 9, 6, [0.15, 0.22, 0.35]);
+        // Braços alternados (opostos às pernas)
+        drawLimb(-swing * 0.85 + 2, -11, 8, 5, [0.92, 0.72, 0.52]);
+        drawLimb(swing * 0.85 + 2, 11, 8, 5, [0.92, 0.72, 0.52]);
+      }
 
       this.#pushQuad(player.x - 14 * pScale, player.y - 14 * pScale, 28 * pScale, 28 * pScale, player.angle, 'player', [1, 1, 1, pAlpha]);
     }
