@@ -323,6 +323,13 @@ body {
   background: #f59e0b;
 }
 
+.ios-install-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #94a3b8;
+}
+
 .progress-track {
   width: 100%;
   height: 10px;

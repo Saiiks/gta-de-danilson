@@ -34,6 +34,7 @@ export class HudController {
     this.missionCompleteSubtitleEl = document.getElementById('mission-complete-subtitle');
     this.missionCompleteBtn = document.getElementById('mission-complete-btn');
     this.portraitWarning = document.getElementById('portrait-warning');
+    this.iosInstallHint = document.getElementById('ios-install-hint');
     this.hasStarted = false;
     this.missionCompleteHandler = null;
     this.missionCompleteBtn.addEventListener('click', () => {
@@ -113,6 +114,24 @@ export class HudController {
       }
     });
     this.syncOrientationAndFullscreen();
+    this.#updateIosInstallHint();
+  }
+
+  #updateIosInstallHint() {
+    if (!this.iosInstallHint || typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return;
+    }
+    const ua = navigator.userAgent || '';
+    const isIos = /iPhone|iPad|iPod/i.test(ua);
+    const isStandalone =
+      Boolean(navigator.standalone) ||
+      Boolean(window.matchMedia?.('(display-mode: standalone)')?.matches) ||
+      Boolean(window.matchMedia?.('(display-mode: fullscreen)')?.matches);
+    if (isIos && !isStandalone) {
+      this.iosInstallHint.classList.remove('hidden');
+    } else {
+      this.iosInstallHint.classList.add('hidden');
+    }
   }
 
   setStoryHeader({ title, subtitle, splashUrl }) {
