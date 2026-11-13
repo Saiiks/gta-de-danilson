@@ -12,18 +12,20 @@
     <div id="damage-flash" aria-hidden="true"></div>
 
     <div id="hud-layer" class="hidden" aria-live="polite">
-      <div id="top-bar">
-        <div id="location-badge" class="hud-pill">
-          <span class="hud-label">LOCAL</span>
-          <span id="location-code">---</span>
-        </div>
-        <div id="vehicle-badge" class="hud-pill">
-          <span id="vehicle-status">A pé</span>
-        </div>
-        <div id="health-badge" class="hud-pill">
-          <span class="hud-label">VIDA</span>
-          <div class="health-track"><div id="health-fill" class="health-fill"></div></div>
-          <span id="health-value">100</span>
+      <div id="top-left-stack">
+        <div id="top-bar">
+          <div id="location-badge" class="hud-pill">
+            <span class="hud-label">LOCAL</span>
+            <span id="location-code">---</span>
+          </div>
+          <div id="vehicle-badge" class="hud-pill">
+            <span id="vehicle-status">A pé</span>
+          </div>
+          <div id="health-badge" class="hud-pill">
+            <span class="hud-label">VIDA</span>
+            <div class="health-track"><div id="health-fill" class="health-fill"></div></div>
+            <span id="health-value">100</span>
+          </div>
         </div>
         <button id="pause-button" type="button" class="hud-pill pause-button" aria-label="Pausar jogo">PAUSA</button>
       </div>
@@ -125,9 +127,16 @@
           <button id="pause-resume-btn" type="button" class="primary-button">Continuar</button>
           <button id="pause-restart-btn" type="button" class="secondary-button">REINICIAR MISSÃO</button>
           <button id="pause-choose-btn" type="button" class="secondary-button">ESCOLHER MISSÃO</button>
-          <div id="pause-mission-list" class="pause-mission-list hidden"></div>
           <button id="pause-exit-btn" type="button" class="danger-button">SAIR</button>
         </div>
+      </div>
+    </section>
+
+    <section id="mission-select-screen" class="overlay-screen hidden" role="dialog" aria-label="Escolher Missão">
+      <div class="overlay-card mission-select-card">
+        <h2 class="retro-title">ESCOLHER MISSÃO</h2>
+        <div id="pause-mission-list" class="pause-mission-list"></div>
+        <button id="mission-select-back-btn" type="button" class="secondary-button mission-select-back-btn">Voltar</button>
       </div>
     </section>
 

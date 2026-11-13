@@ -58,13 +58,21 @@ body {
   pointer-events: none;
 }
 
-#top-bar {
+#top-left-stack {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));
   left: max(12px, env(safe-area-inset-left));
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+#top-bar {
+  display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .hud-pill {
@@ -513,15 +521,28 @@ body {
   background: #b91c1c;
 }
 
+.mission-select-card {
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .pause-mission-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 150px;
+  gap: 8px;
+  max-height: 52dvh;
   overflow-y: auto;
-  padding: 6px;
+  padding: 8px;
   background: rgba(15, 23, 42, 0.75);
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+}
+
+.mission-select-back-btn {
+  align-self: center;
+  min-width: 160px;
 }
 
 .pause-mission-item {

@@ -2,10 +2,12 @@ export class PauseMenuController {
   constructor() {
     this.pauseButton = document.getElementById('pause-button');
     this.screen = document.getElementById('pause-screen');
+    this.missionSelectScreen = document.getElementById('mission-select-screen');
     this.resumeBtn = document.getElementById('pause-resume-btn');
     this.restartMissionBtn = document.getElementById('pause-restart-btn');
     this.chooseMissionBtn = document.getElementById('pause-choose-btn');
     this.missionListEl = document.getElementById('pause-mission-list');
+    this.missionSelectBackBtn = document.getElementById('mission-select-back-btn');
     this.exitBtn = document.getElementById('pause-exit-btn');
 
     this.isOpen = false;
@@ -24,7 +26,13 @@ export class PauseMenuController {
     });
 
     this.chooseMissionBtn.addEventListener('click', () => {
-      this.missionListEl.classList.toggle('hidden');
+      this.screen.classList.add('hidden');
+      this.missionSelectScreen.classList.remove('hidden');
+    });
+
+    this.missionSelectBackBtn.addEventListener('click', () => {
+      this.missionSelectScreen.classList.add('hidden');
+      this.screen.classList.remove('hidden');
     });
 
     this.exitBtn.addEventListener('click', () => {
@@ -54,7 +62,7 @@ export class PauseMenuController {
   open() {
     if (this.isOpen) return;
     this.isOpen = true;
-    this.missionListEl.classList.add('hidden');
+    this.missionSelectScreen.classList.add('hidden');
     this.screen.classList.remove('hidden');
     this.callbacks.onPauseChange?.(true);
   }
@@ -62,7 +70,7 @@ export class PauseMenuController {
   close() {
     if (!this.isOpen) return;
     this.isOpen = false;
-    this.missionListEl.classList.add('hidden');
+    this.missionSelectScreen.classList.add('hidden');
     this.screen.classList.add('hidden');
     this.callbacks.onPauseChange?.(false);
   }
