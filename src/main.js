@@ -4,7 +4,7 @@ import { CutsceneController } from './ui/cutscene-controller.js';
 import { PauseMenuController } from './ui/pause-menu.js';
 import { InventoryController } from './ui/inventory-controller.js';
 import { CityMap } from './world/city-map.js';
-import { loadStoryPackage, preloadStoryAssets } from './story/story-loader.js';
+import { loadStoryPackage, preloadMissionAssets } from './story/story-loader.js';
 
 function waitMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -22,6 +22,7 @@ async function boot() {
   let storyPackage = null;
   let cityMap = null;
   let activeEngine = null;
+  const preloadedUrls = new Set();
 
   try {
     hud.showLoading(5, 'Preparando cidade-base...');
@@ -34,11 +35,13 @@ async function boot() {
       }
     });
 
-    await preloadStoryAssets(storyPackage, {
+    await preloadMissionAssets(storyPackage, 0, {
+      includeSplash: true,
+      preloadedUrls,
       onProgress: ({ loaded, total, ratio }) => {
         const msg = total > 0
-          ? `Carregando recursos visuais (${loaded}/${total})...`
-          : 'Verificando recursos visuais...';
+          ? `Carregando recursos da 1ª missão (${loaded}/${total})...`
+          : 'Verificando recursos iniciais...';
         hud.showLoading(55 + ratio * 40, msg);
       }
     });
@@ -69,6 +72,7 @@ async function boot() {
         cutscene,
         pauseMenu,
         inventoryController,
+        preloadedUrls,
         onExitToTitle: () => {
           activeEngine?.stop();
           activeEngine = null;

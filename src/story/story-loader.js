@@ -310,6 +310,53 @@ export function collectStoryAssetUrls(storyPackage) {
   return [...urls];
 }
 
+export function collectMissionAssetUrls(storyPackage, missionIndex = 0, options = {}) {
+  const { includeSplash = missionIndex === 0 } = options;
+  if (!storyPackage) return [];
+  const urls = new Set();
+
+  if (includeSplash && storyPackage.splashUrl) {
+    urls.add(storyPackage.splashUrl);
+  }
+
+  const mission = storyPackage.missions?.[missionIndex];
+  if (!mission) return [...urls];
+
+  const cutscenes = [mission.introCutscene, mission.outroCutscene];
+  const charIds = new Set();
+  for (const cs of cutscenes) {
+    if (!cs) continue;
+    if (cs.backgroundImage) urls.add(cs.backgroundImage);
+    if (cs.leftChar) charIds.add(cs.leftChar);
+    if (cs.rightChar) charIds.add(cs.rightChar);
+  }
+
+  if (storyPackage.characters instanceof Map) {
+    for (const charId of charIds) {
+      const character = storyPackage.characters.get(charId);
+      for (const spriteUrl of Object.values(character?.sprites || {})) {
+        if (spriteUrl) urls.add(spriteUrl);
+      }
+    }
+  }
+
+  if (storyPackage.items instanceof Map) {
+    for (const itemId of [mission.giveItem, mission.requireItem]) {
+      if (!itemId) continue;
+      const item = storyPackage.items.get(itemId);
+      if (item?.imageUrl) urls.add(item.imageUrl);
+    }
+  }
+
+  return [...urls];
+}
+
+export function getPendingMissionAssetUrls(storyPackage, missionIndex = 0, preloadedUrls = null, options = {}) {
+  const urls = collectMissionAssetUrls(storyPackage, missionIndex, options);
+  if (!(preloadedUrls instanceof Set)) return urls;
+  return urls.filter((url) => !preloadedUrls.has(url));
+}
+
 export function preloadImageAsset(url, loadImageFn = null) {
   if (!url) return Promise.resolve({ url, ok: false });
   if (typeof loadImageFn === 'function') {
@@ -335,10 +382,12 @@ export function preloadImageAsset(url, loadImageFn = null) {
   });
 }
 
-export async function preloadStoryAssets(storyPackage, options = {}) {
-  const { onProgress, loadImageFn = null } = options;
-  const urls = collectStoryAssetUrls(storyPackage);
-  const total = urls.length;
+async function preloadUrlList(urls, options = {}) {
+  const { onProgress, loadImageFn = null, preloadedUrls = null } = options;
+  const pending = preloadedUrls instanceof Set
+    ? urls.filter((url) => !preloadedUrls.has(url))
+    : urls;
+  const total = pending.length;
   if (total === 0) {
     if (typeof onProgress === 'function') {
       onProgress({ loaded: 0, total: 0, ratio: 1, url: '' });
@@ -349,9 +398,11 @@ export async function preloadStoryAssets(storyPackage, options = {}) {
   let loaded = 0;
   const failed = [];
   await Promise.all(
-    urls.map(async (url) => {
+    pending.map(async (url) => {
       const result = await preloadImageAsset(url, loadImageFn);
-      if (!result.ok) {
+      if (result.ok) {
+        preloadedUrls?.add(url);
+      } else {
         failed.push(url);
         console.warn(`[StoryLoader] Falha ao pré-carregar imagem: ${url}`);
       }
@@ -368,4 +419,15 @@ export async function preloadStoryAssets(storyPackage, options = {}) {
   );
 
   return { total, loaded, failed };
+}
+
+export async function preloadStoryAssets(storyPackage, options = {}) {
+  const urls = collectStoryAssetUrls(storyPackage);
+  return preloadUrlList(urls, options);
+}
+
+export async function preloadMissionAssets(storyPackage, missionIndex = 0, options = {}) {
+  const { includeSplash = missionIndex === 0, ...rest } = options;
+  const urls = collectMissionAssetUrls(storyPackage, missionIndex, { includeSplash });
+  return preloadUrlList(urls, rest);
 }

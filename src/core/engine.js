@@ -24,6 +24,7 @@ import {
 } from '../physics/vehicle-physics.js';
 import { Minimap } from '../ui/minimap.js';
 import { Inventory } from './inventory.js';
+import { getPendingMissionAssetUrls, preloadMissionAssets } from '../story/story-loader.js';
 
 export class Engine {
   constructor(canvas, minimapCanvas, touchControlsEl, hud, options = {}) {
@@ -39,6 +40,7 @@ export class Engine {
     this.cutscene = options.cutscene || null;
     this.pauseMenu = options.pauseMenu || null;
     this.inventoryController = options.inventoryController || null;
+    this.preloadedUrls = options.preloadedUrls || new Set();
     this.onExitToTitle = options.onExitToTitle || null;
 
     this.inventory = new Inventory(20);
@@ -156,7 +158,7 @@ export class Engine {
     if (this.#onResize) window.removeEventListener('resize', this.#onResize);
   }
 
-  startMission(index, { skipIntro = false, preserveState = false } = {}) {
+  async startMission(index, { skipIntro = false, preserveState = false } = {}) {
     if (!this.storyPackage || !this.storyPackage.missions?.length) {
       this.freeRoamMode = true;
       this.resetMatch();
@@ -164,11 +166,30 @@ export class Engine {
     }
 
     const clamped = Math.max(0, Math.min(index, this.storyPackage.missions.length - 1));
+    const mission = this.storyPackage.missions[clamped];
+    const pendingUrls = getPendingMissionAssetUrls(this.storyPackage, clamped, this.preloadedUrls, {
+      includeSplash: false
+    });
+
+    if (pendingUrls.length > 0) {
+      this.paused = true;
+      this.hud.showLoading(10, `Carregando ${mission.title}...`);
+      await preloadMissionAssets(this.storyPackage, clamped, {
+        includeSplash: false,
+        preloadedUrls: this.preloadedUrls,
+        onProgress: ({ loaded, total, ratio }) => {
+          this.hud.showLoading(10 + ratio * 85, `Carregando recursos da missão (${loaded}/${total})...`);
+        }
+      });
+      this.hud.showLoading(100, 'Missão pronta!');
+      this.hud.showGameHud();
+      this.paused = false;
+    }
+
     this.currentMissionIndex = clamped;
     this.freeRoamMode = false;
     this.missionOutTriggered = false;
     this.awaitingExitTarget = false;
-    const mission = this.storyPackage.missions[clamped];
 
     if (preserveState) {
       const currentVehicle = this.player.inVehicleId

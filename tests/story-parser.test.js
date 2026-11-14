@@ -14,10 +14,13 @@ import {
   StoryParseError
 } from '../src/story/story-parser.js';
 import {
+  collectMissionAssetUrls,
   collectStoryAssetUrls,
   getCharacterSidePngCandidates,
   getCutsceneBackgroundCandidates,
+  getPendingMissionAssetUrls,
   getSplashPngCandidates,
+  preloadMissionAssets,
   preloadStoryAssets,
   resolveFirstExistingAsset
 } from '../src/story/story-loader.js';
@@ -197,4 +200,61 @@ test('coleta URLs únicas e pré-carrega assets da história reportando progress
   assert.deepEqual(summary.failed, ['./story/map/com.jpg']);
   assert.equal(progressEvents.length, 6);
   assert.equal(progressEvents.at(-1).ratio, 1);
+});
+
+test('pré-carrega apenas splash e recursos da missão 0 na abertura e carrega delta nas missões seguintes', async () => {
+  const story = {
+    splashUrl: './story/splash.png',
+    characters: new Map([
+      ['guanabara', { sprites: { left: './story/characters/guanabara.png' } }],
+      ['beto', { sprites: { right: './story/characters/beto.png' } }],
+      ['clara', { sprites: { right: './story/characters/clara.png' } }],
+    ]),
+    items: new Map([
+      ['maleta', { imageUrl: './story/assets/item-maleta.svg' }],
+      ['chave', { imageUrl: './story/assets/item-chave.svg' }],
+    ]),
+    missions: [
+      {
+        giveItem: 'maleta',
+        requireItem: '',
+        introCutscene: { leftChar: 'guanabara', rightChar: 'beto', backgroundImage: './story/map/casa.png' },
+        outroCutscene: { leftChar: 'guanabara', rightChar: 'beto', backgroundImage: './story/map/rua.png' },
+      },
+      {
+        giveItem: '',
+        requireItem: 'chave',
+        introCutscene: { leftChar: 'guanabara', rightChar: 'clara', backgroundImage: './story/map/com.jpg' },
+        outroCutscene: { leftChar: 'guanabara', rightChar: 'clara', backgroundImage: './story/map/praca.png' },
+      },
+    ],
+  };
+
+  const preloadedUrls = new Set();
+  const m0Summary = await preloadMissionAssets(story, 0, {
+    includeSplash: true,
+    preloadedUrls,
+    loadImageFn: async () => true,
+  });
+
+  assert.equal(m0Summary.total, 6);
+  assert.equal(preloadedUrls.has('./story/splash.png'), true);
+  assert.equal(preloadedUrls.has('./story/characters/clara.png'), false);
+  assert.equal(preloadedUrls.has('./story/assets/item-chave.svg'), false);
+
+  const pendingM1 = getPendingMissionAssetUrls(story, 1, preloadedUrls, { includeSplash: false });
+  assert.deepEqual(pendingM1, [
+    './story/map/com.jpg',
+    './story/map/praca.png',
+    './story/characters/clara.png',
+    './story/assets/item-chave.svg',
+  ]);
+
+  const m1Summary = await preloadMissionAssets(story, 1, {
+    includeSplash: false,
+    preloadedUrls,
+    loadImageFn: async () => true,
+  });
+  assert.equal(m1Summary.total, 4);
+  assert.equal(getPendingMissionAssetUrls(story, 1, preloadedUrls, { includeSplash: false }).length, 0);
 });
