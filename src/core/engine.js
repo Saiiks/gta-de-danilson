@@ -26,6 +26,19 @@ import { Minimap } from '../ui/minimap.js';
 import { Inventory } from './inventory.js';
 import { getPendingMissionAssetUrls, preloadMissionAssets } from '../story/story-loader.js';
 
+const PEDESTRIAN_CHAT_LINES = [
+  'Opa! Cuidado com o trânsito por aqui!',
+  'Você viu onde deixei a chave do meu carro?',
+  'Dia bonito para dar uma volta na praça, né?',
+  'Dizem que o Empório São Jorge tem as melhores entregas!',
+  'Ei, você parece com pressa! Tá fazendo alguma missão?',
+  'Se acelerar demais nas curvas vai sair derrapando!',
+  'Tô só dando uma caminhada tranquila na calçada.',
+  'Hoje a cidade está bem movimentada!',
+  'Cuidado para não cair na água nas bordas da ilha!',
+  'Se precisar de carona, tem vários carros estacionados por aí.'
+];
+
 export class Engine {
   constructor(canvas, minimapCanvas, touchControlsEl, hud, options = {}) {
     this.canvas = canvas;
@@ -430,6 +443,32 @@ export class Engine {
     );
   }
 
+  #isNearInteriorStoryNpc() {
+    if (this.player.inVehicleId || this.#isPickupStageActive() || !this.objectiveNpcPoint) return false;
+    const requiresBuildingEntry =
+      this.objectiveLocationType === 'commerce' || this.objectiveLocationType === 'house';
+    if (!requiresBuildingEntry) return false;
+    const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
+    if (!activeMission || this.player.insideLocationCode !== activeMission.targetLocation) return false;
+    return Math.hypot(this.player.x - this.objectiveNpcPoint.x, this.player.y - this.objectiveNpcPoint.y) < 58;
+  }
+
+  #findNearestTalkablePedestrian(x, y, maxDist = 52) {
+    const peds = this.trafficManager?.pedestrians;
+    if (!Array.isArray(peds)) return null;
+    let best = null;
+    let bestDist = maxDist;
+    for (const ped of peds) {
+      if (!ped || ped.isDead || ped.knockedDown) continue;
+      const d = Math.hypot(x - ped.x, y - ped.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = ped;
+      }
+    }
+    return best;
+  }
+
   #handleMissionArrival() {
     const mission = this.storyPackage.missions[this.currentMissionIndex];
     if (!mission) return;
@@ -700,7 +739,7 @@ export class Engine {
         } else {
           this.player.walkPhase = 0;
         }
-        if (input.actionJustPressed) {
+        if (input.actionJustPressed && !this.#isNearInteriorStoryNpc()) {
           const nearest = findNearestVehicle(this.player.x, this.player.y, this.vehicles);
           if (nearest) {
             if (nearest.driver === 'npc') {
@@ -712,6 +751,13 @@ export class Engine {
             this.player.insideLocationCode = null;
             this.input.consumeExitTrigger();
             activeVehicle = nearest;
+          } else {
+            const ped = this.#findNearestTalkablePedestrian(this.player.x, this.player.y);
+            if (ped) {
+              ped.angle = Math.atan2(this.player.y - ped.y, this.player.x - ped.x);
+              const line = PEDESTRIAN_CHAT_LINES[Math.floor(Math.random() * PEDESTRIAN_CHAT_LINES.length)];
+              this.hud.showToast(`Morador: "${line}"`, { durationMs: 3000 });
+            }
           }
         }
       }
@@ -1108,16 +1154,16 @@ export class Engine {
       const reachedTarget =
         this.objectivePoint &&
         (requiresBuildingEntry
-          ? !this.player.inVehicleId &&
-            Boolean(activeMission && this.player.insideLocationCode === activeMission.targetLocation)
+          ? this.#isNearInteriorStoryNpc() && input.actionJustPressed
           : Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 76 ||
             Boolean(activeMission && this.player.insideLocationCode === activeMission.targetLocation));
 
       if (this.awaitingExitTarget) {
-        if (!reachedTarget) {
+        if (!reachedTarget || (requiresBuildingEntry && input.actionJustPressed)) {
           this.awaitingExitTarget = false;
         }
-      } else if (this.objectivePoint && !this.missionOutTriggered && reachedTarget) {
+      }
+      if (!this.awaitingExitTarget && this.objectivePoint && !this.missionOutTriggered && reachedTarget) {
         if (this.storyPackage && !this.freeRoamMode) {
           this.missionOutTriggered = true;
           this.#handleMissionArrival();
@@ -1156,11 +1202,15 @@ export class Engine {
       ? this.vehicles.find((v) => v.id === this.player.inVehicleId)
       : null;
 
+    const objectiveHint = this.#isNearInteriorStoryNpc()
+      ? 'Aperte Ação para falar'
+      : this.getLocationDisplayName(this.objectiveCode);
+
     this.hud.updateStatus({
       locationCode: this.getLocationDisplayName(this.player.currentLocationCode),
       vehicle: currentVehicle,
       isDrifting: Boolean(currentVehicle?.isDrifting),
-      objectiveCode: this.getLocationDisplayName(this.objectiveCode),
+      objectiveCode: objectiveHint,
       health: this.player.health
     });
   }
