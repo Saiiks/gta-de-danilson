@@ -79,8 +79,11 @@ export function getCutsceneBackgroundCandidates(basePath, bgText = '', fallbackC
   if (code) {
     const typePrefix = code.split('-')[0].toLowerCase();
     for (const rel of [
+      `${cleanBase}/map/${code}.png`,
       `${cleanBase}/map/${code}.jpg`,
+      `${cleanBase}/map/${code.toLowerCase()}.png`,
       `${cleanBase}/map/${code.toLowerCase()}.jpg`,
+      `${cleanBase}/map/${typePrefix}.png`,
       `${cleanBase}/map/${typePrefix}.jpg`,
     ]) {
       if (!candidates.includes(rel)) {

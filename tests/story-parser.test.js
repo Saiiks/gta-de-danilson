@@ -134,18 +134,23 @@ test('map/map.md mapeia todos os locais da cidade e substitui códigos em falas 
   );
 });
 
-test('resolve cenários JPG de cutscene por código ou tipo (RUA, PRACA, COM, CASA) e possui exemplos', async () => {
-  for (const name of ['rua.jpg', 'praca.jpg', 'com.jpg', 'casa.jpg']) {
-    assert.equal(fs.existsSync(path.join(storyDir, 'map', name)), true, `Ausente: story/map/${name}`);
+test('resolve cenários PNG/JPG de cutscene por código ou tipo (RUA, PRACA, COM, CASA) e possui exemplos', async () => {
+  for (const prefix of ['rua', 'praca', 'com', 'casa']) {
+    const hasPng = fs.existsSync(path.join(storyDir, 'map', `${prefix}.png`));
+    const hasJpg = fs.existsSync(path.join(storyDir, 'map', `${prefix}.jpg`));
+    assert.equal(hasPng || hasJpg, true, `Ausente: story/map/${prefix}.png ou ${prefix}.jpg`);
   }
 
   const candidates = getCutsceneBackgroundCandidates('./story', 'Frente da CASA-01', 'CASA-01');
   assert.deepEqual(candidates, [
+    './story/map/CASA-01.png',
     './story/map/CASA-01.jpg',
+    './story/map/casa-01.png',
     './story/map/casa-01.jpg',
+    './story/map/casa.png',
     './story/map/casa.jpg',
   ]);
 
-  const resolved = await resolveFirstExistingAsset(candidates, async (url) => url === './story/map/casa.jpg');
-  assert.equal(resolved, './story/map/casa.jpg');
+  const resolved = await resolveFirstExistingAsset(candidates, async (url) => url === './story/map/casa.png');
+  assert.equal(resolved, './story/map/casa.png');
 });
