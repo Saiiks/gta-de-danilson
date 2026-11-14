@@ -10,6 +10,7 @@ export class HudController {
     this.loadingText = document.getElementById('loading-text');
     this.loadingPercent = document.getElementById('loading-percent');
     this.inventoryButton = document.getElementById('inventory-button');
+    this.inventoryBadge = document.getElementById('inventory-badge');
     this.worldPickupItemEl = document.getElementById('world-pickup-item');
     this.hudToastEl = document.getElementById('hud-toast');
     this.hudToastImgEl = document.getElementById('hud-toast-img');
@@ -211,9 +212,14 @@ export class HudController {
     this.inventoryClickHandler = handler;
   }
 
-  setInventoryCount(count, capacity = 20) {
+  setInventoryCount(count, capacity = 5) {
+    if (this.inventoryBadge) {
+      this.inventoryBadge.textContent = `${count}/${capacity}`;
+    } else if (this.inventoryButton) {
+      this.inventoryButton.textContent = `${count}/${capacity}`;
+    }
     if (this.inventoryButton) {
-      this.inventoryButton.textContent = `ITENS (${count}/${capacity})`;
+      this.inventoryButton.setAttribute('aria-label', `Abrir inventário (${count} de ${capacity})`);
     }
   }
 

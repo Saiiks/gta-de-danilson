@@ -613,7 +613,7 @@ body {
 .hud-quick-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   pointer-events: auto;
 }
 
@@ -624,11 +624,54 @@ body {
   color: #f8fafc;
   font-weight: 700;
   align-self: flex-start;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.hud-action-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(54px, 8vw, 64px);
+  height: clamp(54px, 8vw, 64px);
+  padding: 0;
+  border-radius: 14px;
+}
+
+.hud-action-icon {
+  width: clamp(26px, 4vw, 30px);
+  height: clamp(26px, 4vw, 30px);
+  display: block;
+}
+
+.hud-action-badge {
+  position: absolute;
+  bottom: -5px;
+  right: -5px;
+  min-width: 24px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #fbbf24;
+  color: #0e1015;
+  border: 2px solid #0e1015;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pause-button:hover {
   border-color: #fbbf24;
   color: #fbbf24;
+}
+
+.pause-button:active {
+  transform: scale(0.94);
 }
 
 .hud-toast {
