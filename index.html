@@ -12,12 +12,13 @@
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <link rel="apple-touch-icon" href="./icon.svg">
   <title>Cidade Aberta Retrô</title>
-  <link rel="stylesheet" href="./styles/main.css?v=11">
+  <link rel="stylesheet" href="./styles/main.css?v=13">
 </head>
 <body>
   <div id="game-shell">
     <canvas id="game-canvas" aria-label="Área do jogo"></canvas>
     <img id="world-pickup-item" class="world-pickup-item hidden" alt="">
+    <div id="world-collectibles-layer" aria-hidden="true"></div>
     <div id="damage-flash" aria-hidden="true"></div>
 
     <div id="hud-layer" class="hidden" aria-live="polite">
@@ -257,6 +258,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/main.js?v=27"></script>
+  <script type="module" src="./src/main.js?v=37"></script>
 </body>
 </html>

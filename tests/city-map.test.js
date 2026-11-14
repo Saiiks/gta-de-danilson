@@ -82,3 +82,18 @@ test('gera hospitais espalhados pela cidade com telhado branco e interior acessÃ
     assert.ok(map.resolveLocationCode(code));
   }
 });
+
+test('resolveItemLocation posiciona itens em praÃ§as, interiores e esquinas entre duas ruas', () => {
+  const map = new CityMap();
+  const plazaPt = map.resolveItemLocation('PRACA-03');
+  assert.equal(plazaPt.kind, 'plaza');
+  assert.ok(Number.isFinite(plazaPt.x) && Number.isFinite(plazaPt.y));
+
+  const interiorPt = map.resolveItemLocation('HOSP-05');
+  assert.equal(interiorPt.kind, 'interior');
+  assert.equal(interiorPt.code, 'HOSP-05');
+
+  const cornerPt = map.resolveItemLocation('RUA-04 x RUA-36 NE');
+  assert.equal(cornerPt.kind, 'corner');
+  assert.equal(map.getLocationAt(cornerPt.x, cornerPt.y), null);
+});

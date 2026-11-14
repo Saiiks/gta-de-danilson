@@ -215,7 +215,7 @@ export class WebGLRenderer {
     this.#pushQuad(x - 4.5, y - 2, 9, 9, 0, 'disc', [0.22, 0.14, 0.08, 1]);
   }
 
-  renderFrame({ camera, cityMap, vehicles, boats = [], trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, objectiveNpcPoint, completedNpcPoints = [], emitNpcWaves = false, time }) {
+  renderFrame({ camera, cityMap, vehicles, boats = [], trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], worldCollectibles = [], objectivePoint, objectiveNpcPoint, completedNpcPoints = [], emitNpcWaves = false, time }) {
     const gl = this.gl;
     this.quadCount = 0;
 
@@ -445,6 +445,28 @@ export class WebGLRenderer {
       pushArrowPart(5, -7, 22, 10, 0.68);
       pushArrowPart(5, 7, 22, 10, -0.68);
       pushArrowPart(10, 0, 12, 12, Math.PI * 0.25);
+    }
+
+    // Aura luminosa sob itens colecionáveis espalhados pelo mapa (cor por raridade)
+    for (const c of worldCollectibles) {
+      if (c.collected) continue;
+      if (c.kind === 'interior' && player.insideLocationCode !== c.locationCode) continue;
+      if (c.x < minX || c.x > maxX || c.y < minY || c.y > maxY) continue;
+      const ringSize = 36 + Math.sin(time * 4 + c.x) * 4;
+      const auraColor = c.rarity === 'lendario'
+        ? [0.98, 0.78, 0.16, 0.36]
+        : c.rarity === 'especial'
+          ? [0.72, 0.38, 0.98, 0.32]
+          : [0.22, 0.82, 0.98, 0.28];
+      this.#pushQuad(
+        c.x - ringSize * 0.5,
+        c.y - ringSize * 0.5,
+        ringSize,
+        ringSize,
+        0,
+        'circle',
+        auraColor
+      );
     }
 
     // Lixeiras dinâmicas nas esquinas (podem ser arremessadas e rebater)

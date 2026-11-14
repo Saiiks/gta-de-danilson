@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { CityMap } from '../src/world/city-map.js';
 import {
   parseStoryManifest,
+  parseItemMarkdown,
   parseCharacterMarkdown,
   parseMissionMarkdown,
   parseMapMarkdown,
@@ -63,6 +64,18 @@ test('carrega e valida o pacote de história de exemplo completo contra a cidade
   assert.ok(m1.outroCutscene.steps.some((step) => step.type === 'deliver' && step.itemId === 'caixa-secreta'));
 
   assert.equal(manifest.missions.length, 5);
+  assert.equal(manifest.collectibles.length, 12);
+  const disqueteItem = parseItemMarkdown(
+    fs.readFileSync(path.join(storyDir, 'items', 'disquete.md'), 'utf8'),
+    'items/disquete.md'
+  );
+  assert.equal(disqueteItem.category, 'extra');
+  assert.equal(disqueteItem.rarity, 'especial');
+  const caixaItem = parseItemMarkdown(
+    fs.readFileSync(path.join(storyDir, 'items', 'caixa-secreta.md'), 'utf8'),
+    'items/caixa-secreta.md'
+  );
+  assert.equal(caixaItem.category, 'missao');
   const m5 = parseMissionMarkdown(
     fs.readFileSync(path.join(storyDir, 'missions', '05-chave-do-vibe-coding.md'), 'utf8'),
     'missions/05-chave-do-vibe-coding.md',

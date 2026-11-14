@@ -7,7 +7,7 @@ import {
   replaceLocationCodesWithNames,
   validateAssetPath,
   StoryParseError,
-} from './story-parser.js';
+} from './story-parser.js?v=17';
 
 async function fetchText(url, label) {
   let response;
@@ -254,7 +254,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
   );
 
   const items = new Map();
-  const itemIds = manifest.items || [];
+  const itemIds = [...new Set([...(manifest.items || []), ...(manifest.collectibles || [])])];
   const totalItems = Math.max(1, itemIds.length);
   let loadedItems = 0;
   await Promise.all(
@@ -262,6 +262,10 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
       const itemFile = `items/${itemId}.md`;
       const raw = await fetchText(`${cleanBase}/${itemFile}`, itemFile);
       const item = parseItemMarkdown(raw, itemFile);
+      let worldPoint = null;
+      if (item.location && cityMap?.resolveItemLocation) {
+        worldPoint = cityMap.resolveItemLocation(item.location);
+      }
       let imageUrl = '';
       if (item.image) {
         const fullUrl = `${cleanBase}/${item.image}`;
@@ -274,6 +278,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
       items.set(item.id, {
         ...item,
         imageUrl,
+        worldPoint,
       });
       loadedItems += 1;
       reportProgress(0.55 + (loadedItems / totalItems) * 0.1, `Carregando itens (${loadedItems}/${totalItems})...`);

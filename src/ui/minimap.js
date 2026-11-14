@@ -5,7 +5,7 @@ export class Minimap {
     this.viewRange = 1900;
   }
 
-  render(cityMap, player, routePoints, objectivePoint) {
+  render(cityMap, player, routePoints, objectivePoint, worldCollectibles = []) {
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
@@ -89,6 +89,29 @@ export class Minimap {
       ctx.strokeStyle = '#111827';
       ctx.lineWidth = 1.5;
       ctx.stroke();
+    }
+
+    if (worldCollectibles && worldCollectibles.length > 0) {
+      ctx.save();
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = '#0f172a';
+      for (const c of worldCollectibles) {
+        if (c.collected) continue;
+        const cx = toMiniX(c.x);
+        const cy = toMiniY(c.y);
+        if (cx < -6 || cx > w + 6 || cy < -6 || cy > h + 6) continue;
+        ctx.fillStyle = c.rarity === 'lendario'
+          ? '#facc15'
+          : c.rarity === 'especial'
+            ? '#c084fc'
+            : '#38bdf8';
+        ctx.strokeText('?', cx, cy);
+        ctx.fillText('?', cx, cy);
+      }
+      ctx.restore();
     }
 
     // Seta do jogador no centro

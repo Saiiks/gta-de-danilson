@@ -154,7 +154,12 @@ export class InventoryController {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'inventory-slot';
-      if (item) btn.classList.add('occupied');
+      if (item) {
+        btn.classList.add('occupied');
+        if (item.category === 'extra' && item.rarity) {
+          btn.classList.add(`rarity-${item.rarity}`);
+        }
+      }
       if (idx === this.selectedIndex) btn.classList.add('selected');
       btn.setAttribute('role', 'gridcell');
       btn.setAttribute('aria-label', item ? item.name : `Espaço ${idx + 1} vazio`);

@@ -12,6 +12,8 @@ export class HudController {
     this.inventoryButton = document.getElementById('inventory-button');
     this.inventoryBadge = document.getElementById('inventory-badge');
     this.worldPickupItemEl = document.getElementById('world-pickup-item');
+    this.worldCollectiblesLayer = document.getElementById('world-collectibles-layer');
+    this.collectibleNodePool = [];
     this.hudToastEl = document.getElementById('hud-toast');
     this.hudToastImgEl = document.getElementById('hud-toast-img');
     this.hudToastTextEl = document.getElementById('hud-toast-text');
@@ -236,6 +238,31 @@ export class HudController {
     this.worldPickupItemEl.style.left = `${screenX}px`;
     this.worldPickupItemEl.style.top = `${screenY}px`;
     this.worldPickupItemEl.classList.remove('hidden');
+  }
+
+  updateWorldCollectibles(visibleItems = []) {
+    if (!this.worldCollectiblesLayer) return;
+    while (this.collectibleNodePool.length < visibleItems.length) {
+      const img = document.createElement('img');
+      img.className = 'world-pickup-item hidden';
+      this.worldCollectiblesLayer.appendChild(img);
+      this.collectibleNodePool.push(img);
+    }
+    for (let i = 0; i < this.collectibleNodePool.length; i += 1) {
+      const el = this.collectibleNodePool[i];
+      const item = visibleItems[i];
+      if (!item || !item.imageUrl) {
+        el.classList.add('hidden');
+        continue;
+      }
+      if (el.getAttribute('src') !== item.imageUrl) {
+        el.src = item.imageUrl;
+      }
+      el.alt = item.name || '';
+      el.style.left = `${item.screenX}px`;
+      el.style.top = `${item.screenY}px`;
+      el.classList.remove('hidden');
+    }
   }
 
   animatePickupToInventory(startX, startY, imageUrl, alt = '') {

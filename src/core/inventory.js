@@ -1,5 +1,5 @@
 export const INVENTORY_COLUMNS = 5;
-export const INVENTORY_ROWS = 1;
+export const INVENTORY_ROWS = 2;
 export const INVENTORY_CAPACITY = INVENTORY_COLUMNS * INVENTORY_ROWS;
 
 export class Inventory {
@@ -53,6 +53,8 @@ export class Inventory {
       name: String(itemDef.name || itemDef.id),
       description: String(itemDef.description || ''),
       imageUrl: String(itemDef.imageUrl || ''),
+      category: String(itemDef.category || 'missao'),
+      rarity: String(itemDef.rarity || ''),
     };
     return { ok: true, reason: 'added', slotIndex: freeIndex };
   }
@@ -78,5 +80,22 @@ export class Inventory {
 
   clear() {
     this.slots.fill(null);
+  }
+
+  restorePreservingExtras(checkpointSlots = []) {
+    const extras = this.slots.filter((item) => item && item.category === 'extra');
+    this.clear();
+    if (Array.isArray(checkpointSlots)) {
+      for (const item of checkpointSlots) {
+        if (item && !this.hasItem(item.id)) {
+          this.addItem(item);
+        }
+      }
+    }
+    for (const extra of extras) {
+      if (!this.hasItem(extra.id)) {
+        this.addItem(extra);
+      }
+    }
   }
 }

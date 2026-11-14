@@ -1,9 +1,9 @@
-import { CityMap } from '../world/city-map.js?v=23';
+import { CityMap } from '../world/city-map.js?v=24';
 import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js?v=20';
 import { BoatManager } from '../world/boat-manager.js?v=17';
 import { InputManager } from '../input/input-manager.js?v=17';
-import { WebGLRenderer } from '../render/webgl-renderer.js?v=23';
+import { WebGLRenderer } from '../render/webgl-renderer.js?v=25';
 import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=11';
 import {
   applyPedestrianDamage,
@@ -23,8 +23,8 @@ import {
   updateVehicle,
   updateVehicleCriticalState
 } from '../physics/vehicle-physics.js?v=17';
-import { Minimap } from '../ui/minimap.js?v=21';
-import { Inventory } from './inventory.js?v=16';
+import { Minimap } from '../ui/minimap.js?v=22';
+import { Inventory } from './inventory.js?v=19';
 import { getPendingMissionAssetUrls, preloadMissionAssets } from '../story/story-loader.js';
 
 const PEDESTRIAN_CHAT_LINES = [
@@ -57,7 +57,7 @@ export class Engine {
     this.preloadedUrls = options.preloadedUrls || new Set();
     this.onExitToTitle = options.onExitToTitle || null;
 
-    this.inventory = new Inventory(5);
+    this.inventory = new Inventory();
     this.awaitingExitTarget = false;
     this.currentMissionIndex = 0;
     this.freeRoamMode = !this.storyPackage;
@@ -66,6 +66,9 @@ export class Engine {
     this.paused = false;
     this.hudDisplayHealth = 100;
     this.wasInsideHospital = false;
+    this.collectibleFullToastCooldown = 0;
+    this.worldCollectibles = [];
+    this.collectedExtraIds = new Set();
 
     this.pathfinder = null;
     this.trafficManager = null;
@@ -205,8 +208,6 @@ export class Engine {
       this.hud.showLoading(100, 'Missão pronta!');
       this.hud.showGameHud();
       this.paused = false;
-    this.hudDisplayHealth = 100;
-    this.wasInsideHospital = false;
     }
 
     this.currentMissionIndex = clamped;
@@ -244,13 +245,8 @@ export class Engine {
     } else if (this.missionCheckpoint && this.missionCheckpoint.missionIndex === clamped) {
       const cp = this.missionCheckpoint;
       this.resetMatch(mission.startLocation, initialObjective);
-      if (Array.isArray(cp.inventorySlots)) {
-        this.inventory.clear();
-        for (const item of cp.inventorySlots) {
-          if (item) this.inventory.addItem(item);
-        }
-        this.#syncInventoryHud();
-      }
+      this.inventory.restorePreservingExtras(cp.inventorySlots);
+      this.#syncInventoryHud();
       if (needsPickup && mission.giveItem && this.inventory.hasItem(mission.giveItem)) {
         this.itemPickedUp = true;
         this.setObjective(mission.targetLocation);
@@ -274,7 +270,7 @@ export class Engine {
       this.camera.y = this.player.y;
     } else {
       this.missionCheckpoint = null;
-      this.inventory.clear();
+      this.inventory.restorePreservingExtras();
       this.#syncInventoryHud();
       this.resetMatch(mission.startLocation, initialObjective);
     }
@@ -363,6 +359,32 @@ export class Engine {
     this.player.health = 100;
     this.hudDisplayHealth = 100;
     this.wasInsideHospital = false;
+    this.collectibleFullToastCooldown = 0;
+    this.worldCollectibles = [];
+    this.collectedExtraIds = new Set();
+    if (this.storyPackage?.items instanceof Map) {
+      for (const item of this.storyPackage.items.values()) {
+        if (item.category === 'extra' && item.worldPoint) {
+          const alreadyCollected = this.collectedExtraIds.has(item.id) || this.inventory.hasItem(item.id);
+          if (alreadyCollected) {
+            this.collectedExtraIds.add(item.id);
+            continue;
+          }
+          this.worldCollectibles.push({
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            imageUrl: item.imageUrl,
+            x: item.worldPoint.x,
+            y: item.worldPoint.y,
+            kind: item.worldPoint.kind,
+            locationCode: item.worldPoint.code,
+            rarity: item.rarity || 'normal',
+            collected: false
+          });
+        }
+      }
+    }
     this.player.burnCooldown = 0;
     this.player.isDead = false;
     this.player.deathReason = null;
@@ -527,8 +549,6 @@ export class Engine {
       this.paused = true;
       this.hud.showMissionComplete(mission.title, hasNext, () => {
         this.paused = false;
-    this.hudDisplayHealth = 100;
-    this.wasInsideHospital = false;
         if (hasNext) {
           this.startMission(this.currentMissionIndex + 1, { preserveState: true });
         } else {
@@ -1187,6 +1207,36 @@ export class Engine {
     }
     this.wasInsideHospital = isInsideHospital;
 
+    if (this.collectibleFullToastCooldown > 0) {
+      this.collectibleFullToastCooldown = Math.max(0, this.collectibleFullToastCooldown - dt);
+    }
+    for (const c of this.worldCollectibles) {
+      if (c.collected || this.inventory.hasItem(c.id)) {
+        c.collected = true;
+        this.collectedExtraIds.add(c.id);
+        continue;
+      }
+      if (c.kind === 'interior' && this.player.insideLocationCode !== c.locationCode) continue;
+      if (Math.hypot(this.player.x - c.x, this.player.y - c.y) <= 44) {
+        if (this.inventory.isFull()) {
+          if (this.collectibleFullToastCooldown <= 0) {
+            this.hud.showToast(`Inventário cheio! Libere espaço para pegar ${c.name}.`);
+            this.collectibleFullToastCooldown = 3.0;
+          }
+          continue;
+        }
+        c.collected = true;
+        this.collectedExtraIds.add(c.id);
+        this.#grantMissionItem(c.id);
+        const screenPos = this.#worldToScreen(c.x, c.y);
+        this.hud.animatePickupToInventory(screenPos.x, screenPos.y, c.imageUrl, c.name);
+        this.hud.showToast(`${c.name} — ${c.description}`, {
+          imageUrl: c.imageUrl,
+          imageAlt: c.name
+        });
+      }
+    }
+
     const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
     const reachedPickup =
       !this.itemPickedUp &&
@@ -1478,6 +1528,7 @@ export class Engine {
       bloodMarks: this.bloodMarks,
       smokeParticles: this.smokeParticles,
       explosions: this.explosions,
+      worldCollectibles: this.worldCollectibles,
       objectivePoint: hideTargetNpc ? null : this.objectivePoint,
       objectiveNpcPoint: hideTargetNpc ? null : this.objectiveNpcPoint,
       completedNpcPoints: this.completedNpcPoints,
@@ -1490,7 +1541,26 @@ export class Engine {
     } else {
       this.hud.updateWorldPickupItem(false);
     }
-    this.minimap.render(this.cityMap, this.player, this.routePoints, this.objectivePoint);
+
+    if (!this.cutscene?.active && !this.paused && !this.player.isDead) {
+      const visibleCollectibles = [];
+      for (const c of this.worldCollectibles) {
+        if (c.collected || !c.imageUrl) continue;
+        if (c.kind === 'interior' && this.player.insideLocationCode !== c.locationCode) continue;
+        if (Math.abs(c.x - renderCam.x) > 1000 || Math.abs(c.y - renderCam.y) > 800) continue;
+        const pos = this.#worldToScreen(c.x, c.y);
+        visibleCollectibles.push({
+          screenX: pos.x,
+          screenY: pos.y,
+          imageUrl: c.imageUrl,
+          name: c.name
+        });
+      }
+      this.hud.updateWorldCollectibles(visibleCollectibles);
+    } else {
+      this.hud.updateWorldCollectibles([]);
+    }
+    this.minimap.render(this.cityMap, this.player, this.routePoints, this.objectivePoint, this.worldCollectibles);
   }
 
   #triggerVehicleExplosion(vehicle) {

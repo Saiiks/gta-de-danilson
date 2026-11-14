@@ -478,6 +478,58 @@ export class CityMap {
     return location;
   }
 
+  resolveItemLocation(locationStr) {
+    if (typeof locationStr !== 'string' || !locationStr.trim()) {
+      throw new Error(`[CityMap] Posição de item inválida: "${String(locationStr)}"`);
+    }
+    const trimmed = locationStr.trim().toUpperCase();
+    const cornerMatch = trimmed.match(/^(RUA-\d+)\s*[X×,]\s*(RUA-\d+)(?:\s+(NO|NE|SO|SE|NW|SW))?$/);
+    if (cornerMatch) {
+      const roadA = this.resolveLocationCode(cornerMatch[1]);
+      const roadB = this.resolveLocationCode(cornerMatch[2]);
+      if (roadA.type !== 'road' || roadB.type !== 'road') {
+        throw new Error(`[CityMap] Esquina inválida para item: "${locationStr}"`);
+      }
+      const horiz = roadA.bounds.w > roadA.bounds.h ? roadA : roadB;
+      const vert = roadA.bounds.h > roadA.bounds.w ? roadA : roadB;
+      if (horiz === vert) {
+        throw new Error(`[CityMap] As ruas "${cornerMatch[1]}" e "${cornerMatch[2]}" são paralelas e não formam esquina.`);
+      }
+      const dir = cornerMatch[3] || 'SE';
+      const rx = vert.bounds.x;
+      const ry = horiz.bounds.y;
+      const rw = this.roadWidth;
+      const pad = 18;
+      let x = rx + rw + pad;
+      let y = ry + rw + pad;
+      if (dir === 'NO' || dir === 'NW') {
+        x = rx - pad;
+        y = ry - pad;
+      } else if (dir === 'NE') {
+        x = rx + rw + pad;
+        y = ry - pad;
+      } else if (dir === 'SO' || dir === 'SW') {
+        x = rx - pad;
+        y = ry + rw + pad;
+      }
+      return { x, y, kind: 'corner', code: `${horiz.code} x ${vert.code}` };
+    }
+
+    const loc = this.resolveLocationCode(trimmed);
+    if (loc.type === 'house' || loc.type === 'commerce' || loc.type === 'hospital') {
+      return {
+        x: loc.bounds.x + loc.bounds.w * 0.5,
+        y: loc.bounds.y + loc.bounds.h * 0.55,
+        kind: 'interior',
+        code: loc.code
+      };
+    }
+    if (loc.type === 'plaza') {
+      return { x: loc.spawnPoint.x, y: loc.spawnPoint.y, kind: 'plaza', code: loc.code };
+    }
+    return { x: loc.spawnPoint.x, y: loc.spawnPoint.y, kind: loc.type, code: loc.code };
+  }
+
   #findIndexRange(offsets, sizes, minVal, maxVal) {
     let start = 0;
     while (start < offsets.length && offsets[start] + sizes[start] < minVal) {

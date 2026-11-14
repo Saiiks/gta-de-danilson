@@ -91,6 +91,7 @@ export function parseStoryManifest(rawText, fileName = 'story.md') {
   }
 
   const items = parseListField(meta.items);
+  const collectibles = parseListField(meta.collectibles);
 
   return {
     title: meta.title,
@@ -100,6 +101,7 @@ export function parseStoryManifest(rawText, fileName = 'story.md') {
     characters,
     missions,
     items,
+    collectibles,
     description: body,
   };
 }
@@ -111,11 +113,23 @@ export function parseItemMarkdown(rawText, fileName = 'item.md') {
     throw new StoryParseError(fileName, 2, 'Item deve definir "id" e "name" no frontmatter.');
   }
 
+  const rawCategory = String(meta.category || 'missao').trim().toLowerCase();
+  if (rawCategory !== 'missao' && rawCategory !== 'extra') {
+    throw new StoryParseError(fileName, 2, `Categoria inválida para item "${meta.id}": "${meta.category}". Use "missao" ou "extra".`);
+  }
+  const rawRarity = String(meta.rarity || '').trim().toLowerCase();
+  if (rawRarity && rawRarity !== 'normal' && rawRarity !== 'especial' && rawRarity !== 'lendario') {
+    throw new StoryParseError(fileName, 2, `Raridade inválida para item "${meta.id}": "${meta.rarity}". Use "normal", "especial" ou "lendario".`);
+  }
+
   return {
     id: meta.id,
     name: meta.name,
     description: meta.description || body || '',
     image: validateAssetPath(meta.image || '', fileName, 2),
+    location: String(meta.location || '').trim(),
+    category: rawCategory,
+    rarity: rawRarity || (rawCategory === 'extra' ? 'normal' : ''),
   };
 }
 
