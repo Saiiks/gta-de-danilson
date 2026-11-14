@@ -517,15 +517,21 @@ export class WebGLRenderer {
     // Boneco do personagem de destino (dentro do estabelecimento ou no ponto de encontro)
     const npcMarker = objectiveNpcPoint || objectivePoint;
     if (npcMarker) {
+      const pulse = 1 + Math.sin(time * 5) * 0.15;
+      const ringSize = 28 * pulse;
       this.#pushQuad(
-        npcMarker.x - 12,
-        npcMarker.y - 12,
-        24,
-        24,
-        Math.PI * 0.5,
-        'pedestrian',
-        [0.92, 0.25, 0.25, 1]
+        npcMarker.x - ringSize * 0.5,
+        npcMarker.y - ringSize * 0.5,
+        ringSize,
+        ringSize,
+        0,
+        'circle',
+        [0.98, 0.75, 0.14, 0.55]
       );
+      this.#pushQuad(npcMarker.x - 10, npcMarker.y - 10, 20, 20, 0, 'circle', [0.12, 0.16, 0.22, 1]);
+      this.#pushQuad(npcMarker.x - 7, npcMarker.y - 5, 14, 14, 0, 'circle', [0.92, 0.25, 0.25, 1]);
+      this.#pushQuad(npcMarker.x - 4, npcMarker.y + 1, 8, 8, 0, 'circle', [0.95, 0.78, 0.65, 1]);
+      this.#pushQuad(npcMarker.x - 3.8, npcMarker.y - 0.5, 7.6, 7.6, 0, 'circle', [0.22, 0.14, 0.08, 1]);
     }
 
     // Telhados fechados cobrem pessoas dentro dos prédios quando o jogador está fora
