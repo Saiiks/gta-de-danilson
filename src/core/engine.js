@@ -1,8 +1,9 @@
-import { CityMap } from '../world/city-map.js';
+import { CityMap } from '../world/city-map.js?v=19';
 import { RoadPathfinder } from '../world/pathfinding.js';
-import { TrafficManager } from '../world/traffic-manager.js';
-import { InputManager } from '../input/input-manager.js';
-import { WebGLRenderer } from '../render/webgl-renderer.js?v=11';
+import { TrafficManager } from '../world/traffic-manager.js?v=17';
+import { BoatManager } from '../world/boat-manager.js?v=17';
+import { InputManager } from '../input/input-manager.js?v=17';
+import { WebGLRenderer } from '../render/webgl-renderer.js?v=17';
 import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=11';
 import {
   applyPedestrianDamage,
@@ -21,7 +22,7 @@ import {
   updateTrashBin,
   updateVehicle,
   updateVehicleCriticalState
-} from '../physics/vehicle-physics.js';
+} from '../physics/vehicle-physics.js?v=17';
 import { Minimap } from '../ui/minimap.js';
 import { Inventory } from './inventory.js?v=16';
 import { getPendingMissionAssetUrls, preloadMissionAssets } from '../story/story-loader.js';
@@ -224,6 +225,7 @@ export class Engine {
         currentVehicle.speed = 0;
       }
       this.setObjective(initialObjective);
+      this.trafficManager?.normalizeTrafficAtMissionStart?.(this.vehicles, this.player);
       this.hud.hideGameOver();
       this.missionCheckpoint = {
         missionIndex: clamped,
@@ -337,6 +339,7 @@ export class Engine {
     this.vehicles = this.cityMap.vehicleSpawns.map(createVehicleEntity);
     this.trashBins = (this.cityMap.trashBinSpawns || []).map(createTrashBinEntity);
     this.trafficManager = new TrafficManager(this.cityMap);
+    this.boatManager = new BoatManager(this.cityMap);
     this.skidMarks = [];
     this.bloodMarks = [];
     this.smokeParticles = [];
@@ -369,12 +372,14 @@ export class Engine {
     this.camera.y = this.player.y;
 
     this.setObjective(targetCode);
+    this.trafficManager?.normalizeTrafficAtMissionStart?.(this.vehicles, this.player);
     this.hud.hideGameOver();
   }
 
-  applyDamage(amount, fatalReason = 'Você se deu mal!') {
+  applyDamage(amount, fatalReason = 'Você se deu mal!', { bypassResistance = false } = {}) {
     if (this.player.isDead || amount <= 0) return;
-    this.player.health = Math.max(0, this.player.health - amount);
+    const effectiveDamage = bypassResistance ? amount : Math.max(1, Math.round(amount * 0.55));
+    this.player.health = Math.max(0, this.player.health - effectiveDamage);
     this.hud.triggerDamageFlash();
     if (this.player.health <= 0) {
       this.triggerGameOver(fatalReason);
@@ -738,7 +743,7 @@ export class Engine {
 
       if (progress >= 1) {
         this.player.sinking.active = false;
-        this.applyDamage(this.player.health || 100, 'Você caiu na água nos limites da ilha!');
+        this.applyDamage(this.player.health || 100, 'Você caiu na água nos limites da ilha!', { bypassResistance: true });
       }
       return;
     }
@@ -768,7 +773,7 @@ export class Engine {
             { x: this.player.x + 8, y: this.player.y - 6, size: 8, angle: 0, alpha: 0.78 },
             { x: this.player.x - 7, y: this.player.y + 7, size: 7, angle: 0, alpha: 0.78 }
           );
-          this.applyDamage(ejRes.extraDamage, 'Você colidiu fortemente após ser ejetado!');
+          this.applyDamage(Math.max(1, Math.round(ejRes.extraDamage * 0.75)), 'Você colidiu fortemente após ser ejetado!');
         }
         this.#resolvePlayerMissionNpcCollision();
       } else {
@@ -821,6 +826,7 @@ export class Engine {
     this.input.setDrivingMode(Boolean(activeVehicle));
 
     this.trafficManager.update(dt, this.player, this.vehicles, this.trashBins, this.elapsedTime);
+    this.boatManager?.update(dt);
 
     let maxPlayerImpact = 0;
     let playerHitBuilding = false;
@@ -1139,7 +1145,7 @@ export class Engine {
           sourceVehicleId: activeVehicle.id
         };
         this.input.consumeExitTrigger();
-        this.applyDamage(impact.damage, 'Você sofreu uma colisão fatal!');
+        this.applyDamage(Math.max(1, Math.round(impact.damage * 0.7)), 'Você sofreu uma colisão fatal!');
       }
     }
 
@@ -1442,6 +1448,7 @@ export class Engine {
       camera: renderCam,
       cityMap: this.cityMap,
       vehicles: this.vehicles,
+      boats: this.boatManager ? this.boatManager.boats : [],
       trashBins: this.trashBins || [],
       pedestrians: this.trafficManager ? this.trafficManager.pedestrians : [],
       player: this.player,

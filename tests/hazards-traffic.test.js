@@ -39,12 +39,13 @@ test('colisão veículo-veículo calcula impacto e só ejeta/machuca em impactos
   assert.equal(mild.damage, 0);
 });
 
-test('gera veículos estacionados na calçada, tráfego NPC e retira motorista para o chão ao tomar veículo', () => {
+test('todos os veículos iniciam com motorista NPC, sem carros parados vazios, e retira motorista ao tomar veículo', () => {
   const map = new CityMap();
-  const parked = map.vehicleSpawns.filter((v) => v.isParked);
+  const parked = map.vehicleSpawns.filter((v) => v.isParked || !v.driver);
   const trafficSpawns = map.vehicleSpawns.filter((v) => v.driver === 'npc');
-  assert.ok(parked.length > 0);
-  assert.ok(trafficSpawns.length > 0);
+  assert.equal(parked.length, 0);
+  assert.equal(trafficSpawns.length, map.vehicleSpawns.length);
+  assert.ok(trafficSpawns.length > 0 && trafficSpawns.length <= 500);
 
   const vehicles = map.vehicleSpawns.map(createVehicleEntity);
   const traffic = new TrafficManager(map);
@@ -375,4 +376,201 @@ test('faixas de pedestre e semáforos alternam verde/vermelho e pedestre espera 
   // Quando o sinal fica verde, o pedestre inicia a travessia
   traffic.update(0.05, player, [], [], greenTime);
   assert.equal(ped.state, 'crossing');
+});
+
+test('veículos em mão e contra-mão passam sem travar e destravam se ficarem frente a frente', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const roadY = map.roadYOffsets[2];
+  const centerX = map.roadXOffsets[2] + map.roadWidth * 0.5 + 180;
+
+  const vEast = createVehicleEntity({
+    id: 'v-east',
+    kind: 'car',
+    model: 'Sedan',
+    color: '#f00',
+    x: centerX - 110,
+    y: roadY + map.roadWidth * 0.72,
+    angle: 0,
+    driver: 'npc'
+  });
+  const vWest = createVehicleEntity({
+    id: 'v-west',
+    kind: 'car',
+    model: 'Hatch',
+    color: '#0af',
+    x: centerX + 110,
+    y: roadY + map.roadWidth * 0.28,
+    angle: Math.PI,
+    driver: 'npc'
+  });
+  const player = { x: centerX, y: roadY, inVehicleId: 'p-veh', isDead: false, radius: 11 };
+
+  for (let i = 0; i < 40; i++) {
+    traffic.update(0.05, player, [vEast, vWest], [], 0);
+  }
+  assert.ok(vEast.x > centerX + 40, 'veículo na mão direita deve cruzar sem travar com a contra-mão');
+  assert.ok(vWest.x < centerX - 40, 'veículo na contra-mão deve cruzar sem travar');
+
+  // Força dois veículos frente a frente na mesma faixa e verifica recuperação
+  const stuckA = createVehicleEntity({
+    id: 'stuck-a',
+    kind: 'car',
+    model: 'Sedan',
+    color: '#f00',
+    x: centerX - 24,
+    y: roadY + map.roadWidth * 0.72,
+    angle: 0,
+    driver: 'npc'
+  });
+  const stuckB = createVehicleEntity({
+    id: 'stuck-b',
+    kind: 'car',
+    model: 'Hatch',
+    color: '#0af',
+    x: centerX + 24,
+    y: roadY + map.roadWidth * 0.72,
+    angle: Math.PI,
+    driver: 'npc'
+  });
+
+  for (let i = 0; i < 90; i++) {
+    traffic.update(0.05, player, [stuckA, stuckB], [], 0);
+  }
+  assert.ok(Math.hypot(stuckA.x - stuckB.x, stuckA.y - stuckB.y) > 55, 'veículos frente a frente devem destravar e se separar');
+});
+
+test('veículo dando conversão à esquerda no cruzamento dá preferência ao tráfego em sentido contrário', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const col = 3;
+  const row = 3;
+  const cx = map.roadXOffsets[col] + map.roadWidth * 0.5;
+  const roadY = map.roadYOffsets[row];
+
+  const turningLeft = createVehicleEntity({
+    id: 'turn-left',
+    kind: 'car',
+    model: 'Sedan',
+    color: '#f00',
+    x: cx - map.roadWidth * 0.65,
+    y: roadY + map.roadWidth * 0.72,
+    angle: 0,
+    driver: 'npc'
+  });
+  turningLeft.npcTurn = {
+    col,
+    row,
+    fromDx: 1,
+    fromDy: 0,
+    turn: 'left',
+    targetDx: 0,
+    targetDy: -1,
+    executed: false
+  };
+
+  const oncoming = createVehicleEntity({
+    id: 'oncoming',
+    kind: 'car',
+    model: 'Coupe',
+    color: '#0f0',
+    x: cx + 95,
+    y: roadY + map.roadWidth * 0.28,
+    angle: Math.PI,
+    driver: 'npc'
+  });
+  oncoming.npcTurn = {
+    col,
+    row,
+    fromDx: -1,
+    fromDy: 0,
+    turn: 'straight',
+    targetDx: -1,
+    targetDy: 0,
+    executed: false
+  };
+
+  const player = { x: cx, y: roadY, inVehicleId: 'p-veh', isDead: false, radius: 11 };
+
+  const hLight = map.trafficLights.find(
+    (l) => l.axis === 'h' && Math.abs(l.x - cx) < 88 && Math.abs(l.y - (roadY + map.roadWidth * 0.5)) < 88
+  );
+  const greenTime = hLight
+    ? (hLight.cycleDuration || 12) * 0.75 - (hLight.phaseOffset || 0)
+    : 0;
+
+  // Enquanto o veículo contrário está próximo, o carro que vira à esquerda aguarda sem executar a curva
+  for (let i = 0; i < 12; i++) {
+    traffic.update(0.05, player, [turningLeft, oncoming], [], greenTime);
+  }
+  assert.ok(Math.abs(turningLeft.angle) < 0.01, 'deve aguardar na faixa antes de virar');
+
+  // Após o veículo contrário passar do cruzamento, o carro conclui a conversão à esquerda (passa a ir para Norte: -PI/2)
+  for (let i = 0; i < 60; i++) {
+    traffic.update(0.05, player, [turningLeft, oncoming], [], greenTime);
+  }
+  assert.ok(Math.abs(turningLeft.angle + Math.PI * 0.5) < 0.01, 'deve concluir a conversão à esquerda após passagem do sentido contrário');
+  assert.ok(turningLeft.y < roadY, 'deve entrar na via perpendicular à direita');
+});
+
+test('pedestre próximo assume veículo deixado sem motorista e passa a dirigir', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const roadY = map.roadYOffsets[1];
+  const vx = map.roadXOffsets[1] + map.roadWidth + 140;
+  const vy = roadY + map.roadWidth * 0.72;
+
+  const emptyCar = createVehicleEntity({
+    id: 'empty-1',
+    kind: 'car',
+    model: 'Sedan',
+    color: '#fff',
+    x: vx,
+    y: vy,
+    angle: 0,
+    driver: null
+  });
+
+  const ped = traffic.pedestrians[0];
+  ped.state = 'walking';
+  ped.substate = null;
+  ped.x = vx - 35;
+  ped.y = vy + 20;
+
+  const player = { x: vx + 400, y: vy + 400, inVehicleId: null, isDead: false, radius: 11 };
+
+  for (let i = 0; i < 40; i++) {
+    traffic.update(0.05, player, [emptyCar], [], 0);
+  }
+
+  assert.equal(emptyCar.driver, 'npc');
+  assert.ok(emptyCar.speed > 10);
+});
+
+test('normalizeTrafficAtMissionStart separa veículos amontoados e garante todos em movimento fora de cruzamentos', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const player = { x: 100, y: 100, inVehicleId: null, isDead: false, radius: 11 };
+
+  // Simula 3 veículos amontoados e parados dentro de um cruzamento
+  const cx = map.roadXOffsets[2] + map.roadWidth * 0.5;
+  const cy = map.roadYOffsets[2] + map.roadWidth * 0.5;
+  const vehicles = map.vehicleSpawns.slice(0, 6).map(createVehicleEntity);
+  for (let i = 0; i < 3; i++) {
+    vehicles[i].x = cx + i * 8;
+    vehicles[i].y = cy;
+    vehicles[i].speed = 0;
+    vehicles[i].vx = 0;
+    vehicles[i].vy = 0;
+  }
+
+  traffic.normalizeTrafficAtMissionStart(vehicles, player);
+
+  for (let i = 0; i < vehicles.length; i++) {
+    assert.ok(vehicles[i].speed > 100, 'todos os veículos devem iniciar em movimento');
+    for (let j = i + 1; j < vehicles.length; j++) {
+      const dist = Math.hypot(vehicles[i].x - vehicles[j].x, vehicles[i].y - vehicles[j].y);
+      assert.ok(dist >= 119, `veículos não podem iniciar amontoados (dist=${dist})`);
+    }
+  }
 });

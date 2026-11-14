@@ -41,6 +41,8 @@ export const VEHICLE_PROFILES = {
 
 export function createVehicleEntity(spawn) {
   const profile = VEHICLE_PROFILES[spawn.kind] || VEHICLE_PROFILES.car;
+  const angle = spawn.angle || 0;
+  const initialSpeed = spawn.driver === 'npc' ? 135 : 0;
   return {
     id: spawn.id,
     kind: spawn.kind,
@@ -48,10 +50,10 @@ export function createVehicleEntity(spawn) {
     color: spawn.color,
     x: spawn.x,
     y: spawn.y,
-    vx: 0,
-    vy: 0,
-    angle: spawn.angle || 0,
-    speed: 0,
+    vx: Math.cos(angle) * initialSpeed,
+    vy: Math.sin(angle) * initialSpeed,
+    angle,
+    speed: initialSpeed,
     isDrifting: false,
     driftIntensity: 0,
     length: profile.length,
@@ -199,11 +201,11 @@ export function evaluateVehicleImpact(impactSpeed, threshold = 270) {
   return { eject: true, damage };
 }
 
-export function applyVehicleDamage(vehicle, impactSpeed, minImpact = 75) {
+export function applyVehicleDamage(vehicle, impactSpeed, minImpact = 95) {
   if (!vehicle || vehicle.destroyed || impactSpeed < minImpact) {
     return { damaged: false, exploded: false, damage: 0 };
   }
-  const damage = Math.min(65, Math.max(4, Math.round((impactSpeed - minImpact) * 0.18 + 6)));
+  const damage = Math.min(50, Math.max(3, Math.round((impactSpeed - minImpact) * 0.12 + 4)));
   vehicle.health = Math.max(0, (vehicle.health ?? 100) - damage);
   return {
     damaged: true,

@@ -144,19 +144,19 @@ export class TrafficManager {
 
   #spawnInitialPedestrians() {
     const sides = ['south', 'east', 'north', 'west'];
-    for (let by = 0; by < this.cityMap.gridBlocks; by += 1) {
-      for (let bx = 0; bx < this.cityMap.gridBlocks; bx += 1) {
-        const block = this.cityMap.blocks[by][bx];
-        const sw = this.#getSidewalkBounds(block);
-        const idx = bx * 3 + by * 5;
-        const primarySide = sides[(bx + by) % sides.length];
-        this.#spawnSidewalkPedestrian(bx, by, sw, primarySide, idx);
+    const cols = this.cityMap.gridBlocks;
+    const totalBlocks = cols * cols;
+    const targetCount = 200;
 
-        if ((bx + by) % 2 === 0) {
-          const secondarySide = sides[(bx + by + 2) % sides.length];
-          this.#spawnSidewalkPedestrian(bx, by, sw, secondarySide, idx + 7);
-        }
-      }
+    for (let k = 0; k < targetCount; k += 1) {
+      const blockIndex = Math.floor((k * totalBlocks) / targetCount);
+      const by = Math.floor(blockIndex / cols);
+      const bx = blockIndex % cols;
+      const block = this.cityMap.blocks[by][bx];
+      const sw = this.#getSidewalkBounds(block);
+      const idx = bx * 3 + by * 5;
+      const primarySide = sides[(bx + by) % sides.length];
+      this.#spawnSidewalkPedestrian(bx, by, sw, primarySide, idx);
     }
   }
 
@@ -226,50 +226,10 @@ export class TrafficManager {
       if (Math.abs(v.x - player.x) > activeRadius || Math.abs(v.y - player.y) > activeRadius) {
         continue;
       }
-
-      const cos = Math.cos(v.angle);
-      const sin = Math.sin(v.angle);
-      let blocked = false;
-
-      // Verifica se há veículo ou jogador logo à frente
-      const lookX = v.x + cos * 56;
-      const lookY = v.y + sin * 56;
-      if (!player.inVehicleId && Math.hypot(player.x - lookX, player.y - lookY) < 28) {
-        blocked = true;
-      }
-      if (!blocked) {
-        for (const other of vehicles) {
-          if (other.id === v.id) continue;
-          if (Math.hypot(other.x - lookX, other.y - lookY) < 46) {
-            blocked = true;
-            break;
-          }
-        }
-      }
-
-      const targetSpeed = blocked ? 0 : 135;
-      const currentSpeed = Math.hypot(v.vx, v.vy);
-      const nextSpeed = currentSpeed + (targetSpeed - currentSpeed) * Math.min(1, dt * 4);
-      v.vx = cos * nextSpeed;
-      v.vy = sin * nextSpeed;
-      v.speed = nextSpeed;
-
-      v.x += v.vx * dt;
-      v.y += v.vy * dt;
-
-      // Mantém tráfego dentro da ilha invertendo sentido ao se aproximar da costa
-      const margin = 72;
-      if (
-        v.x < margin ||
-        v.y < margin ||
-        v.x > this.cityMap.worldWidth - margin ||
-        v.y > this.cityMap.worldHeight - margin
-      ) {
-        v.angle += Math.PI;
-        v.x = Math.max(margin, Math.min(this.cityMap.worldWidth - margin, v.x));
-        v.y = Math.max(margin, Math.min(this.cityMap.worldHeight - margin, v.y));
-      }
+      this.#updateTrafficVehicle(v, dt, player, vehicles, time);
     }
+
+    this.#assignPedestriansToEmptyVehicles(vehicles, player, activeRadius);
 
     // Atualiza pedestres caminhando, atravessando ruas, visitando locais e fugindo de veículos
     for (const ped of this.pedestrians) {
@@ -330,6 +290,11 @@ export class TrafficManager {
           ped.returnTarget = this.#findNearestSidewalkPoint(ped.x, ped.y);
           ped.crossCooldown = 2.0;
         }
+      }
+
+      if (ped.state === 'walking' && ped.substate === 'boarding_vehicle') {
+        this.#updateBoardingPedestrian(ped, dt, vehicles);
+        continue;
       }
 
       if (ped.state === 'walking' && ped.substate === 'inside_building') {
@@ -1001,5 +966,512 @@ export class TrafficManager {
     ped.dirY = sy / len;
     ped.angle = Math.atan2(ped.dirY, ped.dirX);
     ped.crossTimer = Math.max(ped.crossTimer || 0, 1.2);
+  }
+
+  #getCardinalHeading(angle) {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    if (Math.abs(cos) >= Math.abs(sin)) {
+      const dx = cos >= 0 ? 1 : -1;
+      return { dx, dy: 0, axis: 'h', angle: dx > 0 ? 0 : Math.PI };
+    }
+    const dy = sin >= 0 ? 1 : -1;
+    return { dx: 0, dy, axis: 'v', angle: dy > 0 ? Math.PI * 0.5 : -Math.PI * 0.5 };
+  }
+
+  #findNearestRoadIndex(offsets, coord) {
+    const halfRoad = this.cityMap.roadWidth * 0.5;
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < offsets.length; i++) {
+      const d = Math.abs(offsets[i] + halfRoad - coord);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }
+
+  #getRightHandLaneCoord(roadOffset, dx, dy) {
+    const rw = this.cityMap.roadWidth;
+    const center = roadOffset + rw * 0.5;
+    const laneOffset = rw * 0.22;
+    if (dx !== 0) {
+      return center + dx * laneOffset;
+    }
+    return center - dy * laneOffset;
+  }
+
+  #findNextIntersection(v, heading) {
+    const rw = this.cityMap.roadWidth;
+    const halfRoad = rw * 0.5;
+    const rowOffsets = this.cityMap.roadYOffsets;
+    const colOffsets = this.cityMap.roadXOffsets;
+
+    if (heading.axis === 'h') {
+      const row = this.#findNearestRoadIndex(rowOffsets, v.y);
+      const cy = rowOffsets[row] + halfRoad;
+      const step = heading.dx;
+      const start = step > 0 ? 0 : colOffsets.length - 1;
+      const end = step > 0 ? colOffsets.length : -1;
+      for (let col = start; col !== end; col += step) {
+        const cx = colOffsets[col] + halfRoad;
+        const dist = (cx - v.x) * step;
+        if (dist >= -rw * 0.35) {
+          return { col, row, cx, cy, dist };
+        }
+      }
+      return null;
+    }
+
+    const col = this.#findNearestRoadIndex(colOffsets, v.x);
+    const cx = colOffsets[col] + halfRoad;
+    const step = heading.dy;
+    const start = step > 0 ? 0 : rowOffsets.length - 1;
+    const end = step > 0 ? rowOffsets.length : -1;
+    for (let row = start; row !== end; row += step) {
+      const cy = rowOffsets[row] + halfRoad;
+      const dist = (cy - v.y) * step;
+      if (dist >= -rw * 0.35) {
+        return { col, row, cx, cy, dist };
+      }
+    }
+    return null;
+  }
+
+  #chooseTurnAtIntersection(v, intersection, heading) {
+    if (
+      v.npcTurn &&
+      v.npcTurn.col === intersection.col &&
+      v.npcTurn.row === intersection.row &&
+      v.npcTurn.fromDx === heading.dx &&
+      v.npcTurn.fromDy === heading.dy
+    ) {
+      return v.npcTurn;
+    }
+
+    const maxIdx = this.cityMap.gridBlocks;
+    const options = [];
+    const nextCol = intersection.col + heading.dx;
+    const nextRow = intersection.row + heading.dy;
+    if (nextCol >= 0 && nextCol <= maxIdx && nextRow >= 0 && nextRow <= maxIdx) {
+      options.push({ turn: 'straight', targetDx: heading.dx, targetDy: heading.dy });
+    }
+
+    const rightDx = -heading.dy;
+    const rightDy = heading.dx;
+    if (
+      intersection.col + rightDx >= 0 &&
+      intersection.col + rightDx <= maxIdx &&
+      intersection.row + rightDy >= 0 &&
+      intersection.row + rightDy <= maxIdx
+    ) {
+      options.push({ turn: 'right', targetDx: rightDx, targetDy: rightDy });
+    }
+
+    const leftDx = heading.dy;
+    const leftDy = -heading.dx;
+    if (
+      intersection.col + leftDx >= 0 &&
+      intersection.col + leftDx <= maxIdx &&
+      intersection.row + leftDy >= 0 &&
+      intersection.row + leftDy <= maxIdx
+    ) {
+      options.push({ turn: 'left', targetDx: leftDx, targetDy: leftDy });
+    }
+
+    let picked = options[0] || { turn: 'uturn', targetDx: -heading.dx, targetDy: -heading.dy };
+    if (options.length > 1) {
+      v.npcTurnCount = (v.npcTurnCount || 0) + 1;
+      const idHash = String(v.id || '').split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+      const roll = (idHash + v.npcTurnCount * 7 + intersection.col * 3 + intersection.row * 5) % 10;
+      const straightOpt = options.find((o) => o.turn === 'straight');
+      const rightOpt = options.find((o) => o.turn === 'right');
+      const leftOpt = options.find((o) => o.turn === 'left');
+      if (straightOpt && roll < 5) picked = straightOpt;
+      else if (rightOpt && (!leftOpt || roll < 8)) picked = rightOpt;
+      else if (leftOpt) picked = leftOpt;
+    }
+
+    v.npcTurn = {
+      col: intersection.col,
+      row: intersection.row,
+      fromDx: heading.dx,
+      fromDy: heading.dy,
+      turn: picked.turn,
+      targetDx: picked.targetDx,
+      targetDy: picked.targetDy,
+      executed: false
+    };
+    return v.npcTurn;
+  }
+
+  #isIntersectionRedLight(intersection, axis, time) {
+    for (const light of this.cityMap.trafficLights) {
+      if (light.axis !== axis) continue;
+      if (Math.abs(light.x - intersection.cx) < 88 && Math.abs(light.y - intersection.cy) < 88) {
+        return this.cityMap.getTrafficLightState(light, time) === 'red';
+      }
+    }
+    return false;
+  }
+
+  #shouldYieldAtIntersection(v, intersection, heading, turnInfo, vehicles, time) {
+    const rw = this.cityMap.roadWidth;
+    const halfBox = rw * 0.52;
+    const dist = intersection.dist;
+
+    // Aguarda semáforo vermelho antes da linha de parada
+    if (dist > halfBox + 4 && dist < halfBox + 44) {
+      if (this.#isIntersectionRedLight(intersection, heading.axis, time)) {
+        return { yield: true, atRedLight: true };
+      }
+    }
+
+    // Conversão à esquerda dá preferência ao tráfego na mão contrária
+    if (turnInfo.turn === 'left' && dist > -12 && dist < halfBox + 38) {
+      for (const other of vehicles) {
+        if (other.id === v.id || other.destroyed || other.isParked) continue;
+        const oCos = Math.cos(other.angle);
+        const oSin = Math.sin(other.angle);
+        const dot = heading.dx * oCos + heading.dy * oSin;
+        if (dot > -0.7) continue;
+
+        const sameCorridor =
+          heading.axis === 'h'
+            ? Math.abs(other.y - intersection.cy) < halfBox
+            : Math.abs(other.x - intersection.cx) < halfBox;
+        if (!sameCorridor) continue;
+
+        const otherDistToCenter =
+          heading.axis === 'h'
+            ? (other.x - intersection.cx) * heading.dx
+            : (other.y - intersection.cy) * heading.dy;
+
+        if (otherDistToCenter > -18 && otherDistToCenter < 150) {
+          return { yield: true, atRedLight: false };
+        }
+      }
+    }
+
+    // Antes de entrar no cruzamento, dá preferência a quem já está cruzando dentro dele
+    if (dist > halfBox - 4 && dist < halfBox + 36) {
+      for (const other of vehicles) {
+        if (other.id === v.id || other.destroyed || other.isParked) continue;
+        const inBox =
+          Math.abs(other.x - intersection.cx) < halfBox - 8 &&
+          Math.abs(other.y - intersection.cy) < halfBox - 8;
+        if (!inBox) continue;
+
+        const oCos = Math.cos(other.angle);
+        const oSin = Math.sin(other.angle);
+        const dot = heading.dx * oCos + heading.dy * oSin;
+        if (dot < 0.7 || other.speed < 25) {
+          return { yield: true, atRedLight: false };
+        }
+      }
+    }
+
+    return { yield: false, atRedLight: false };
+  }
+
+  #updateTrafficVehicle(v, dt, player, vehicles, time) {
+    const heading = this.#getCardinalHeading(v.angle);
+    const rw = this.cityMap.roadWidth;
+    const intersection = this.#findNextIntersection(v, heading);
+
+    let activeHeading = heading;
+    let yielding = false;
+    let atRedLight = false;
+
+    if (intersection) {
+      const turnInfo = this.#chooseTurnAtIntersection(v, intersection, heading);
+      const yieldRes = this.#shouldYieldAtIntersection(v, intersection, heading, turnInfo, vehicles, time);
+      yielding = yieldRes.yield;
+      atRedLight = yieldRes.atRedLight;
+
+      if (!turnInfo.executed && turnInfo.turn !== 'straight' && !yielding) {
+        const targetOffset =
+          turnInfo.targetDx !== 0
+            ? this.cityMap.roadYOffsets[intersection.row]
+            : this.cityMap.roadXOffsets[intersection.col];
+        const targetLaneCoord = this.#getRightHandLaneCoord(targetOffset, turnInfo.targetDx, turnInfo.targetDy);
+
+        const triggerCoord = heading.axis === 'h' ? intersection.cx : intersection.cy;
+        const turnAxisTarget =
+          turnInfo.turn === 'uturn'
+            ? triggerCoord
+            : heading.axis === 'h'
+              ? this.#getRightHandLaneCoord(this.cityMap.roadXOffsets[intersection.col], turnInfo.targetDx, turnInfo.targetDy)
+              : this.#getRightHandLaneCoord(this.cityMap.roadYOffsets[intersection.row], turnInfo.targetDx, turnInfo.targetDy);
+
+        const posAlong = heading.axis === 'h' ? v.x : v.y;
+        const dirSign = heading.axis === 'h' ? heading.dx : heading.dy;
+        if ((posAlong - turnAxisTarget) * dirSign >= -6) {
+          turnInfo.executed = true;
+          v.angle = Math.atan2(turnInfo.targetDy, turnInfo.targetDx);
+          if (turnInfo.targetDx !== 0) {
+            v.y = targetLaneCoord;
+          } else {
+            v.x = targetLaneCoord;
+          }
+          activeHeading = this.#getCardinalHeading(v.angle);
+        }
+      }
+    }
+
+    // Alinha suavemente o veículo à sua faixa de mão direita
+    const laneOffset =
+      activeHeading.axis === 'h'
+        ? this.cityMap.roadYOffsets[this.#findNearestRoadIndex(this.cityMap.roadYOffsets, v.y)]
+        : this.cityMap.roadXOffsets[this.#findNearestRoadIndex(this.cityMap.roadXOffsets, v.x)];
+    const desiredLane = this.#getRightHandLaneCoord(laneOffset, activeHeading.dx, activeHeading.dy);
+    if (activeHeading.axis === 'h') {
+      v.y += (desiredLane - v.y) * Math.min(1, dt * 4.5);
+    } else {
+      v.x += (desiredLane - v.x) * Math.min(1, dt * 4.5);
+    }
+    v.angle = activeHeading.angle;
+
+    const cos = Math.cos(v.angle);
+    const sin = Math.sin(v.angle);
+    let blocked = yielding;
+    let headOnBlocked = false;
+
+    if (!blocked && !player.inVehicleId) {
+      const pFwd = (player.x - v.x) * cos + (player.y - v.y) * sin;
+      const pLat = Math.abs(-(player.x - v.x) * sin + (player.y - v.y) * cos);
+      if (pFwd > 0 && pFwd < 56 && pLat < 22) {
+        blocked = true;
+      }
+    }
+
+    if (!blocked) {
+      for (const other of vehicles) {
+        if (other.id === v.id) continue;
+        const dx = other.x - v.x;
+        const dy = other.y - v.y;
+        const fwd = dx * cos + dy * sin;
+        const lat = Math.abs(-dx * sin + dy * cos);
+        if (fwd > 0 && fwd < 68 && lat < 23) {
+          blocked = true;
+          const dot = cos * Math.cos(other.angle) + sin * Math.sin(other.angle);
+          if (dot < -0.5) {
+            headOnBlocked = true;
+          }
+          break;
+        }
+      }
+    }
+
+    if (blocked && !atRedLight) {
+      v.stuckTimer = (v.stuckTimer || 0) + dt;
+      // Recuperação anti-travamento se dois veículos ficarem frente a frente ou bloqueados por muito tempo
+      if (v.stuckTimer > (headOnBlocked ? 1.4 : 2.6)) {
+        const rightX = -sin;
+        const rightY = cos;
+        v.x += (rightX * 26 - cos * 22) * dt;
+        v.y += (rightY * 26 - sin * 22) * dt;
+        if (v.stuckTimer > 3.5) {
+          v.angle += Math.PI;
+          v.npcTurn = null;
+          v.stuckTimer = 0;
+        }
+      }
+    } else {
+      v.stuckTimer = 0;
+    }
+
+    const targetSpeed = blocked ? 0 : 135;
+    const currentSpeed = Math.hypot(v.vx, v.vy);
+    const nextSpeed = currentSpeed + (targetSpeed - currentSpeed) * Math.min(1, dt * 4.5);
+    v.vx = cos * nextSpeed;
+    v.vy = sin * nextSpeed;
+    v.speed = nextSpeed;
+
+    v.x += v.vx * dt;
+    v.y += v.vy * dt;
+
+    // Garantia final de permanência dentro da ilha na faixa de mão correta
+    const margin = rw * 0.25;
+    if (
+      v.x < margin ||
+      v.y < margin ||
+      v.x > this.cityMap.worldWidth - margin ||
+      v.y > this.cityMap.worldHeight - margin
+    ) {
+      v.angle += Math.PI;
+      v.npcTurn = null;
+      v.x = Math.max(margin, Math.min(this.cityMap.worldWidth - margin, v.x));
+      v.y = Math.max(margin, Math.min(this.cityMap.worldHeight - margin, v.y));
+    }
+  }
+
+  normalizeTrafficAtMissionStart(vehicles, player) {
+    const rw = this.cityMap.roadWidth;
+    const halfBox = rw * 0.58;
+    const minSpacing = 120;
+    const placed = [];
+
+    const isInsideIntersection = (x, y) => {
+      const col = this.#findNearestRoadIndex(this.cityMap.roadXOffsets, x);
+      const row = this.#findNearestRoadIndex(this.cityMap.roadYOffsets, y);
+      const cx = this.cityMap.roadXOffsets[col] + rw * 0.5;
+      const cy = this.cityMap.roadYOffsets[row] + rw * 0.5;
+      return Math.abs(x - cx) < halfBox && Math.abs(y - cy) < halfBox;
+    };
+
+    const isSpotFree = (x, y) => {
+      if (player && Math.hypot(x - player.x, y - player.y) < minSpacing) {
+        return false;
+      }
+      for (const other of placed) {
+        if (Math.hypot(x - other.x, y - other.y) < minSpacing) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    const spawns = this.cityMap.vehicleSpawns || [];
+
+    for (const v of vehicles) {
+      if (v.destroyed || v.id === player?.inVehicleId) continue;
+
+      if (!v.driver) {
+        v.driver = 'npc';
+        v.isParked = false;
+      }
+
+      v.npcTurn = null;
+      v.stuckTimer = 0;
+      v.claimedByPedId = null;
+      v.emptyTimer = 0;
+
+      const heading = this.#getCardinalHeading(v.angle);
+      v.angle = heading.angle;
+
+      if (isInsideIntersection(v.x, v.y) || !isSpotFree(v.x, v.y)) {
+        const homeSpawn = spawns.find((s) => s.id === v.id);
+        let relocated = false;
+        if (homeSpawn && !isInsideIntersection(homeSpawn.x, homeSpawn.y) && isSpotFree(homeSpawn.x, homeSpawn.y)) {
+          v.x = homeSpawn.x;
+          v.y = homeSpawn.y;
+          v.angle = homeSpawn.angle;
+          relocated = true;
+        } else {
+          for (const s of spawns) {
+            if (!isInsideIntersection(s.x, s.y) && isSpotFree(s.x, s.y)) {
+              v.x = s.x;
+              v.y = s.y;
+              v.angle = s.angle;
+              relocated = true;
+              break;
+            }
+          }
+        }
+        if (!relocated) {
+          const finalHeading = this.#getCardinalHeading(v.angle);
+          v.angle = finalHeading.angle;
+        }
+      }
+
+      const finalHeading = this.#getCardinalHeading(v.angle);
+      v.angle = finalHeading.angle;
+      v.vx = Math.cos(v.angle) * 135;
+      v.vy = Math.sin(v.angle) * 135;
+      v.speed = 135;
+      placed.push(v);
+    }
+  }
+
+  #assignPedestriansToEmptyVehicles(vehicles, player, activeRadius) {
+    let hasBoarded = false;
+    for (const ped of this.pedestrians) {
+      if (ped.boarded) {
+        hasBoarded = true;
+        break;
+      }
+    }
+    if (hasBoarded) {
+      this.pedestrians = this.pedestrians.filter((p) => !p.boarded);
+    }
+
+    for (const v of vehicles) {
+      if (v.driver || v.destroyed || (v.speed || 0) >= 25) {
+        v.emptyTimer = 0;
+        continue;
+      }
+      if (Math.abs(v.x - player.x) > activeRadius || Math.abs(v.y - player.y) > activeRadius) continue;
+
+      v.emptyTimer = (v.emptyTimer || 0) + 0.05;
+      if (v.emptyTimer < 0.25) continue;
+
+      if (v.claimedByPedId) {
+        const claimer = this.pedestrians.find(
+          (p) => p.id === v.claimedByPedId && p.state === 'walking' && p.substate === 'boarding_vehicle' && p.targetVehicleId === v.id
+        );
+        if (claimer) continue;
+        v.claimedByPedId = null;
+      }
+
+      let bestPed = null;
+      let bestDist = 360;
+      for (const ped of this.pedestrians) {
+        if (ped.state !== 'walking' || ped.substate) continue;
+        const d = Math.hypot(ped.x - v.x, ped.y - v.y);
+        if (d < bestDist) {
+          bestDist = d;
+          bestPed = ped;
+        }
+      }
+
+      if (bestPed) {
+        bestPed.substate = 'boarding_vehicle';
+        bestPed.targetVehicleId = v.id;
+        v.claimedByPedId = bestPed.id;
+      }
+    }
+  }
+
+  #updateBoardingPedestrian(ped, dt, vehicles) {
+    const vehicle = vehicles.find((v) => v.id === ped.targetVehicleId);
+    if (!vehicle || vehicle.driver || vehicle.destroyed) {
+      ped.substate = null;
+      ped.targetVehicleId = null;
+      if (vehicle && vehicle.claimedByPedId === ped.id) {
+        vehicle.claimedByPedId = null;
+      }
+      return;
+    }
+
+    const dx = vehicle.x - ped.x;
+    const dy = vehicle.y - ped.y;
+    const dist = Math.hypot(dx, dy);
+    const enterRadius = (vehicle.radius || 18) + (ped.radius || 10) + 8;
+
+    if (dist <= enterRadius) {
+      vehicle.driver = 'npc';
+      vehicle.isParked = false;
+      vehicle.claimedByPedId = null;
+      vehicle.npcTurn = null;
+      ped.substate = null;
+      ped.targetVehicleId = null;
+      ped.boarded = true;
+      ped.speed = 0;
+      return;
+    }
+
+    const dirX = dx / dist;
+    const dirY = dy / dist;
+    const walkSpeed = 88;
+    ped.dirX = dirX;
+    ped.dirY = dirY;
+    ped.angle = Math.atan2(dirY, dirX);
+    ped.speed = walkSpeed;
+    ped.walkPhase = (ped.walkPhase || 0) + dt * 11;
+    ped.x += dirX * walkSpeed * dt;
+    ped.y += dirY * walkSpeed * dt;
   }
 }

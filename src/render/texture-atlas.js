@@ -259,5 +259,47 @@ export function createTextureAtlas() {
     c.fill();
   });
 
+  register('boat', 0, 2, (c, x, y, s) => {
+    // Sombra na água
+    c.fillStyle = 'rgba(0, 12, 24, 0.28)';
+    c.beginPath();
+    c.moveTo(x + s - 8, y + s * 0.5 + 3);
+    c.quadraticCurveTo(x + s * 0.65, y + 20, x + 16, y + 24);
+    c.lineTo(x + 16, y + s - 18);
+    c.quadraticCurveTo(x + s * 0.65, y + s - 14, x + s - 8, y + s * 0.5 + 3);
+    c.closePath();
+    c.fill();
+
+    // Casco principal (branco para receber tint de cor)
+    c.fillStyle = '#ffffff';
+    c.beginPath();
+    c.moveTo(x + s - 10, y + s * 0.5);
+    c.quadraticCurveTo(x + s * 0.64, y + 18, x + 16, y + 22);
+    c.lineTo(x + 16, y + s - 22);
+    c.quadraticCurveTo(x + s * 0.64, y + s - 18, x + s - 10, y + s * 0.5);
+    c.closePath();
+    c.fill();
+
+    // Convés interno
+    c.fillStyle = '#e2e8f0';
+    c.beginPath();
+    c.moveTo(x + s - 24, y + s * 0.5);
+    c.quadraticCurveTo(x + s * 0.6, y + 28, x + 26, y + 32);
+    c.lineTo(x + 26, y + s - 32);
+    c.quadraticCurveTo(x + s * 0.6, y + s - 28, x + s - 24, y + s * 0.5);
+    c.closePath();
+    c.fill();
+
+    // Para-brisa e cabine
+    c.fillStyle = '#1e293b';
+    c.fillRect(x + 56, y + 36, 20, s - 72);
+    c.fillStyle = 'rgba(255, 255, 255, 0.28)';
+    c.fillRect(x + 62, y + 40, 8, s - 80);
+
+    // Motor de popa
+    c.fillStyle = '#0f172a';
+    c.fillRect(x + 8, y + s * 0.5 - 10, 12, 20);
+  });
+
   return { canvas, uvs };
 }

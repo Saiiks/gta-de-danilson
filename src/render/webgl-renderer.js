@@ -1,4 +1,4 @@
-import { createTextureAtlas } from './texture-atlas.js?v=11';
+import { createTextureAtlas } from './texture-atlas.js?v=17';
 
 const VERTEX_SHADER = `
   attribute vec2 a_position;
@@ -215,7 +215,7 @@ export class WebGLRenderer {
     this.#pushQuad(x - 4.5, y - 2, 9, 9, 0, 'disc', [0.22, 0.14, 0.08, 1]);
   }
 
-  renderFrame({ camera, cityMap, vehicles, trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, objectiveNpcPoint, completedNpcPoints = [], emitNpcWaves = false, time }) {
+  renderFrame({ camera, cityMap, vehicles, boats = [], trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, objectiveNpcPoint, completedNpcPoints = [], emitNpcWaves = false, time }) {
     const gl = this.gl;
     this.quadCount = 0;
 
@@ -433,6 +433,34 @@ export class WebGLRenderer {
       if (bin.x < minX || bin.x > maxX || bin.y < minY || bin.y > maxY) continue;
       const sz = bin.size || 14;
       this.#pushQuad(bin.x - sz * 0.5, bin.y - sz * 0.5, sz, sz, bin.angle || 0, 'trashbin', [1, 1, 1, 1]);
+    }
+
+    // Barcos decorativos circulando ao redor da ilha (sempre na água)
+    for (const boat of boats) {
+      if (boat.x < minX - 40 || boat.x > maxX + 40 || boat.y < minY - 40 || boat.y > maxY + 40) continue;
+      const cos = Math.cos(boat.angle);
+      const sin = Math.sin(boat.angle);
+      const wakePulse = 0.85 + Math.sin(time * 7 + boat.distance * 0.05) * 0.15;
+      const wakeX = boat.x - cos * (boat.length * 0.58);
+      const wakeY = boat.y - sin * (boat.length * 0.58);
+      this.#pushQuad(
+        wakeX - 12 * wakePulse,
+        wakeY - 5 * wakePulse,
+        24 * wakePulse,
+        10 * wakePulse,
+        boat.angle,
+        'solid',
+        [0.85, 0.95, 1, 0.32]
+      );
+      this.#pushQuad(
+        boat.x - boat.length * 0.5,
+        boat.y - boat.width * 0.5,
+        boat.length,
+        boat.width,
+        boat.angle,
+        'boat',
+        hexToRgba(boat.color || '#f8fafc', 1)
+      );
     }
 
     // Veículos visíveis (com escala/transparência ao afundar na água)
