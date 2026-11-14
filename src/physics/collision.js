@@ -78,6 +78,23 @@ export function resolveCircleOBB(cx, cy, radius, box) {
   };
 }
 
+export function resolveCircleStaticObstacle(x, y, radius, obsX, obsY, obsRadius) {
+  const minDist = radius + obsRadius;
+  const dx = x - obsX;
+  const dy = y - obsY;
+  const dist = Math.hypot(dx, dy);
+  if (dist >= minDist) {
+    return { x, y, collided: false };
+  }
+  const nx = dist > 1e-4 ? dx / dist : 0;
+  const ny = dist > 1e-4 ? dy / dist : 1;
+  return {
+    x: obsX + nx * minDist,
+    y: obsY + ny * minDist,
+    collided: true
+  };
+}
+
 export function isInWater(x, y, cityMap) {
   return x < 0 || y < 0 || x > cityMap.worldWidth || y > cityMap.worldHeight;
 }

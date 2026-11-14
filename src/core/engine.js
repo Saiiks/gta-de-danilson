@@ -3,7 +3,7 @@ import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js';
 import { InputManager } from '../input/input-manager.js';
 import { WebGLRenderer } from '../render/webgl-renderer.js';
-import { isInWater, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js';
+import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js';
 import {
   applyPedestrianDamage,
   applyVehicleDamage,
@@ -453,6 +453,25 @@ export class Engine {
     return Math.hypot(this.player.x - this.objectiveNpcPoint.x, this.player.y - this.objectiveNpcPoint.y) < 58;
   }
 
+  #resolvePlayerMissionNpcCollision() {
+    if (this.player.inVehicleId || this.player.isDead || this.#isPickupStageActive() || !this.objectiveNpcPoint) {
+      return;
+    }
+    const radius = this.player.radius || 11;
+    const hit = resolveCircleStaticObstacle(
+      this.player.x,
+      this.player.y,
+      radius,
+      this.objectiveNpcPoint.x,
+      this.objectiveNpcPoint.y,
+      11
+    );
+    if (!hit.collided) return;
+    const env = resolveEntityCollisions(hit.x, hit.y, radius, this.cityMap.getCollidersAround(hit.x, hit.y, 80));
+    this.player.x = env.x;
+    this.player.y = env.y;
+  }
+
   #findNearestTalkablePedestrian(x, y, maxDist = 52) {
     const peds = this.trafficManager?.pedestrians;
     if (!Array.isArray(peds)) return null;
@@ -732,8 +751,10 @@ export class Engine {
           );
           this.applyDamage(ejRes.extraDamage, 'Você colidiu fortemente após ser ejetado!');
         }
+        this.#resolvePlayerMissionNpcCollision();
       } else {
         updatePedestrian(this.player, input, dt, this.cityMap, this.vehicles);
+        this.#resolvePlayerMissionNpcCollision();
         if (this.player.speed > 5) {
           this.player.walkPhase += dt * 14;
         } else {

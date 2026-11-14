@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CityMap } from '../src/world/city-map.js';
+import { resolveCircleStaticObstacle } from '../src/physics/collision.js';
 import {
   computeShockwaveDamage,
   computeShockwaveFalloff,
@@ -177,4 +178,20 @@ test('lixeiras substituem postes, são arremessadas, rebatem em obstáculos e n�
   const res = updateTrashBin(bounceBin, 0.03, map);
   assert.equal(res.bounced, true);
   assert.ok(bounceBin.vx < 0);
+});
+
+test('colisão com personagem de missão bloqueia o jogador sem empurrar o NPC', () => {
+  const npc = { x: 400, y: 300, radius: 11 };
+  const playerRadius = 11;
+
+  const far = resolveCircleStaticObstacle(400, 340, playerRadius, npc.x, npc.y, npc.radius);
+  assert.equal(far.collided, false);
+  assert.equal(far.y, 340);
+
+  const hit = resolveCircleStaticObstacle(400, 310, playerRadius, npc.x, npc.y, npc.radius);
+  assert.equal(hit.collided, true);
+  assert.equal(hit.x, 400);
+  assert.equal(hit.y, 322);
+  assert.equal(npc.x, 400);
+  assert.equal(npc.y, 300);
 });
