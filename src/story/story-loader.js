@@ -1,6 +1,7 @@
 import {
   parseStoryManifest,
   parseCharacterMarkdown,
+  parseItemMarkdown,
   parseMissionMarkdown,
   parseMapMarkdown,
   replaceLocationCodesWithNames,
@@ -178,7 +179,34 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
         sprites: resolvedSprites,
       });
       loadedChars += 1;
-      reportProgress(0.3 + (loadedChars / totalChars) * 0.35, `Carregando personagens (${loadedChars}/${totalChars})...`);
+      reportProgress(0.3 + (loadedChars / totalChars) * 0.25, `Carregando personagens (${loadedChars}/${totalChars})...`);
+    }),
+  );
+
+  const items = new Map();
+  const itemIds = manifest.items || [];
+  const totalItems = Math.max(1, itemIds.length);
+  let loadedItems = 0;
+  await Promise.all(
+    itemIds.map(async (itemId) => {
+      const itemFile = `items/${itemId}.md`;
+      const raw = await fetchText(`${cleanBase}/${itemFile}`, itemFile);
+      const item = parseItemMarkdown(raw, itemFile);
+      let imageUrl = '';
+      if (item.image) {
+        const fullUrl = `${cleanBase}/${item.image}`;
+        if (await checkAssetExists(fullUrl)) {
+          imageUrl = withBust(fullUrl);
+        } else {
+          console.warn(`[StoryLoader] Imagem do item "${itemId}" ausente (${fullUrl}).`);
+        }
+      }
+      items.set(item.id, {
+        ...item,
+        imageUrl,
+      });
+      loadedItems += 1;
+      reportProgress(0.55 + (loadedItems / totalItems) * 0.1, `Carregando itens (${loadedItems}/${totalItems})...`);
     }),
   );
 
@@ -189,6 +217,13 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     const missionFile = `missions/${missionId}.md`;
     const raw = await fetchText(`${cleanBase}/${missionFile}`, missionFile);
     const mission = parseMissionMarkdown(raw, missionFile, cityMap);
+
+    if (mission.giveItem && !items.has(mission.giveItem)) {
+      throw new StoryParseError(missionFile, 2, `Item "${mission.giveItem}" (give_item) não declarado em story.md.`);
+    }
+    if (mission.requireItem && !items.has(mission.requireItem)) {
+      throw new StoryParseError(missionFile, 2, `Item "${mission.requireItem}" (require_item) não declarado em story.md.`);
+    }
 
     const cutsceneConfigs = [
       { cutscene: mission.introCutscene, fallbackCode: mission.startLocation },
@@ -218,6 +253,12 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     }
 
     mission.objective = replaceLocationCodesWithNames(mission.objective, locationNames);
+    if (mission.deliveryPrompt) {
+      mission.deliveryPrompt = replaceLocationCodesWithNames(mission.deliveryPrompt, locationNames);
+    }
+    if (mission.wrongItemMessage) {
+      mission.wrongItemMessage = replaceLocationCodesWithNames(mission.wrongItemMessage, locationNames);
+    }
     missions.push(mission);
     reportProgress(
       0.65 + ((i + 1) / totalMissions) * 0.35,
@@ -226,7 +267,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
   }
 
   console.info(
-    `[StoryLoader] História "${manifest.title}" carregada (${characters.size} personagens, ${missions.length} missões, ${locationNames.size} locais nomeados).`,
+    `[StoryLoader] História "${manifest.title}" carregada (${characters.size} personagens, ${items.size} itens, ${missions.length} missões, ${locationNames.size} locais nomeados).`,
   );
 
   return {
@@ -234,6 +275,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     subtitle: replaceLocationCodesWithNames(manifest.subtitle, locationNames),
     splashUrl: withBust(splashUrl),
     characters,
+    items,
     missions,
     locationNames,
   };
@@ -250,6 +292,11 @@ export function collectStoryAssetUrls(storyPackage) {
       for (const spriteUrl of Object.values(character?.sprites || {})) {
         if (spriteUrl) urls.add(spriteUrl);
       }
+    }
+  }
+  if (storyPackage.items instanceof Map) {
+    for (const item of storyPackage.items.values()) {
+      if (item?.imageUrl) urls.add(item.imageUrl);
     }
   }
   for (const mission of storyPackage.missions || []) {

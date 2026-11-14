@@ -90,13 +90,31 @@ export function parseStoryManifest(rawText, fileName = 'story.md') {
     throw new StoryParseError(fileName, 2, 'Campo obrigatório "missions" deve listar ao menos uma missão.');
   }
 
+  const items = parseListField(meta.items);
+
   return {
     title: meta.title,
     subtitle: meta.subtitle || '',
     splash: validateAssetPath(meta.splash || '', fileName, 2),
     characters,
     missions,
+    items,
     description: body,
+  };
+}
+
+export function parseItemMarkdown(rawText, fileName = 'item.md') {
+  const { meta, body } = parseFrontmatter(rawText, fileName);
+
+  if (!meta.id || !meta.name) {
+    throw new StoryParseError(fileName, 2, 'Item deve definir "id" e "name" no frontmatter.');
+  }
+
+  return {
+    id: meta.id,
+    name: meta.name,
+    description: meta.description || body || '',
+    image: validateAssetPath(meta.image || '', fileName, 2),
   };
 }
 
@@ -260,6 +278,10 @@ export function parseMissionMarkdown(rawText, fileName = 'mission.md', cityMap =
     startLocation: meta.start,
     targetLocation: meta.target,
     objective: meta.objective || `Vá até ${meta.target}`,
+    giveItem: String(meta.give_item || '').trim(),
+    requireItem: String(meta.require_item || '').trim(),
+    deliveryPrompt: String(meta.delivery_prompt || '').trim(),
+    wrongItemMessage: String(meta.wrong_item_message || '').trim(),
     introCutscene: parseCutsceneBlock(sections.CUTSCENE_INICIO, sectionStarts.CUTSCENE_INICIO, fileName),
     outroCutscene: parseCutsceneBlock(sections.CUTSCENE_FIM, sectionStarts.CUTSCENE_FIM, fileName),
   };
