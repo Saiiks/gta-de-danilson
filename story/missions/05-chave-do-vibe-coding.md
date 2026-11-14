@@ -29,5 +29,6 @@ bg: splash/splash-end.png
 - ENTREGAR: chave-secreta
 - Narrador: A Chave Mestra gira na fechadura dourada da Caixa Secreta... e um brilho toma conta de todo o estúdio em CASA-353!
 - Guanabara: Olá, Pequeno Gafanhoto! Dentro da caixa está o grande anúncio oficial: o Curso em Vídeo vai lançar o novo Curso de Vibe Coding!
-- Lucia: Um curso feito para a nova geração de programadores que estão chegando no mercado, unindo lógica, base sólida e Inteligência Artificial!
+- Guanabara: Um curso feito para a nova geração de programadores que estão chegando no mercado, unindo lógica, base sólida e Inteligência Artificial!
+- Guanabara: Aguardamos todos vocês lá! Fiquem de olho nas redes sociais @gustavoguanabara e @cursoemvideo para saber a data de lançamento!
 - Narrador: Missão cumprida! Agora você está livre para explorar a cidade ou revisitar qualquer missão pelo menu de pausa.

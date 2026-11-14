@@ -1,7 +1,7 @@
 ---
-title: Missão Vibe Coding
+title: GTA: Missão Vibe Coding
 page_title: Missão Vibe Coding — Curso em Vídeo
-subtitle: Cruzando a cidade pelo Curso em Vídeo entre GPUs, servidores, robôs e uma caixa secreta!
+subtitle: Cruzando a cidade para descobrir o segredo guardado em uma caixa secreta e lidando com GPUs, servidores e robôs!
 splash: splash/splash-start.png
 characters: guanabara, jason, lucia, pundar, maltmon
 items: caixa-secreta, placa-video, servidor, peca-robo, chave-secreta
