@@ -4,7 +4,7 @@ import { CutsceneController } from './ui/cutscene-controller.js?v=14';
 import { PauseMenuController } from './ui/pause-menu.js';
 import { InventoryController } from './ui/inventory-controller.js?v=16';
 import { CityMap } from './world/city-map.js?v=23';
-import { loadStoryPackage, preloadMissionAssets } from './story/story-loader.js?v=15';
+import { loadStoryPackage, preloadMissionAssets } from './story/story-loader.js?v=16';
 
 function waitMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -38,14 +38,21 @@ async function boot() {
 
     await preloadMissionAssets(storyPackage, 0, {
       includeSplash: true,
+      essentialOnly: true,
       preloadedUrls,
       onProgress: ({ loaded, total, ratio }) => {
         const msg = total > 0
-          ? `Carregando recursos da 1ª missão (${loaded}/${total})...`
+          ? `Carregando recursos iniciais (${loaded}/${total})...`
           : 'Verificando recursos iniciais...';
         hud.showLoading(55 + ratio * 40, msg);
       }
     });
+
+    // Pré-carrega o restante dos cenários da missão 1 em segundo plano sem bloquear a entrada
+    preloadMissionAssets(storyPackage, 0, {
+      includeSplash: false,
+      preloadedUrls
+    }).catch(() => {});
 
     hud.setStoryHeader({
       title: storyPackage.title,

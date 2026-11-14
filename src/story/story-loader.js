@@ -401,7 +401,7 @@ export function collectStoryAssetUrls(storyPackage) {
 }
 
 export function collectMissionAssetUrls(storyPackage, missionIndex = 0, options = {}) {
-  const { includeSplash = missionIndex === 0 } = options;
+  const { includeSplash = missionIndex === 0, essentialOnly = false } = options;
   if (!storyPackage) return [];
   const urls = new Set();
 
@@ -412,14 +412,21 @@ export function collectMissionAssetUrls(storyPackage, missionIndex = 0, options 
   const mission = storyPackage.missions?.[missionIndex];
   if (!mission) return [...urls];
 
-  const cutscenes = [mission.introCutscene, mission.outroCutscene];
+  const cutscenes = essentialOnly
+    ? [mission.introCutscene]
+    : [mission.introCutscene, mission.outroCutscene];
   const charIds = new Set();
   for (const cs of cutscenes) {
     if (!cs) continue;
-    if (cs.backgroundImage) urls.add(cs.backgroundImage);
-    if (Array.isArray(cs.backgroundPool)) {
-      for (const bgUrl of cs.backgroundPool) {
-        if (bgUrl) urls.add(bgUrl);
+    if (essentialOnly) {
+      const firstBg = cs.backgroundImage || (Array.isArray(cs.backgroundPool) ? cs.backgroundPool[0] : '');
+      if (firstBg) urls.add(firstBg);
+    } else {
+      if (cs.backgroundImage) urls.add(cs.backgroundImage);
+      if (Array.isArray(cs.backgroundPool)) {
+        for (const bgUrl of cs.backgroundPool) {
+          if (bgUrl) urls.add(bgUrl);
+        }
       }
     }
     if (cs.leftChar) charIds.add(cs.leftChar);
@@ -522,7 +529,7 @@ export async function preloadStoryAssets(storyPackage, options = {}) {
 }
 
 export async function preloadMissionAssets(storyPackage, missionIndex = 0, options = {}) {
-  const { includeSplash = missionIndex === 0, ...rest } = options;
-  const urls = collectMissionAssetUrls(storyPackage, missionIndex, { includeSplash });
+  const { includeSplash = missionIndex === 0, essentialOnly = false, ...rest } = options;
+  const urls = collectMissionAssetUrls(storyPackage, missionIndex, { includeSplash, essentialOnly });
   return preloadUrlList(urls, rest);
 }
