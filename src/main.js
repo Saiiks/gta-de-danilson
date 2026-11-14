@@ -11,6 +11,7 @@ function waitMs(ms) {
 }
 
 async function boot() {
+  window.__gameBooted = true;
   const hud = new HudController();
   const cutscene = new CutsceneController();
   const pauseMenu = new PauseMenuController();

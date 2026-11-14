@@ -184,6 +184,29 @@
     </section>
   </div>
 
-  <script type="module" src="./src/main.js?v=7"></script>
+  <script>
+    (function () {
+      const showBootError = (msg) => {
+        const loading = document.getElementById('loading-screen');
+        const errorScreen = document.getElementById('error-screen');
+        const errorMessage = document.getElementById('error-message');
+        if (!loading || loading.classList.contains('hidden') || !errorScreen || !errorMessage) return;
+        loading.classList.add('hidden');
+        errorMessage.textContent = msg + ' Tente recarregar a página com Cmd+Shift+R (ou Ctrl+Shift+R).';
+        errorScreen.classList.remove('hidden');
+      };
+      window.addEventListener('error', (ev) => {
+        if (!window.__gameBooted) {
+          showBootError(ev?.message || 'Erro ao carregar os módulos do jogo.');
+        }
+      });
+      window.addEventListener('unhandledrejection', (ev) => {
+        if (!window.__gameBooted) {
+          showBootError(ev?.reason?.message || 'Erro inesperado durante o carregamento.');
+        }
+      });
+    })();
+  </script>
+  <script type="module" src="./src/main.js?v=8"></script>
 </body>
 </html>
