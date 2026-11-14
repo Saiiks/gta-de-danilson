@@ -60,6 +60,7 @@ export class Engine {
     this.routePoints = [];
     this.objectiveCode = null;
     this.objectivePoint = null;
+    this.objectiveLocationType = null;
     this.routeTimer = 0;
     this.elapsedTime = 0;
     this.lastTimestamp = 0;
@@ -388,13 +389,35 @@ export class Engine {
     if (!code) {
       this.objectiveCode = null;
       this.objectivePoint = null;
+      this.objectiveLocationType = null;
       this.routePoints = [];
       return;
     }
     const target = this.cityMap.resolveLocationCode(code);
     this.objectiveCode = target.code;
     this.objectivePoint = target.spawnPoint;
+    this.objectiveLocationType = target.type || null;
     this.routePoints = this.pathfinder.findRoute(this.player.x, this.player.y, this.objectiveCode);
+  }
+
+  #worldToScreen(worldX, worldY) {
+    const zoom = this.renderer?.zoom || 1;
+    const viewW = this.renderer?.viewWidth || (typeof window !== 'undefined' ? window.innerWidth : 800);
+    const viewH = this.renderer?.viewHeight || (typeof window !== 'undefined' ? window.innerHeight : 600);
+    return {
+      x: (worldX - this.camera.x) * zoom + viewW * 0.5,
+      y: (worldY - this.camera.y) * zoom + viewH * 0.5
+    };
+  }
+
+  #isPickupStageActive() {
+    const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
+    return Boolean(
+      !this.itemPickedUp &&
+      activeMission?.pickupLocation &&
+      activeMission?.giveItem &&
+      this.objectivePoint
+    );
   }
 
   #handleMissionArrival() {
@@ -1053,11 +1076,16 @@ export class Engine {
 
     if (reachedPickup) {
       this.itemPickedUp = true;
+      const itemDef = this.storyPackage?.items?.get(activeMission.giveItem);
+      const itemName = itemDef?.name || 'Item';
+      if (this.objectivePoint && itemDef?.imageUrl) {
+        const screenPos = this.#worldToScreen(this.objectivePoint.x, this.objectivePoint.y);
+        this.hud.updateWorldPickupItem(false);
+        this.hud.animatePickupToInventory(screenPos.x, screenPos.y, itemDef.imageUrl, itemName);
+      }
       if (activeMission.giveItem && !this.inventory.hasItem(activeMission.giveItem)) {
         this.#grantMissionItem(activeMission.giveItem);
       }
-      const itemDef = this.storyPackage?.items?.get(activeMission.giveItem);
-      const itemName = itemDef?.name || 'Item';
       const targetName = this.locationNames.get(activeMission.targetLocation) || activeMission.targetLocation;
       this.hud.showToast(`${itemName} guardada no inventário! Leve até ${targetName}.`, {
         imageUrl: itemDef?.imageUrl || '',
@@ -1065,10 +1093,15 @@ export class Engine {
       });
       this.setObjective(activeMission.targetLocation);
     } else {
+      const requiresBuildingEntry =
+        this.objectiveLocationType === 'commerce' || this.objectiveLocationType === 'house';
       const reachedTarget =
         this.objectivePoint &&
-        (Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 76 ||
-          (activeMission && this.player.insideLocationCode === activeMission.targetLocation));
+        (requiresBuildingEntry
+          ? !this.player.inVehicleId &&
+            Boolean(activeMission && this.player.insideLocationCode === activeMission.targetLocation)
+          : Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 76 ||
+            Boolean(activeMission && this.player.insideLocationCode === activeMission.targetLocation));
 
       if (this.awaitingExitTarget) {
         if (!reachedTarget) {
@@ -1297,6 +1330,10 @@ export class Engine {
             y: this.camera.y + (Math.random() - 0.5) * shakeAmp
           }
         : this.camera;
+    const isPickupStage = this.#isPickupStageActive();
+    const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
+    const pickupItemDef = isPickupStage ? this.storyPackage?.items?.get(activeMission.giveItem) : null;
+
     this.renderer.renderFrame({
       camera: renderCam,
       cityMap: this.cityMap,
@@ -1308,9 +1345,15 @@ export class Engine {
       bloodMarks: this.bloodMarks,
       smokeParticles: this.smokeParticles,
       explosions: this.explosions,
-      objectivePoint: this.objectivePoint,
+      objectivePoint: isPickupStage ? null : this.objectivePoint,
       time: this.elapsedTime
     });
+    if (isPickupStage && pickupItemDef?.imageUrl && !this.cutscene?.active && !this.paused && !this.player.isDead) {
+      const screenPos = this.#worldToScreen(this.objectivePoint.x, this.objectivePoint.y);
+      this.hud.updateWorldPickupItem(true, screenPos.x, screenPos.y, pickupItemDef.imageUrl, pickupItemDef.name);
+    } else {
+      this.hud.updateWorldPickupItem(false);
+    }
     this.minimap.render(this.cityMap, this.player, this.routePoints, this.objectivePoint);
   }
 

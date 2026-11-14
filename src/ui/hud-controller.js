@@ -10,6 +10,7 @@ export class HudController {
     this.loadingText = document.getElementById('loading-text');
     this.loadingPercent = document.getElementById('loading-percent');
     this.inventoryButton = document.getElementById('inventory-button');
+    this.worldPickupItemEl = document.getElementById('world-pickup-item');
     this.hudToastEl = document.getElementById('hud-toast');
     this.hudToastImgEl = document.getElementById('hud-toast-img');
     this.hudToastTextEl = document.getElementById('hud-toast-text');
@@ -204,6 +205,59 @@ export class HudController {
   setInventoryCount(count, capacity = 20) {
     if (this.inventoryButton) {
       this.inventoryButton.textContent = `ITENS (${count}/${capacity})`;
+    }
+  }
+
+  updateWorldPickupItem(visible, screenX = 0, screenY = 0, imageUrl = '', alt = '') {
+    if (!this.worldPickupItemEl) return;
+    if (!visible || !imageUrl) {
+      this.worldPickupItemEl.classList.add('hidden');
+      return;
+    }
+    if (this.worldPickupItemEl.getAttribute('src') !== imageUrl) {
+      this.worldPickupItemEl.src = imageUrl;
+    }
+    this.worldPickupItemEl.alt = alt || '';
+    this.worldPickupItemEl.style.left = `${screenX}px`;
+    this.worldPickupItemEl.style.top = `${screenY}px`;
+    this.worldPickupItemEl.classList.remove('hidden');
+  }
+
+  animatePickupToInventory(startX, startY, imageUrl, alt = '') {
+    if (typeof document === 'undefined' || !imageUrl || !this.inventoryButton) return;
+    const targetRect = this.inventoryButton.getBoundingClientRect();
+    if (!targetRect || targetRect.width === 0) return;
+
+    const targetX = targetRect.left + targetRect.width * 0.5;
+    const targetY = targetRect.top + targetRect.height * 0.5;
+
+    const clone = document.createElement('img');
+    clone.className = 'flying-item-clone';
+    clone.src = imageUrl;
+    clone.alt = alt || '';
+    clone.style.left = `${startX}px`;
+    clone.style.top = `${startY}px`;
+    this.shell?.appendChild(clone);
+
+    const dx = targetX - startX;
+    const dy = targetY - startY;
+
+    if (typeof clone.animate === 'function') {
+      const anim = clone.animate(
+        [
+          { transform: 'translate(-50%, -50%) scale(1.1)', opacity: 1 },
+          { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.32)`, opacity: 0.9 }
+        ],
+        { duration: 540, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' }
+      );
+      anim.onfinish = () => {
+        clone.remove();
+        this.inventoryButton.classList.remove('inventory-btn-pulse');
+        void this.inventoryButton.offsetWidth;
+        this.inventoryButton.classList.add('inventory-btn-pulse');
+      };
+    } else {
+      clone.remove();
     }
   }
 

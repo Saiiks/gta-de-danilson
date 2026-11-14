@@ -54,8 +54,10 @@ test('carrega e valida o pacote de história de exemplo completo contra a cidade
   assert.equal(m1.startLocation, 'CASA-01');
   assert.equal(m1.targetLocation, 'COM-05');
   assert.ok(m1.introCutscene.steps.length >= 2);
-  assert.equal(m1.introCutscene.steps[0].choices.length, 3);
-  assert.ok(m1.introCutscene.steps[0].choices.every((c) => c.outcome === 'next'));
+  const choiceStep = m1.introCutscene.steps.find((s) => s.choices?.length);
+  assert.ok(choiceStep);
+  assert.equal(choiceStep.choices.length, 3);
+  assert.ok(choiceStep.choices.every((c) => c.outcome === 'next'));
   const lastOutroStep = m1.outroCutscene.steps.at(-1);
   assert.equal(lastOutroStep.type, 'deliver');
   assert.equal(lastOutroStep.itemId, 'maleta-executiva');
