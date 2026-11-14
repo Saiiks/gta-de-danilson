@@ -1,6 +1,6 @@
-import { CityMap } from '../world/city-map.js?v=19';
+import { CityMap } from '../world/city-map.js?v=20';
 import { RoadPathfinder } from '../world/pathfinding.js';
-import { TrafficManager } from '../world/traffic-manager.js?v=17';
+import { TrafficManager } from '../world/traffic-manager.js?v=20';
 import { BoatManager } from '../world/boat-manager.js?v=17';
 import { InputManager } from '../input/input-manager.js?v=17';
 import { WebGLRenderer } from '../render/webgl-renderer.js?v=17';

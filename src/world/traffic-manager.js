@@ -1311,8 +1311,9 @@ export class TrafficManager {
   normalizeTrafficAtMissionStart(vehicles, player) {
     const rw = this.cityMap.roadWidth;
     const halfBox = rw * 0.58;
-    const minSpacing = 120;
-    const placed = [];
+    const minSpacing = 135;
+    const cellSize = minSpacing;
+    const grid = new Map();
 
     const isInsideIntersection = (x, y) => {
       const col = this.#findNearestRoadIndex(this.cityMap.roadXOffsets, x);
@@ -1326,17 +1327,32 @@ export class TrafficManager {
       if (player && Math.hypot(x - player.x, y - player.y) < minSpacing) {
         return false;
       }
-      for (const other of placed) {
-        if (Math.hypot(x - other.x, y - other.y) < minSpacing) {
-          return false;
+      const gx = Math.floor(x / cellSize);
+      const gy = Math.floor(y / cellSize);
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          const bucket = grid.get(`${gx + dx},${gy + dy}`);
+          if (!bucket) continue;
+          for (const other of bucket) {
+            if (Math.hypot(x - other.x, y - other.y) < minSpacing) {
+              return false;
+            }
+          }
         }
       }
       return true;
     };
 
+    const registerPlaced = (v) => {
+      const key = `${Math.floor(v.x / cellSize)},${Math.floor(v.y / cellSize)}`;
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(v);
+    };
+
     const spawns = this.cityMap.vehicleSpawns || [];
 
-    for (const v of vehicles) {
+    for (let idx = 0; idx < vehicles.length; idx += 1) {
+      const v = vehicles[idx];
       if (v.destroyed || v.id === player?.inVehicleId) continue;
 
       if (!v.driver) {
@@ -1360,8 +1376,10 @@ export class TrafficManager {
           v.y = homeSpawn.y;
           v.angle = homeSpawn.angle;
           relocated = true;
-        } else {
-          for (const s of spawns) {
+        } else if (spawns.length > 0) {
+          const startOffset = (idx * 37) % spawns.length;
+          for (let step = 0; step < spawns.length; step += 1) {
+            const s = spawns[(startOffset + step) % spawns.length];
             if (!isInsideIntersection(s.x, s.y) && isSpotFree(s.x, s.y)) {
               v.x = s.x;
               v.y = s.y;
@@ -1382,7 +1400,7 @@ export class TrafficManager {
       v.vx = Math.cos(v.angle) * 135;
       v.vy = Math.sin(v.angle) * 135;
       v.speed = 135;
-      placed.push(v);
+      registerPlaced(v);
     }
   }
 

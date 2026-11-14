@@ -335,7 +335,7 @@ export class CityMap {
     let idCounter = 1;
     const cols = this.gridBlocks;
     const totalBlocks = cols * cols;
-    const targetCount = 200;
+    const targetCount = 350;
 
     for (let k = 0; k < targetCount; k += 1) {
       const blockIndex = Math.floor((k * totalBlocks) / targetCount);
@@ -343,8 +343,8 @@ export class CityMap {
       const bx = blockIndex % cols;
       const seed = hashBlock(bx + 7, by + 13);
       const variant = VEHICLE_VARIANTS[seed % VEHICLE_VARIANTS.length];
-      const horizontal = seed % 2 === 0;
-      const reverseLane = (seed >>> 1) % 2 === 1;
+      const horizontal = (bx + by + k) % 2 === 0;
+      const reverseLane = Math.floor((k + by) / 2) % 2 === 1;
       const hLaneFactor = reverseLane ? 0.28 : 0.72;
       const vLaneFactor = reverseLane ? 0.72 : 0.28;
 
