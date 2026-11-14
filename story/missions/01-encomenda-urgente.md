@@ -4,6 +4,10 @@ title: Missão 1 — A Encomenda
 start: CASA-01
 target: COM-05
 objective: Leve a maleta até COM-05
+give_item: maleta-executiva
+require_item: maleta-executiva
+delivery_prompt: Clara está aguardando a encomenda em COM-05. Escolha o item para entregar:
+wrong_item_message: Clara recusou: "Não era isso que eu pedi! Selecione a Maleta Executiva."
 ---
 
 ## CUTSCENE_INICIO
