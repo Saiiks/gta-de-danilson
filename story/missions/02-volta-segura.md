@@ -12,7 +12,7 @@ right: clara
 bg: Saída do COM-05
 
 - Clara: Tudo certo com a entrega. O Beto pediu para você encontrá-lo na PRACA-01.
-- guanabara: Combinado. Estou indo para lá agora mesmo.
+- Guanabara: Combinado. Estou indo para lá agora mesmo.
 
 ## CUTSCENE_FIM
 left: guanabara
@@ -20,5 +20,5 @@ right: beto
 bg: PRACA-01
 
 - Beto: Excelente trabalho, guanabara! A entrega foi um sucesso.
-- guanabara: A cidade inteira agora está livre para explorar.
+- Guanabara: A cidade inteira agora está livre para explorar.
 - OPCAO: Encerrar o serviço e explorar a cidade -> COMPLETE

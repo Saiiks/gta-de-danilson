@@ -481,15 +481,12 @@ body {
   align-items: center;
   justify-content: flex-end;
   gap: 0;
-  opacity: 0.68;
-  transform: scale(0.96);
-  transform-origin: bottom center;
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  opacity: 0.72;
+  transition: opacity 0.18s ease;
 }
 
 .cutscene-actor.speaking {
   opacity: 1;
-  transform: scale(1.02);
 }
 
 @keyframes speaking-bob {
@@ -513,8 +510,7 @@ body {
 .cutscene-portrait {
   aspect-ratio: 9 / 16;
   height: clamp(360px, 84dvh, 620px);
-  width: auto;
-  max-width: 48vw;
+  width: min(348px, 44vw);
   object-fit: contain;
   object-position: bottom center;
   border: none;
@@ -802,5 +798,6 @@ body {
 
   .cutscene-portrait {
     height: clamp(240px, 86dvh, 360px);
+    width: min(202px, 38vw);
   }
 }
