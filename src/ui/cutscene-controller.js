@@ -1,4 +1,4 @@
-import { pickCutsceneBackground } from '../story/story-loader.js?v=13';
+import { pickCutsceneBackground } from '../story/story-loader.js?v=14';
 
 export class CutsceneController {
   constructor() {
@@ -61,7 +61,15 @@ export class CutsceneController {
       }
     }
 
-    this.bgLabel.textContent = cutscene.background || 'Cena Lateral';
+    const rawBgText = String(cutscene.background || '').trim();
+    const isFilePathBg = /\.(jpe?g|png|webp)$/i.test(rawBgText);
+    if (isFilePathBg) {
+      this.bgLabel.textContent = '';
+      this.bgLabel.classList.add('hidden');
+    } else {
+      this.bgLabel.textContent = rawBgText || 'Cena Lateral';
+      this.bgLabel.classList.remove('hidden');
+    }
     if (this.stageEl) {
       if (chosenBackgroundImage) {
         this.stageEl.style.backgroundImage = `linear-gradient(180deg, rgba(15, 23, 42, 0.16) 0%, rgba(15, 23, 42, 0.32) 62%, rgba(10, 14, 22, 0.78) 100%), url("${chosenBackgroundImage}")`;

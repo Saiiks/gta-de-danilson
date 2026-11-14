@@ -22,17 +22,12 @@ bg: Sudeste da cidade em CASA-656
 - Lucia: Pega a chave e vem pro Centro! Toda a equipe está curiosa para saber o que tem dentro da Caixa Secreta!
 
 ## CUTSCENE_FIM
-left: guanabara
-right: lucia
-bg: Interior da CASA-353
+left: none
+right: none
+bg: splash/splash-end.png
 
-- Lucia: Você conseguiu cruzar a cidade inteira, Guanabara! A Caixa Secreta está bem aqui na mesa, e Jason já deixou tudo pronto no estúdio.
-- Guanabara: Foi placa de vídeo, servidor alucinado, robô fazendo deploy na sexta... mas chegamos!
-- OPCAO: Chegou a hora da verdade! Bora girar essa chave! -> NEXT
-- OPCAO: Se sair um código em Python pronto daí de dentro eu não me surpreendo! -> NEXT
-- OPCAO: Olá, Pequeno Gafanhoto... prepare o coração! -> NEXT
-- Lucia: Então não faz suspense! Passa a Chave Mestra e vamos abrir agora:
 - ENTREGAR: chave-secreta
-- Guanabara: Olha só o que tem dentro da Caixa Secreta... um convite dourado e o roteiro oficial!
-- Lucia: É isso mesmo! O Curso em Vídeo vai lançar o novo Curso de Vibe Coding, preparando a nova geração de programadores que estão chegando no mercado!
-- Guanabara: Sem perder a base, pensando como desenvolvedor e usando a Inteligência Artificial como parceira! Pode soltar a vinheta, porque o próximo curso já vai começar!
+- Narrador: A Chave Mestra gira na fechadura dourada da Caixa Secreta... e um brilho toma conta de todo o estúdio em CASA-353!
+- Guanabara: Olá, Pequeno Gafanhoto! Dentro da caixa está o grande anúncio oficial: o Curso em Vídeo vai lançar o novo Curso de Vibe Coding!
+- Lucia: Um curso feito para a nova geração de programadores que estão chegando no mercado, unindo lógica, base sólida e Inteligência Artificial!
+- Narrador: Missão cumprida! Agora você está livre para explorar a cidade ou revisitar qualquer missão pelo menu de pausa.

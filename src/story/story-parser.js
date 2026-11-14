@@ -229,8 +229,9 @@ function parseCutsceneBlock(blockLines, startLine, fileName) {
     if (colonIdx > 0) {
       const key = trimmed.slice(0, colonIdx).trim().toLowerCase();
       const value = trimmed.slice(colonIdx + 1).trim();
-      if (key === 'left') cutscene.leftChar = value;
-      else if (key === 'right') cutscene.rightChar = value;
+      const normalizeChar = (val) => (/^(?:none|nenhum|-)$/i.test(val) ? '' : val);
+      if (key === 'left') cutscene.leftChar = normalizeChar(value);
+      else if (key === 'right') cutscene.rightChar = normalizeChar(value);
       else if (key === 'bg') cutscene.background = value;
     }
   }

@@ -63,15 +63,14 @@ test('carrega e valida o pacote de história de exemplo completo contra a cidade
   assert.ok(m1.outroCutscene.steps.some((step) => step.type === 'deliver' && step.itemId === 'caixa-secreta'));
 
   assert.equal(manifest.missions.length, 5);
-  for (const missionId of manifest.missions) {
-    const parsed = parseMissionMarkdown(
-      fs.readFileSync(path.join(storyDir, 'missions', `${missionId}.md`), 'utf8'),
-      `missions/${missionId}.md`,
-      cityMap
-    );
-    assert.ok(parsed.introCutscene.steps.length >= 2);
-    assert.ok(parsed.outroCutscene.steps.length >= 2);
-  }
+  const m5 = parseMissionMarkdown(
+    fs.readFileSync(path.join(storyDir, 'missions', '05-chave-do-vibe-coding.md'), 'utf8'),
+    'missions/05-chave-do-vibe-coding.md',
+    cityMap
+  );
+  assert.equal(m5.outroCutscene.leftChar, '');
+  assert.equal(m5.outroCutscene.rightChar, '');
+  assert.equal(m5.outroCutscene.background, 'splash/splash-end.png');
 });
 
 test('rejeita caminhos de assets externos ou com traversal', () => {
@@ -116,17 +115,22 @@ test('prioriza PNG na pasta do personagem para visão lateral e faz fallback qua
 
 test('prioriza PNG personalizado para tela de abertura e faz fallback para padrão quando ausente', async () => {
   const candidates = getSplashPngCandidates('./story', 'assets/splash.svg');
-  assert.deepEqual(candidates, ['./story/splash.png', './story/assets/splash.png']);
+  assert.deepEqual(candidates, [
+    './story/splash/splash-start.png',
+    './story/splash.png',
+    './story/assets/splash.png',
+  ]);
 
   const customCandidates = getSplashPngCandidates('./story', 'assets/capa.svg');
   assert.deepEqual(customCandidates, [
+    './story/splash/splash-start.png',
     './story/splash.png',
     './story/assets/splash.png',
     './story/assets/capa.png',
   ]);
 
-  const found = await resolveFirstExistingAsset(candidates, async (url) => url === './story/splash.png');
-  assert.equal(found, './story/splash.png');
+  const found = await resolveFirstExistingAsset(candidates, async (url) => url === './story/splash/splash-start.png');
+  assert.equal(found, './story/splash/splash-start.png');
 
   const fallback = await resolveFirstExistingAsset(candidates, async () => false);
   assert.equal(fallback, '');

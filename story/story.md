@@ -1,7 +1,7 @@
 ---
 title: Missão Vibe Coding
 subtitle: Cruzando a cidade pelo Curso em Vídeo entre GPUs, servidores, robôs e uma caixa secreta!
-splash: assets/splash.svg
+splash: splash/splash-start.png
 characters: guanabara, jason, lucia, pundar, maltmon
 items: caixa-secreta, placa-video, servidor, peca-robo, chave-secreta
 missions: 01-caixa-secreta, 02-placa-de-video, 03-servidor-alucinado, 04-peca-do-robo, 05-chave-do-vibe-coding
