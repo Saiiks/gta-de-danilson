@@ -353,7 +353,7 @@ body {
   border-color: rgba(239, 68, 68, 0.5);
 }
 
-@keyframes gameover-backdrop-in {
+@keyframes window-backdrop-in {
   from {
     opacity: 0;
   }
@@ -362,7 +362,7 @@ body {
   }
 }
 
-@keyframes gameover-card-in {
+@keyframes window-panel-in {
   from {
     opacity: 0;
     transform: scale(1.16) translateY(10px);
@@ -373,7 +373,7 @@ body {
   }
 }
 
-@keyframes gameover-title-slam {
+@keyframes window-title-slam {
   0% {
     opacity: 0;
     transform: scale(1.42);
@@ -384,20 +384,27 @@ body {
   }
 }
 
+.overlay-screen:not(.hidden) {
+  animation: window-backdrop-in 0.45s ease-out both;
+}
+
+.overlay-screen:not(.hidden) > .overlay-card,
+.overlay-screen:not(.hidden) > .cutscene-stage {
+  animation: window-panel-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.overlay-screen:not(.hidden) .retro-title,
+.overlay-screen:not(.hidden) .gameover-title,
+.overlay-screen:not(.hidden) .overlay-heading {
+  animation: window-title-slam 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+}
+
 .gameover-overlay {
   background: rgba(6, 8, 12, 0.84);
 }
 
-.gameover-overlay:not(.hidden) {
-  animation: gameover-backdrop-in 0.45s ease-out both;
-}
-
 .gameover-card {
   border-color: rgba(239, 68, 68, 0.55);
-}
-
-.gameover-overlay:not(.hidden) .gameover-card {
-  animation: gameover-card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .gameover-title {
@@ -407,10 +414,6 @@ body {
   color: #ef4444;
   text-shadow: 0 4px 0 #7f1d1d, 0 8px 24px rgba(0, 0, 0, 0.8);
   margin-bottom: 12px;
-}
-
-.gameover-overlay:not(.hidden) .gameover-title {
-  animation: gameover-title-slam 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
 }
 
 .error-message {
