@@ -14,8 +14,19 @@ function createMockElement(tag = 'div') {
     classList: {
       add(...names) { names.forEach((n) => classes.add(n)); },
       remove(...names) { names.forEach((n) => classes.delete(n)); },
+      toggle(name, force) {
+        if (force === undefined) {
+          if (classes.has(name)) { classes.delete(name); return false; }
+          classes.add(name); return true;
+        }
+        if (force) classes.add(name);
+        else classes.delete(name);
+        return Boolean(force);
+      },
       contains(n) { return classes.has(n); },
     },
+    attributes: {},
+    setAttribute(k, v) { this.attributes[k] = String(v); },
     addEventListener(type, fn) {
       if (!listeners.has(type)) listeners.set(type, []);
       listeners.get(type).push(fn);
@@ -206,4 +217,77 @@ test('inicia em fullscreen tanto em modo retrato quanto em paisagem sem bloquear
   window.dispatchEvent('resize');
   assert.equal(env.getStats().exitFullscreenCount, 0);
   assert.ok(env.getStats().fullscreenEl !== null);
+});
+
+test('modo dirigir transforma analógico em volante horizontal e alterna botões de caminhada/direção', async () => {
+  setupGlobals();
+  const { InputManager } = await import('../src/input/input-manager.js');
+
+  const touchContainer = createMockElement('div');
+  touchContainer.classList.add('hidden');
+
+  const analog = createMockElement('div');
+  analog.rect = { left: 20, top: 200, width: 120, height: 120 }; // centro x=80, maxRadius=45.6
+  const knob = createMockElement('div');
+  const wheel = createMockElement('svg');
+
+  const btnAction = createMockElement('button');
+  btnAction.dataset.btn = 'action';
+  const handIcon = createMockElement('svg');
+  const accelIcon = createMockElement('svg');
+  accelIcon.classList.add('hidden');
+
+  const btnSecondary = createMockElement('button');
+  btnSecondary.dataset.btn = 'secondary';
+  btnSecondary.classList.add('hidden');
+
+  const btnExit = createMockElement('button');
+  btnExit.dataset.btn = 'exit';
+  btnExit.classList.add('hidden');
+
+  touchContainer.querySelector = (sel) => {
+    if (sel === '#touch-analog') return analog;
+    if (sel === '#touch-analog-knob') return knob;
+    if (sel === '#touch-steering-wheel') return wheel;
+    if (sel === '[data-btn="action"]') return btnAction;
+    if (sel === '[data-btn="secondary"]') return btnSecondary;
+    if (sel === '[data-btn="exit"]') return btnExit;
+    if (sel === '.touch-icon-hand') return handIcon;
+    if (sel === '.touch-icon-accel') return accelIcon;
+    return null;
+  };
+  touchContainer.querySelectorAll = (sel) => (sel === '.touch-btn' ? [btnAction, btnSecondary, btnExit] : []);
+
+  const input = new InputManager(touchContainer);
+
+  // Entra no modo direção
+  input.setDrivingMode(true);
+  assert.equal(touchContainer.classList.contains('driving-mode'), true);
+  assert.equal(btnSecondary.classList.contains('hidden'), false);
+  assert.equal(btnExit.classList.contains('hidden'), false);
+  assert.equal(handIcon.classList.contains('hidden'), true);
+  assert.equal(accelIcon.classList.contains('hidden'), false);
+
+  // Movimento diagonal no volante: moveY permanece 0 e só esterça horizontalmente
+  analog.dispatchEvent('pointerdown', { pointerId: 10, clientX: 125, clientY: 250 });
+  let snap = input.update(0.016);
+  assert.ok(snap.moveX > 0.9, `esperado moveX > 0.9, recebido ${snap.moveX}`);
+  assert.equal(snap.moveY, 0);
+  assert.ok(wheel.style.transform.includes('rotate('));
+
+  // Botão de sair dispara exitJustPressed
+  btnExit.dispatchEvent('pointerdown', { pointerId: 11 });
+  snap = input.update(0.016);
+  assert.equal(snap.exitJustPressed, true);
+
+  // Volta para caminhada: oculta frear e sair, restaura ícone de mão
+  window.dispatchEvent('pointerup', { pointerId: 10 });
+  window.dispatchEvent('pointerup', { pointerId: 11 });
+  input.setDrivingMode(false);
+  assert.equal(touchContainer.classList.contains('driving-mode'), false);
+  assert.equal(btnSecondary.classList.contains('hidden'), true);
+  assert.equal(btnExit.classList.contains('hidden'), true);
+  assert.equal(handIcon.classList.contains('hidden'), false);
+  assert.equal(accelIcon.classList.contains('hidden'), true);
+  assert.equal(wheel.style.transform, 'rotate(0deg)');
 });

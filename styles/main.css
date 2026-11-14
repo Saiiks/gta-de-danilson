@@ -175,7 +175,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  padding: max(18px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
+  padding: max(22px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
 }
 
 .touch-cluster {
@@ -184,23 +184,24 @@ body {
 
 .touch-analog {
   position: relative;
-  width: 126px;
-  height: 126px;
+  width: 148px;
+  height: 148px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  background: radial-gradient(circle, rgba(20, 24, 34, 0.25) 0%, rgba(20, 24, 34, 0.48) 100%);
+  border: 2.5px solid rgba(255, 255, 255, 0.38);
+  background: radial-gradient(circle, rgba(20, 24, 34, 0.25) 0%, rgba(20, 24, 34, 0.52) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .touch-analog-knob {
-  width: 52px;
-  height: 52px;
+  width: 62px;
+  height: 62px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.7);
+  border: 2.5px solid rgba(255, 255, 255, 0.72);
   background: rgba(255, 255, 255, 0.26);
   pointer-events: none;
   transform: translate(0px, 0px);
@@ -213,19 +214,48 @@ body {
   border-color: #fbbf24;
 }
 
+.touch-steering-wheel {
+  display: none;
+  width: 112px;
+  height: 112px;
+  color: rgba(255, 255, 255, 0.78);
+  pointer-events: none;
+  transform: rotate(0deg);
+  transition: transform 0.1s ease-out, color 0.1s ease;
+}
+
+#touch-controls.driving-mode .touch-analog {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: radial-gradient(circle, rgba(20, 24, 34, 0.28) 0%, rgba(20, 24, 34, 0.58) 100%);
+}
+
+#touch-controls.driving-mode .touch-analog-knob {
+  display: none;
+}
+
+#touch-controls.driving-mode .touch-steering-wheel {
+  display: block;
+}
+
+#touch-controls.driving-mode .touch-analog.active .touch-steering-wheel {
+  transition: none;
+  color: #fbbf24;
+}
+
 #touch-actions {
   display: flex;
   align-items: flex-end;
-  gap: 16px;
+  justify-content: flex-end;
+  gap: 14px;
 }
 
 .touch-btn {
-  width: 56px;
-  height: 56px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  background: rgba(20, 24, 34, 0.36);
-  color: rgba(255, 255, 255, 0.85);
+  border: 2.5px solid rgba(255, 255, 255, 0.38);
+  background: rgba(20, 24, 34, 0.42);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 18px;
   font-weight: 700;
   display: flex;
@@ -233,23 +263,61 @@ body {
   justify-content: center;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease, background-color 0.1s ease, border-color 0.1s ease;
+}
+
+.touch-btn .touch-icon {
+  width: 34px;
+  height: 34px;
+  pointer-events: none;
 }
 
 .touch-btn.active {
-  background: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.48);
   border-color: #fbbf24;
-  transform: scale(0.95);
+  transform: scale(0.94);
+}
+
+.touch-secondary-btn {
+  width: 70px;
+  height: 70px;
+}
+
+.touch-brake {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(127, 29, 29, 0.34);
+}
+
+.touch-brake.active {
+  background: rgba(239, 68, 68, 0.55);
+  border-color: #f87171;
+}
+
+.touch-exit {
+  border-color: rgba(148, 163, 184, 0.55);
+  background: rgba(30, 41, 59, 0.45);
+}
+
+.touch-exit.active {
+  background: rgba(96, 165, 250, 0.5);
+  border-color: #93c5fd;
 }
 
 .touch-action {
-  width: 66px;
-  height: 66px;
+  width: 84px;
+  height: 84px;
 }
 
 .touch-primary {
-  width: 74px;
-  height: 74px;
-  border-color: rgba(251, 191, 36, 0.55);
+  width: 86px;
+  height: 86px;
+  border-color: rgba(251, 191, 36, 0.62);
+  background: rgba(20, 24, 34, 0.48);
+}
+
+.touch-primary .touch-icon {
+  width: 40px;
+  height: 40px;
 }
 
 .overlay-screen {
@@ -1127,27 +1195,47 @@ body {
   }
 
   #touch-controls {
-    padding: max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    padding: max(22px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   }
 
   .touch-analog {
-    width: 112px;
-    height: 112px;
+    width: 136px;
+    height: 136px;
   }
 
   .touch-analog-knob {
-    width: 46px;
-    height: 46px;
+    width: 56px;
+    height: 56px;
   }
 
-  .touch-action {
-    width: 58px;
-    height: 58px;
+  .touch-steering-wheel {
+    width: 104px;
+    height: 104px;
   }
 
+  #touch-actions {
+    gap: 10px;
+  }
+
+  .touch-secondary-btn {
+    width: 64px;
+    height: 64px;
+  }
+
+  .touch-action,
   .touch-primary {
-    width: 66px;
-    height: 66px;
+    width: 78px;
+    height: 78px;
+  }
+
+  .touch-btn .touch-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .touch-primary .touch-icon {
+    width: 36px;
+    height: 36px;
   }
 
   .cutscene-actors {
@@ -1158,6 +1246,42 @@ body {
 
   .cutscene-actor {
     width: min(58%, 260px);
+  }
+}
+
+@media (max-width: 440px) {
+  #touch-controls {
+    padding: max(20px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+
+  .touch-analog {
+    width: 122px;
+    height: 122px;
+  }
+
+  .touch-analog-knob {
+    width: 50px;
+    height: 50px;
+  }
+
+  .touch-steering-wheel {
+    width: 92px;
+    height: 92px;
+  }
+
+  #touch-actions {
+    gap: 8px;
+  }
+
+  .touch-secondary-btn {
+    width: 58px;
+    height: 58px;
+  }
+
+  .touch-action,
+  .touch-primary {
+    width: 72px;
+    height: 72px;
   }
 }
 
@@ -1186,23 +1310,33 @@ body {
   }
 
   .touch-analog {
-    width: 110px;
-    height: 110px;
+    width: 130px;
+    height: 130px;
   }
 
   .touch-analog-knob {
-    width: 46px;
-    height: 46px;
+    width: 54px;
+    height: 54px;
   }
 
-  .touch-action {
-    width: 58px;
-    height: 58px;
+  .touch-steering-wheel {
+    width: 98px;
+    height: 98px;
   }
 
+  #touch-actions {
+    gap: 12px;
+  }
+
+  .touch-secondary-btn {
+    width: 62px;
+    height: 62px;
+  }
+
+  .touch-action,
   .touch-primary {
-    width: 66px;
-    height: 66px;
+    width: 76px;
+    height: 76px;
   }
 
   .cutscene-stage {

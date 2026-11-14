@@ -9,12 +9,20 @@ export class InputManager {
     this.analogPointerId = null;
     this.analogEl = null;
     this.analogKnobEl = null;
+    this.steeringWheelEl = null;
+    this.actionBtnEl = null;
+    this.secondaryBtnEl = null;
+    this.exitBtnEl = null;
+    this.handIconEl = null;
+    this.accelIconEl = null;
+    this.drivingMode = false;
     this.touchContainer = touchContainer;
 
     this.prevAction = false;
     this.prevSecondary = false;
     this.prevPause = false;
     this.prevCombo = false;
+    this.prevExit = false;
     this.secondaryHeldTime = 0;
     this.exitCooldown = 0;
 
@@ -54,6 +62,38 @@ export class InputManager {
     if (this.analogKnobEl) {
       this.analogKnobEl.style.transform = 'translate(0px, 0px)';
     }
+    if (this.steeringWheelEl) {
+      this.steeringWheelEl.style.transform = 'rotate(0deg)';
+    }
+  }
+
+  setDrivingMode(driving) {
+    const nextMode = Boolean(driving);
+    if (this.drivingMode === nextMode) {
+      return;
+    }
+    this.drivingMode = nextMode;
+    this.#resetAnalog();
+
+    if (!nextMode) {
+      this.touchButtons.delete('secondary');
+      this.touchButtons.delete('exit');
+      this.secondaryBtnEl?.classList.remove('active');
+      this.exitBtnEl?.classList.remove('active');
+    }
+
+    if (!this.touchContainer) {
+      return;
+    }
+
+    this.touchContainer.classList.toggle('driving-mode', nextMode);
+    this.secondaryBtnEl?.classList.toggle('hidden', !nextMode);
+    this.exitBtnEl?.classList.toggle('hidden', !nextMode);
+    this.handIconEl?.classList.toggle('hidden', nextMode);
+    this.accelIconEl?.classList.toggle('hidden', !nextMode);
+
+    this.analogEl?.setAttribute('aria-label', nextMode ? 'Volante virtual' : 'Direcional analógico virtual');
+    this.actionBtnEl?.setAttribute('aria-label', nextMode ? 'Acelerar' : 'Ação');
   }
 
   #updateAnalogFromEvent(e) {
@@ -65,6 +105,24 @@ export class InputManager {
 
     const dx = e.clientX - cx;
     const dy = e.clientY - cy;
+
+    if (this.drivingMode) {
+      const raw = Math.max(-1, Math.min(1, dx / maxRadius));
+      const deadzone = 0.1;
+      if (Math.abs(raw) < deadzone) {
+        this.touchMoveX = 0;
+        this.touchMoveY = 0;
+      } else {
+        const scaled = (Math.abs(raw) - deadzone) / (1 - deadzone);
+        this.touchMoveX = Math.sign(raw) * scaled;
+        this.touchMoveY = 0;
+      }
+      if (this.steeringWheelEl) {
+        this.steeringWheelEl.style.transform = `rotate(${(this.touchMoveX * 75).toFixed(1)}deg)`;
+      }
+      return;
+    }
+
     const dist = Math.hypot(dx, dy);
     const clampedDist = Math.min(dist, maxRadius);
     const angle = Math.atan2(dy, dx);
@@ -104,6 +162,12 @@ export class InputManager {
   #bindTouch() {
     this.analogEl = this.touchContainer.querySelector('#touch-analog');
     this.analogKnobEl = this.touchContainer.querySelector('#touch-analog-knob');
+    this.steeringWheelEl = this.touchContainer.querySelector('#touch-steering-wheel');
+    this.actionBtnEl = this.touchContainer.querySelector('[data-btn="action"]');
+    this.secondaryBtnEl = this.touchContainer.querySelector('[data-btn="secondary"]');
+    this.exitBtnEl = this.touchContainer.querySelector('[data-btn="exit"]');
+    this.handIconEl = this.touchContainer.querySelector('.touch-icon-hand');
+    this.accelIconEl = this.touchContainer.querySelector('.touch-icon-accel');
 
     if (this.analogEl) {
       this.analogEl.addEventListener('pointerdown', (e) => {
@@ -236,6 +300,9 @@ export class InputManager {
       moveY /= len;
     }
 
+    const exitPressed = this.touchButtons.has('exit');
+    const exitJustPressed = exitPressed && !this.prevExit;
+
     const actionJustPressed = actionPressed && !this.prevAction;
     const secondaryJustPressed = secondaryPressed && !this.prevSecondary;
     const pauseJustPressed = pausePressed && !this.prevPause;
@@ -256,6 +323,7 @@ export class InputManager {
     this.prevSecondary = secondaryPressed;
     this.prevPause = pausePressed;
     this.prevCombo = comboNow;
+    this.prevExit = exitPressed;
 
     return {
       moveX,
@@ -264,6 +332,7 @@ export class InputManager {
       actionJustPressed,
       secondaryPressed,
       secondaryJustPressed,
+      exitJustPressed,
       pauseJustPressed,
       secondaryHeldTime: this.secondaryHeldTime,
       comboExitJustPressed,

@@ -3,36 +3,36 @@ import { isPositionFree, resolveCircleOBB, resolveEntityCollisions } from './col
 export const VEHICLE_PROFILES = {
   car: {
     maxSpeed: 420,
-    reverseMax: 160,
-    accel: 420,
-    brake: 520,
-    turnRate: 3.1,
-    lateralGrip: 6.2,
-    driftGrip: 2.0,
+    reverseMax: 165,
+    accel: 430,
+    brake: 650,
+    turnRate: 3.2,
+    lateralGrip: 9.0,
+    driftGrip: 4.5,
     length: 44,
     width: 24,
     radius: 17
   },
   moto: {
     maxSpeed: 480,
-    reverseMax: 110,
+    reverseMax: 115,
     accel: 540,
-    brake: 560,
-    turnRate: 4.1,
-    lateralGrip: 7.4,
-    driftGrip: 2.7,
+    brake: 680,
+    turnRate: 3.9,
+    lateralGrip: 10.5,
+    driftGrip: 5.5,
     length: 34,
     width: 16,
     radius: 12
   },
   van: {
     maxSpeed: 340,
-    reverseMax: 140,
-    accel: 310,
-    brake: 430,
-    turnRate: 2.4,
-    lateralGrip: 5.2,
-    driftGrip: 1.6,
+    reverseMax: 145,
+    accel: 320,
+    brake: 540,
+    turnRate: 2.6,
+    lateralGrip: 7.8,
+    driftGrip: 3.8,
     length: 54,
     width: 28,
     radius: 20
@@ -121,9 +121,11 @@ export function updateVehicle(vehicle, input, dt, cityMap) {
     const prevCos = Math.cos(vehicle.angle);
     const prevSin = Math.sin(vehicle.angle);
     const prevForward = vehicle.vx * prevCos + vehicle.vy * prevSin;
-    const speedFactor = Math.min(1, Math.abs(prevForward) / 90);
+    const rawSpeed = Math.abs(prevForward);
+    const speedFactor = rawSpeed > 4 ? Math.min(1, Math.max(0.32, rawSpeed / 65)) : 0;
     const directionSign = prevForward >= -5 ? 1 : -1;
-    const steer = input.moveX;
+    const rawSteer = input.moveX;
+    const steer = Math.sign(rawSteer) * Math.pow(Math.abs(rawSteer), 1.15);
     vehicle.angle += steer * profile.turnRate * speedFactor * directionSign * dt;
 
     const cos = Math.cos(vehicle.angle);
@@ -137,18 +139,18 @@ export function updateVehicle(vehicle, input, dt, cityMap) {
       if (forwardSpeed > 25) {
         forwardSpeed -= profile.brake * dt;
       } else {
-        forwardSpeed -= profile.accel * 0.6 * dt;
+        forwardSpeed -= profile.accel * 0.65 * dt;
       }
     } else {
-      const drag = Math.exp(-2.5 * dt);
+      const drag = Math.exp(-2.8 * dt);
       forwardSpeed *= drag;
     }
 
     forwardSpeed = Math.max(-profile.reverseMax, Math.min(profile.maxSpeed, forwardSpeed));
 
     const drifting =
-      Math.abs(forwardSpeed) > profile.maxSpeed * 0.42 &&
-      Math.abs(steer) > 0.2;
+      Math.abs(forwardSpeed) > profile.maxSpeed * 0.62 &&
+      Math.abs(steer) > 0.55;
 
     const grip = drifting ? profile.driftGrip : profile.lateralGrip;
     lateralSpeed *= Math.exp(-grip * dt);

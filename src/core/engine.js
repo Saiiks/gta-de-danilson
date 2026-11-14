@@ -643,6 +643,7 @@ export class Engine {
     }
 
     if (this.deathSequence) {
+      this.input.setDrivingMode(false);
       this.deathSequence.timer += dt;
       const progress = Math.min(1, this.deathSequence.timer / this.deathSequence.duration);
       const timeScale = Math.max(0.03, Math.pow(1 - progress, 1.8));
@@ -802,6 +803,7 @@ export class Engine {
       }
     } else {
       const shouldExit =
+        input.exitJustPressed ||
         input.comboExitJustPressed ||
         (input.canTriggerHoldExit && activeVehicle.speed < 25);
 
@@ -815,6 +817,8 @@ export class Engine {
         activeVehicle = null;
       }
     }
+
+    this.input.setDrivingMode(Boolean(activeVehicle));
 
     this.trafficManager.update(dt, this.player, this.vehicles, this.trashBins, this.elapsedTime);
 

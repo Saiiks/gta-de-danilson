@@ -83,11 +83,42 @@
       <div id="touch-controls" class="hidden" aria-label="Controles virtuais">
         <div id="touch-analog" class="touch-cluster touch-analog" role="application" aria-label="Direcional analógico virtual">
           <div id="touch-analog-knob" class="touch-analog-knob"></div>
+          <svg id="touch-steering-wheel" class="touch-steering-wheel" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" stroke-width="8"/>
+            <circle cx="50" cy="50" r="10" fill="currentColor" fill-opacity="0.35" stroke="currentColor" stroke-width="3"/>
+            <line x1="14" y1="50" x2="40" y2="50" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+            <line x1="60" y1="50" x2="86" y2="50" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+            <line x1="50" y1="60" x2="50" y2="86" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+            <path d="M44 13 L50 7 L56 13" fill="none" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </div>
 
         <div id="touch-actions" class="touch-cluster">
-          <button type="button" class="touch-btn touch-action" data-btn="secondary" aria-label="Freio ou Ré">B</button>
-          <button type="button" class="touch-btn touch-action touch-primary" data-btn="action" aria-label="Ação ou Acelerar">A</button>
+          <button type="button" class="touch-btn touch-secondary-btn touch-exit hidden" data-btn="exit" aria-label="Sair do veículo" title="Sair do veículo">
+            <svg class="touch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M13 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7"/>
+              <path d="M10 12h10"/>
+              <path d="M17 8l4 4-4 4"/>
+            </svg>
+          </button>
+          <button type="button" class="touch-btn touch-secondary-btn touch-brake hidden" data-btn="secondary" aria-label="Frear ou Ré" title="Frear ou Ré">
+            <svg class="touch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="8"/>
+              <path d="M9.5 9.5h5v5h-5z" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+          <button type="button" class="touch-btn touch-action touch-primary" data-btn="action" aria-label="Ação" title="Ação">
+            <svg class="touch-icon touch-icon-hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 11V6a2 2 0 0 0-4 0v4"/>
+              <path d="M14 10V4a2 2 0 0 0-4 0v6"/>
+              <path d="M10 10.5V6a2 2 0 0 0-4 0v8"/>
+              <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-5.9-2.5L3.3 15.8a2 2 0 0 1 2.9-2.7L8 15"/>
+            </svg>
+            <svg class="touch-icon touch-icon-accel hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M7 17l5-5 5 5"/>
+              <path d="M7 11l5-5 5 5"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
