@@ -8,11 +8,14 @@ import {
   parseStoryManifest,
   parseCharacterMarkdown,
   parseMissionMarkdown,
+  parseMapMarkdown,
+  replaceLocationCodesWithNames,
   validateAssetPath,
   StoryParseError
 } from '../src/story/story-parser.js';
 import {
   getCharacterSidePngCandidates,
+  getCutsceneBackgroundCandidates,
   getSplashPngCandidates,
   resolveFirstExistingAsset
 } from '../src/story/story-loader.js';
@@ -108,4 +111,41 @@ test('prioriza PNG personalizado para tela de abertura e faz fallback para padr�
 
   const fallback = await resolveFirstExistingAsset(candidates, async () => false);
   assert.equal(fallback, '');
+});
+
+test('map/map.md mapeia todos os locais da cidade e substitui códigos em falas e textos', () => {
+  const cityMap = new CityMap();
+  const mapRaw = fs.readFileSync(path.join(storyDir, 'map/map.md'), 'utf8');
+  const locationNames = parseMapMarkdown(mapRaw, 'map/map.md');
+
+  assert.equal(locationNames.get('COM-01'), 'Farmácia Bom Preço');
+  assert.equal(locationNames.get('RUA-01'), 'Av. Aurélio Valporto');
+  assert.equal(locationNames.get('CASA-02'), 'Casa do Mauro');
+
+  for (const code of cityMap.locationsByCode.keys()) {
+    assert.ok(locationNames.has(code), `Código ausente em map/map.md: ${code}`);
+    assert.ok(locationNames.get(code).length > 0);
+  }
+
+  const speech = 'leve essa encomenda para a CASA-02 na RUA-02';
+  assert.equal(
+    replaceLocationCodesWithNames(speech, locationNames),
+    'leve essa encomenda para a Casa do Mauro na Rua dos Guararapes'
+  );
+});
+
+test('resolve cenários JPG de cutscene por código ou tipo (RUA, PRACA, COM, CASA) e possui exemplos', async () => {
+  for (const name of ['rua.jpg', 'praca.jpg', 'com.jpg', 'casa.jpg']) {
+    assert.equal(fs.existsSync(path.join(storyDir, 'map', name)), true, `Ausente: story/map/${name}`);
+  }
+
+  const candidates = getCutsceneBackgroundCandidates('./story', 'Frente da CASA-01', 'CASA-01');
+  assert.deepEqual(candidates, [
+    './story/map/CASA-01.jpg',
+    './story/map/casa-01.jpg',
+    './story/map/casa.jpg',
+  ]);
+
+  const resolved = await resolveFirstExistingAsset(candidates, async (url) => url === './story/map/casa.jpg');
+  assert.equal(resolved, './story/map/casa.jpg');
 });

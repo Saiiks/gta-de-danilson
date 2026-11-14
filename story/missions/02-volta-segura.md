@@ -7,18 +7,18 @@ objective: Encontre Beto em PRACA-01
 ---
 
 ## CUTSCENE_INICIO
-left: alex
+left: guanabara
 right: clara
-bg: Saída do Comércio COM-05
+bg: Saída do COM-05
 
-- Clara: Tudo certo com a entrega. O Beto pediu para você encontrá-lo na praça PRACA-01.
-- Alex: Combinado. Estou indo para lá agora mesmo.
+- Clara: Tudo certo com a entrega. O Beto pediu para você encontrá-lo na PRACA-01.
+- guanabara: Combinado. Estou indo para lá agora mesmo.
 
 ## CUTSCENE_FIM
-left: alex
+left: guanabara
 right: beto
-bg: Praça Central PRACA-01
+bg: PRACA-01
 
-- Beto: Excelente trabalho, Alex! A entrega foi um sucesso.
-- Alex: A cidade inteira agora está livre para explorar.
+- Beto: Excelente trabalho, guanabara! A entrega foi um sucesso.
+- guanabara: A cidade inteira agora está livre para explorar.
 - OPCAO: Encerrar o serviço e explorar a cidade -> COMPLETE

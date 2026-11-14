@@ -430,9 +430,14 @@ body {
 }
 
 .cutscene-stage {
-  width: min(860px, 100%);
-  height: min(520px, 92dvh);
+  position: relative;
+  overflow: hidden;
+  width: min(880px, 100%);
+  height: min(580px, 94dvh);
   background: linear-gradient(180deg, #1e293b 0%, #334155 58%, #1f2937 58%, #111827 100%);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   border: 2px solid rgba(251, 191, 36, 0.45);
   border-radius: 14px;
   display: flex;
@@ -443,6 +448,8 @@ body {
 }
 
 .cutscene-bg-label {
+  position: relative;
+  z-index: 2;
   align-self: flex-start;
   background: rgba(14, 16, 21, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -455,11 +462,16 @@ body {
 }
 
 .cutscene-actors {
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  bottom: -64px;
+  z-index: 1;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  flex: 1;
-  padding: 8px 24px 0;
+  pointer-events: none;
   gap: 16px;
 }
 
@@ -467,15 +479,17 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  opacity: 0.55;
-  transform: scale(0.95);
+  justify-content: flex-end;
+  gap: 0;
+  opacity: 0.68;
+  transform: scale(0.96);
+  transform-origin: bottom center;
   transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
 .cutscene-actor.speaking {
   opacity: 1;
-  transform: scale(1.03);
+  transform: scale(1.02);
 }
 
 @keyframes speaking-bob {
@@ -487,30 +501,36 @@ body {
   }
 }
 
+#cutscene-right-slot .cutscene-portrait {
+  scale: -1 1;
+}
+
 .cutscene-actor.speaking .cutscene-portrait {
   animation: speaking-bob 0.24s ease-in-out infinite;
-  border-color: rgba(251, 191, 36, 0.7);
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.72));
 }
 
 .cutscene-portrait {
-  width: clamp(96px, 16vw, 156px);
-  height: clamp(96px, 16vw, 156px);
-  object-fit: cover;
-  border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.16);
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.6));
+  aspect-ratio: 9 / 16;
+  height: clamp(360px, 84dvh, 620px);
+  width: auto;
+  max-width: 48vw;
+  object-fit: contain;
+  object-position: bottom center;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.55));
 }
 
 .cutscene-actor-name {
-  background: rgba(14, 16, 21, 0.85);
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #e2e8f0;
+  display: none;
 }
 
 .cutscene-dialog-box {
+  position: relative;
+  z-index: 2;
+  margin-top: auto;
   background: rgba(14, 16, 21, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 12px;
@@ -778,5 +798,9 @@ body {
   .touch-primary {
     width: 66px;
     height: 66px;
+  }
+
+  .cutscene-portrait {
+    height: clamp(240px, 86dvh, 360px);
   }
 }

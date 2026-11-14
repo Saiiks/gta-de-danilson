@@ -1,6 +1,7 @@
 export class CutsceneController {
   constructor() {
     this.screen = document.getElementById('cutscene-screen');
+    this.stageEl = this.screen.querySelector('.cutscene-stage');
     this.bgLabel = document.getElementById('cutscene-bg-label');
     this.leftImg = document.getElementById('cutscene-left-img');
     this.leftName = document.getElementById('cutscene-left-name');
@@ -43,14 +44,27 @@ export class CutsceneController {
     this.prevDown = false;
 
     this.bgLabel.textContent = cutscene.background || 'Cena Lateral';
+    if (this.stageEl) {
+      if (cutscene.backgroundImage) {
+        this.stageEl.style.backgroundImage = `linear-gradient(180deg, rgba(15, 23, 42, 0.16) 0%, rgba(15, 23, 42, 0.32) 62%, rgba(10, 14, 22, 0.78) 100%), url("${cutscene.backgroundImage}")`;
+        this.stageEl.classList.add('has-bg-image');
+      } else {
+        this.stageEl.style.backgroundImage = '';
+        this.stageEl.classList.remove('has-bg-image');
+      }
+    }
 
     const leftChar = characters?.get(cutscene.leftChar);
     const rightChar = characters?.get(cutscene.rightChar);
 
+    this.leftSlot.classList.remove('speaking');
+    this.rightSlot.classList.remove('speaking');
     this.applyCharacterSlot(this.leftSlot, this.leftImg, this.leftName, leftChar, 'right');
     this.applyCharacterSlot(this.rightSlot, this.rightImg, this.rightName, rightChar, 'left');
 
     this.screen.classList.remove('hidden');
+    // Garante reflow antes de aplicar .speaking para disparar a animação no 1º frame
+    void this.screen.offsetWidth;
     this.renderStep();
   }
 

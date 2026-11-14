@@ -264,3 +264,39 @@ export function parseMissionMarkdown(rawText, fileName = 'mission.md', cityMap =
     outroCutscene: parseCutsceneBlock(sections.CUTSCENE_FIM, sectionStarts.CUTSCENE_FIM, fileName),
   };
 }
+
+export function parseMapMarkdown(rawText, fileName = 'map/map.md') {
+  const normalized = String(rawText || '').replace(/\r\n/g, '\n');
+  const lines = normalized.split('\n');
+  const locationNames = new Map();
+
+  for (let i = 0; i < lines.length; i += 1) {
+    let trimmed = lines[i].trim();
+    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('<!--')) continue;
+    if (trimmed.startsWith('- ')) {
+      trimmed = trimmed.slice(2).trim();
+    }
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx <= 0) {
+      throw new StoryParseError(fileName, i + 1, `Linha malformada em "${fileName}": "${trimmed}". Use "CODIGO: Nome".`);
+    }
+    const code = trimmed.slice(0, colonIdx).trim().toUpperCase();
+    const name = trimmed.slice(colonIdx + 1).trim();
+    if (!code || !name) {
+      throw new StoryParseError(fileName, i + 1, `Código ou nome vazio em "${fileName}": "${trimmed}".`);
+    }
+    locationNames.set(code, name);
+  }
+
+  return locationNames;
+}
+
+export function replaceLocationCodesWithNames(text, locationNames) {
+  if (!text || typeof text !== 'string' || !locationNames || locationNames.size === 0) {
+    return text;
+  }
+  return text.replace(/\b((?:RUA|CASA|COM|PRACA)-\d+)\b/gi, (match, code) => {
+    const resolved = locationNames.get(code.toUpperCase());
+    return resolved || match;
+  });
+}

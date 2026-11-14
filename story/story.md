@@ -1,8 +1,8 @@
 ---
 title: Encomenda Urgente
-subtitle: Atravesse a cidade-base, entregue a maleta no ponto COM-05 e decida seu destino.
+subtitle: Atravesse a cidade-base, entregue a maleta no COM-05 e decida seu destino.
 splash: assets/splash.svg
-characters: alex, beto, clara
+characters: guanabara, beto, clara
 missions: 01-encomenda-urgente, 02-volta-segura
 ---
 

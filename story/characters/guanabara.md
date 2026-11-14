@@ -1,6 +1,6 @@
 ---
-id: alex
-name: Alex
+id: guanabara
+name: Guanabara
 profile: Motorista experiente que conhece cada rua e atalho da ilha.
 traits: Ágil, discreto, bom no volante
 sprite_top: assets/alex-top.svg

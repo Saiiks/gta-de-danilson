@@ -34,6 +34,7 @@ export class Engine {
 
     this.cityMap = options.cityMap || null;
     this.storyPackage = options.storyPackage || null;
+    this.locationNames = this.storyPackage?.locationNames || new Map();
     this.cutscene = options.cutscene || null;
     this.pauseMenu = options.pauseMenu || null;
     this.onExitToTitle = options.onExitToTitle || null;
@@ -273,6 +274,11 @@ export class Engine {
     this.hud.showGameOver(reason);
   }
 
+  getLocationDisplayName(code) {
+    if (!code) return '';
+    return this.locationNames.get(code) || code;
+  }
+
   setObjective(code) {
     if (!code) {
       this.objectiveCode = null;
@@ -400,10 +406,10 @@ export class Engine {
       this.#updateExplosions(scaledDt);
 
       this.hud.updateStatus({
-        locationCode: this.cityMap.getLocationAt(this.player.x, this.player.y)?.code || 'CIDADE',
+        locationCode: this.getLocationDisplayName(this.cityMap.getLocationAt(this.player.x, this.player.y)?.code || 'CIDADE'),
         vehicle: null,
         isDrifting: false,
-        objectiveCode: this.objectiveCode,
+        objectiveCode: this.getLocationDisplayName(this.objectiveCode),
         health: 0
       });
 
@@ -418,10 +424,10 @@ export class Engine {
       this.#updateParticles(dt);
       this.#updateExplosions(dt);
       this.hud.updateStatus({
-        locationCode: this.cityMap.getLocationAt(this.player.x, this.player.y)?.code || 'CIDADE',
+        locationCode: this.getLocationDisplayName(this.cityMap.getLocationAt(this.player.x, this.player.y)?.code || 'CIDADE'),
         vehicle: null,
         isDrifting: false,
-        objectiveCode: this.objectiveCode,
+        objectiveCode: this.getLocationDisplayName(this.objectiveCode),
         health: 0
       });
       if (this.pendingGameOver.timer >= this.pendingGameOver.duration && this.explosions.length === 0) {
@@ -465,7 +471,7 @@ export class Engine {
         locationCode: 'ÁGUA',
         vehicle: null,
         isDrifting: false,
-        objectiveCode: this.objectiveCode,
+        objectiveCode: this.getLocationDisplayName(this.objectiveCode),
         health: this.player.health
       });
 
@@ -931,10 +937,10 @@ export class Engine {
       : null;
 
     this.hud.updateStatus({
-      locationCode: this.player.currentLocationCode,
+      locationCode: this.getLocationDisplayName(this.player.currentLocationCode),
       vehicle: currentVehicle,
       isDrifting: Boolean(currentVehicle?.isDrifting),
-      objectiveCode: this.objectiveCode,
+      objectiveCode: this.getLocationDisplayName(this.objectiveCode),
       health: this.player.health
     });
   }
