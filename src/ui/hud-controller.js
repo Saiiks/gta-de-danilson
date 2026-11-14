@@ -9,6 +9,9 @@ export class HudController {
     this.loadingBar = document.getElementById('loading-bar');
     this.loadingText = document.getElementById('loading-text');
     this.loadingPercent = document.getElementById('loading-percent');
+    this.inventoryButton = document.getElementById('inventory-button');
+    this.inventoryClickHandler = null;
+    this.inventoryButton?.addEventListener('click', () => this.inventoryClickHandler?.());
     this.errorScreen = document.getElementById('error-screen');
     this.errorMessage = document.getElementById('error-message');
 
@@ -188,6 +191,16 @@ export class HudController {
 
   onRestartClick(handler) {
     this.restartButton.addEventListener('click', handler);
+  }
+
+  onInventoryClick(handler) {
+    this.inventoryClickHandler = handler;
+  }
+
+  setInventoryCount(count, capacity = 20) {
+    if (this.inventoryButton) {
+      this.inventoryButton.textContent = `ITENS (${count}/${capacity})`;
+    }
   }
 
   setDeathDesaturation(progress = 0) {

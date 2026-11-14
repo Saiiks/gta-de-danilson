@@ -2,6 +2,7 @@ import { Engine } from './core/engine.js';
 import { HudController } from './ui/hud-controller.js';
 import { CutsceneController } from './ui/cutscene-controller.js';
 import { PauseMenuController } from './ui/pause-menu.js';
+import { InventoryController } from './ui/inventory-controller.js';
 import { CityMap } from './world/city-map.js';
 import { loadStoryPackage, preloadStoryAssets } from './story/story-loader.js';
 
@@ -13,6 +14,7 @@ async function boot() {
   const hud = new HudController();
   const cutscene = new CutsceneController();
   const pauseMenu = new PauseMenuController();
+  const inventoryController = new InventoryController();
   const canvas = document.getElementById('game-canvas');
   const minimapCanvas = document.getElementById('minimap-canvas');
   const touchControls = document.getElementById('touch-controls');
@@ -66,6 +68,7 @@ async function boot() {
         storyPackage,
         cutscene,
         pauseMenu,
+        inventoryController,
         onExitToTitle: () => {
           activeEngine?.stop();
           activeEngine = null;
