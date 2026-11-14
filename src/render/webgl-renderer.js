@@ -1,4 +1,4 @@
-import { createTextureAtlas } from './texture-atlas.js?v=10';
+import { createTextureAtlas } from './texture-atlas.js?v=11';
 
 const VERTEX_SHADER = `
   attribute vec2 a_position;
@@ -190,7 +190,32 @@ export class WebGLRenderer {
     this.quadCount++;
   }
 
-  renderFrame({ camera, cityMap, vehicles, trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, objectiveNpcPoint, emitNpcWaves = false, time }) {
+  #drawStoryNpc(x, y, time, withHalo = false) {
+    if (withHalo) {
+      const pulse = 1 + Math.sin(time * 5) * 0.14;
+      const ringSize = 36 * pulse;
+      this.#pushQuad(
+        x - ringSize * 0.5,
+        y - ringSize * 0.5,
+        ringSize,
+        ringSize,
+        0,
+        'circle',
+        [0.98, 0.78, 0.18, 0.75]
+      );
+    }
+    // Braços e sombra no chão
+    this.#pushQuad(x - 13, y - 2, 6, 7, 0, 'solid', [0.95, 0.78, 0.65, 1]);
+    this.#pushQuad(x + 7, y - 2, 6, 7, 0, 'solid', [0.95, 0.78, 0.65, 1]);
+    this.#pushQuad(x - 10, y - 9, 22, 22, 0, 'disc', [0, 0, 0, 0.35]);
+    // Ombros, camisa, rosto e cabelo nítidos
+    this.#pushQuad(x - 11, y - 11, 22, 22, 0, 'disc', [0.12, 0.16, 0.22, 1]);
+    this.#pushQuad(x - 8, y - 7, 16, 16, 0, 'disc', [0.92, 0.25, 0.25, 1]);
+    this.#pushQuad(x - 5, y + 1, 10, 10, 0, 'disc', [0.95, 0.78, 0.65, 1]);
+    this.#pushQuad(x - 4.5, y - 2, 9, 9, 0, 'disc', [0.22, 0.14, 0.08, 1]);
+  }
+
+  renderFrame({ camera, cityMap, vehicles, trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, objectiveNpcPoint, completedNpcPoints = [], emitNpcWaves = false, time }) {
     const gl = this.gl;
     this.quadCount = 0;
 
@@ -514,29 +539,16 @@ export class WebGLRenderer {
       }
     }
 
+    // Personagens de missões já concluídas permanecem na cena sem ondas
+    for (const pt of completedNpcPoints) {
+      if (pt.x < minX || pt.x > maxX || pt.y < minY || pt.y > maxY) continue;
+      this.#drawStoryNpc(pt.x, pt.y, time, false);
+    }
+
     // Boneco do personagem de destino (dentro do estabelecimento ou no ponto de encontro)
     const npcMarker = objectiveNpcPoint || objectivePoint;
     if (npcMarker) {
-      const pulse = 1 + Math.sin(time * 5) * 0.14;
-      const ringSize = 36 * pulse;
-      this.#pushQuad(
-        npcMarker.x - ringSize * 0.5,
-        npcMarker.y - ringSize * 0.5,
-        ringSize,
-        ringSize,
-        0,
-        'circle',
-        [0.98, 0.78, 0.18, 0.75]
-      );
-      // Braços e sombra no chão
-      this.#pushQuad(npcMarker.x - 13, npcMarker.y - 2, 6, 7, 0, 'solid', [0.95, 0.78, 0.65, 1]);
-      this.#pushQuad(npcMarker.x + 7, npcMarker.y - 2, 6, 7, 0, 'solid', [0.95, 0.78, 0.65, 1]);
-      this.#pushQuad(npcMarker.x - 10, npcMarker.y - 9, 22, 22, 0, 'disc', [0, 0, 0, 0.35]);
-      // Ombros, camisa, rosto e cabelo nítidos
-      this.#pushQuad(npcMarker.x - 11, npcMarker.y - 11, 22, 22, 0, 'disc', [0.12, 0.16, 0.22, 1]);
-      this.#pushQuad(npcMarker.x - 8, npcMarker.y - 7, 16, 16, 0, 'disc', [0.92, 0.25, 0.25, 1]);
-      this.#pushQuad(npcMarker.x - 5, npcMarker.y + 1, 10, 10, 0, 'disc', [0.95, 0.78, 0.65, 1]);
-      this.#pushQuad(npcMarker.x - 4.5, npcMarker.y - 2, 9, 9, 0, 'disc', [0.22, 0.14, 0.08, 1]);
+      this.#drawStoryNpc(npcMarker.x, npcMarker.y, time, true);
     }
 
     // Telhados fechados cobrem pessoas dentro dos prédios quando o jogador está fora

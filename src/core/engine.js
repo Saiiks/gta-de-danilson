@@ -2,8 +2,8 @@ import { CityMap } from '../world/city-map.js';
 import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js';
 import { InputManager } from '../input/input-manager.js';
-import { WebGLRenderer } from '../render/webgl-renderer.js?v=10';
-import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=10';
+import { WebGLRenderer } from '../render/webgl-renderer.js?v=11';
+import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=11';
 import {
   applyPedestrianDamage,
   applyVehicleDamage,
@@ -61,6 +61,7 @@ export class Engine {
     this.currentMissionIndex = 0;
     this.freeRoamMode = !this.storyPackage;
     this.missionOutTriggered = false;
+    this.completedNpcPoints = [];
     this.paused = false;
 
     this.pathfinder = null;
@@ -74,6 +75,7 @@ export class Engine {
     this.objectiveCode = null;
     this.objectivePoint = null;
     this.objectiveNpcPoint = null;
+    this.completedNpcPoints = [];
     this.objectiveLocationType = null;
     this.routeTimer = 0;
     this.elapsedTime = 0;
@@ -205,6 +207,7 @@ export class Engine {
     this.currentMissionIndex = clamped;
     this.freeRoamMode = false;
     this.missionOutTriggered = false;
+    this.completedNpcPoints = [];
     this.awaitingExitTarget = false;
     const needsPickup = Boolean(mission.pickupLocation && mission.giveItem);
     this.itemPickedUp = !needsPickup;
@@ -338,6 +341,7 @@ export class Engine {
     this.deathSequence = null;
     this.hud?.setDeathDesaturation?.(0);
     this.missionOutTriggered = false;
+    this.completedNpcPoints = [];
 
     const startLoc = this.cityMap.resolveLocationCode(startCode);
     this.player.x = startLoc.spawnPoint.x;
@@ -454,29 +458,23 @@ export class Engine {
   }
 
   #resolvePlayerMissionNpcCollision() {
-    if (
-      this.player.inVehicleId ||
-      this.player.isDead ||
-      this.#isPickupStageActive() ||
-      this.missionOutTriggered ||
-      this.freeRoamMode ||
-      !this.objectiveNpcPoint
-    ) {
+    if (this.player.inVehicleId || this.player.isDead) {
       return;
     }
+    const npcs = [...(this.completedNpcPoints || [])];
+    if (!this.#isPickupStageActive() && !this.missionOutTriggered && !this.freeRoamMode && this.objectiveNpcPoint) {
+      npcs.push(this.objectiveNpcPoint);
+    }
+    if (npcs.length === 0) return;
+
     const radius = this.player.radius || 11;
-    const hit = resolveCircleStaticObstacle(
-      this.player.x,
-      this.player.y,
-      radius,
-      this.objectiveNpcPoint.x,
-      this.objectiveNpcPoint.y,
-      11
-    );
-    if (!hit.collided) return;
-    const env = resolveEntityCollisions(hit.x, hit.y, radius, this.cityMap.getCollidersAround(hit.x, hit.y, 80));
-    this.player.x = env.x;
-    this.player.y = env.y;
+    for (const npc of npcs) {
+      const hit = resolveCircleStaticObstacle(this.player.x, this.player.y, radius, npc.x, npc.y, 11);
+      if (!hit.collided) continue;
+      const env = resolveEntityCollisions(hit.x, hit.y, radius, this.cityMap.getCollidersAround(hit.x, hit.y, 80));
+      this.player.x = env.x;
+      this.player.y = env.y;
+    }
   }
 
   #findNearestTalkablePedestrian(x, y, maxDist = 52) {
@@ -501,6 +499,14 @@ export class Engine {
 
     this.player.speed = 0;
     const finishMission = () => {
+      if (this.objectiveNpcPoint) {
+        const alreadySaved = this.completedNpcPoints.some(
+          (pt) => Math.hypot(pt.x - this.objectiveNpcPoint.x, pt.y - this.objectiveNpcPoint.y) < 4
+        );
+        if (!alreadySaved) {
+          this.completedNpcPoints.push({ x: this.objectiveNpcPoint.x, y: this.objectiveNpcPoint.y });
+        }
+      }
       this.setObjective(null);
       const hasNext = this.currentMissionIndex + 1 < this.storyPackage.missions.length;
       this.paused = true;
@@ -1437,6 +1443,7 @@ export class Engine {
       explosions: this.explosions,
       objectivePoint: hideTargetNpc ? null : this.objectivePoint,
       objectiveNpcPoint: hideTargetNpc ? null : this.objectiveNpcPoint,
+      completedNpcPoints: this.completedNpcPoints,
       emitNpcWaves: !hideTargetNpc && Boolean(this.objectiveNpcPoint || this.objectivePoint),
       time: this.elapsedTime
     });
