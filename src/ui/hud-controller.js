@@ -11,6 +11,8 @@ export class HudController {
     this.loadingPercent = document.getElementById('loading-percent');
     this.inventoryButton = document.getElementById('inventory-button');
     this.hudToastEl = document.getElementById('hud-toast');
+    this.hudToastImgEl = document.getElementById('hud-toast-img');
+    this.hudToastTextEl = document.getElementById('hud-toast-text');
     this.hudToastTimer = null;
     this.inventoryClickHandler = null;
     this.inventoryButton?.addEventListener('click', () => this.inventoryClickHandler?.());
@@ -205,9 +207,28 @@ export class HudController {
     }
   }
 
-  showToast(message, durationMs = 3600) {
+  showToast(message, options = 3600) {
     if (!this.hudToastEl) return;
-    this.hudToastEl.textContent = String(message || '');
+    const opts = typeof options === 'number' ? { durationMs: options } : (options || {});
+    const { durationMs = 3600, imageUrl = '', imageAlt = '' } = opts;
+
+    if (this.hudToastImgEl) {
+      if (imageUrl) {
+        this.hudToastImgEl.src = imageUrl;
+        this.hudToastImgEl.alt = imageAlt;
+        this.hudToastImgEl.classList.remove('hidden');
+      } else {
+        this.hudToastImgEl.removeAttribute('src');
+        this.hudToastImgEl.classList.add('hidden');
+      }
+    }
+
+    if (this.hudToastTextEl) {
+      this.hudToastTextEl.textContent = String(message || '');
+    } else {
+      this.hudToastEl.textContent = String(message || '');
+    }
+
     this.hudToastEl.classList.remove('hidden');
     clearTimeout(this.hudToastTimer);
     this.hudToastTimer = setTimeout(() => {

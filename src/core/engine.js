@@ -1056,9 +1056,13 @@ export class Engine {
       if (activeMission.giveItem && !this.inventory.hasItem(activeMission.giveItem)) {
         this.#grantMissionItem(activeMission.giveItem);
       }
-      const itemName = this.storyPackage?.items?.get(activeMission.giveItem)?.name || 'Item';
+      const itemDef = this.storyPackage?.items?.get(activeMission.giveItem);
+      const itemName = itemDef?.name || 'Item';
       const targetName = this.locationNames.get(activeMission.targetLocation) || activeMission.targetLocation;
-      this.hud.showToast(`${itemName} guardada no inventário! Leve até ${targetName}.`);
+      this.hud.showToast(`${itemName} guardada no inventário! Leve até ${targetName}.`, {
+        imageUrl: itemDef?.imageUrl || '',
+        imageAlt: itemName
+      });
       this.setObjective(activeMission.targetLocation);
     } else {
       const reachedTarget =
