@@ -3,7 +3,7 @@ import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js?v=20';
 import { BoatManager } from '../world/boat-manager.js?v=17';
 import { InputManager } from '../input/input-manager.js?v=17';
-import { WebGLRenderer } from '../render/webgl-renderer.js?v=21';
+import { WebGLRenderer } from '../render/webgl-renderer.js?v=23';
 import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=11';
 import {
   applyPedestrianDamage,
@@ -429,7 +429,7 @@ export class Engine {
     }
     const target = this.cityMap.resolveLocationCode(code);
     this.objectiveCode = target.code;
-    this.objectivePoint = target.spawnPoint;
+    this.objectivePoint = { ...target.spawnPoint, doorSide: target.doorSide || null };
     this.objectiveLocationType = target.type || null;
     if ((target.type === 'commerce' || target.type === 'house') && target.bounds) {
       this.objectiveNpcPoint = {

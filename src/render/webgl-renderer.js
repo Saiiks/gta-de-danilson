@@ -420,19 +420,31 @@ export class WebGLRenderer {
       }
     }
 
-    // Marcação no chão indicando o estabelecimento/ponto de destino (veículos e pessoas passam por cima)
+    // Seta grossa vermelha no chão apontando diretamente para a entrada do destino
     if (objectivePoint) {
-      const pulse = 1 + Math.sin(time * 5) * 0.18;
-      const size = 34 * pulse;
-      this.#pushQuad(
-        objectivePoint.x - size * 0.5,
-        objectivePoint.y - size * 0.5,
-        size,
-        size,
-        0,
-        'solid',
-        [0.92, 0.22, 0.22, 0.55]
-      );
+      let angle = Math.PI * 0.5;
+      if (objectivePoint.doorSide === 'south') angle = -Math.PI * 0.5;
+      else if (objectivePoint.doorSide === 'north') angle = Math.PI * 0.5;
+      else if (objectivePoint.doorSide === 'west') angle = 0;
+      else if (objectivePoint.doorSide === 'east') angle = Math.PI;
+
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const bounce = Math.sin(time * 6) * 4;
+      const cx = objectivePoint.x + cos * bounce;
+      const cy = objectivePoint.y + sin * bounce;
+      const arrowColor = [0.94, 0.16, 0.16, 0.62];
+
+      const pushArrowPart = (lx, ly, w, h, rotOffset) => {
+        const wx = cx + lx * cos - ly * sin;
+        const wy = cy + lx * sin + ly * cos;
+        this.#pushQuad(wx - w * 0.5, wy - h * 0.5, w, h, angle + rotOffset, 'solid', arrowColor);
+      };
+
+      pushArrowPart(-8, 0, 26, 13, 0);
+      pushArrowPart(5, -7, 22, 10, 0.68);
+      pushArrowPart(5, 7, 22, 10, -0.68);
+      pushArrowPart(10, 0, 12, 12, Math.PI * 0.25);
     }
 
     // Lixeiras dinâmicas nas esquinas (podem ser arremessadas e rebater)
