@@ -12,7 +12,7 @@
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <link rel="apple-touch-icon" href="./icon.svg">
   <title>Cidade Aberta Retrô</title>
-  <link rel="stylesheet" href="./styles/main.css?v=15">
+  <link rel="stylesheet" href="./styles/main.css?v=18">
 </head>
 <body>
   <div id="game-shell">
@@ -24,22 +24,22 @@
     <div id="hud-layer" class="hidden" aria-live="polite">
       <div id="top-left-stack">
         <div id="top-bar">
-          <div id="location-badge" class="hud-pill">
-            <span class="hud-label">LOCAL</span>
-            <span id="location-code">---</span>
+          <div id="health-badge" class="hud-pill hud-health-stack">
+            <div class="hud-health-row" title="Vida do personagem">
+              <div class="health-track"><div id="health-fill" class="health-fill"></div></div>
+              <span id="health-value">100</span>
+            </div>
+            <div id="vehicle-health-badge" class="hud-health-row disabled" title="Integridade do veículo">
+              <div class="health-track"><div id="vehicle-health-fill" class="health-fill"></div></div>
+              <span id="vehicle-health-value">--</span>
+            </div>
           </div>
           <div id="vehicle-badge" class="hud-pill">
             <span id="vehicle-status">A pé</span>
           </div>
-          <div id="health-badge" class="hud-pill">
-            <span class="hud-label">VIDA</span>
-            <div class="health-track"><div id="health-fill" class="health-fill"></div></div>
-            <span id="health-value">100</span>
-          </div>
-          <div id="vehicle-health-badge" class="hud-pill hidden">
-            <span class="hud-label">LATARIA</span>
-            <div class="health-track"><div id="vehicle-health-fill" class="health-fill"></div></div>
-            <span id="vehicle-health-value">100</span>
+          <div id="location-badge" class="hud-pill">
+            <span class="hud-label">LOCAL</span>
+            <span id="location-code">---</span>
           </div>
         </div>
         <div class="hud-quick-actions">
@@ -73,7 +73,7 @@
       </div>
 
       <div id="minimap-container" aria-label="Minimapa">
-        <canvas id="minimap-canvas" width="168" height="168"></canvas>
+        <canvas id="minimap-canvas" width="204" height="204"></canvas>
         <div id="objective-hint">Livre</div>
       </div>
 
@@ -258,6 +258,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/main.js?v=39"></script>
+  <script type="module" src="./src/main.js?v=41"></script>
 </body>
 </html>

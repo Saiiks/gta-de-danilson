@@ -408,7 +408,7 @@ export class HudController {
     if (vehicle) {
       const kmh = Math.round(vehicle.speed * 0.25);
       const driftTag = isDrifting ? ' · DRIFT!' : '';
-      this.vehicleStatusEl.textContent = `${vehicle.model} · ${kmh} km/h${driftTag}`;
+      this.vehicleStatusEl.textContent = `${kmh} km/h${driftTag}`;
     } else {
       this.vehicleStatusEl.textContent = 'A pé';
     }
@@ -423,13 +423,15 @@ export class HudController {
     if (this.vehicleHealthBadgeEl) {
       if (vehicle) {
         const vHealth = Math.max(0, Math.min(100, Math.round(vehicle.health ?? 100)));
-        this.vehicleHealthBadgeEl.classList.remove('hidden');
+        this.vehicleHealthBadgeEl.classList.remove('disabled');
         this.vehicleHealthValueEl.textContent = String(vHealth);
         this.vehicleHealthFillEl.style.width = `${vHealth}%`;
         this.vehicleHealthFillEl.style.backgroundColor =
           vHealth > 55 ? '#38bdf8' : vHealth > 25 ? '#f59e0b' : '#ef4444';
       } else {
-        this.vehicleHealthBadgeEl.classList.add('hidden');
+        this.vehicleHealthBadgeEl.classList.add('disabled');
+        this.vehicleHealthValueEl.textContent = '--';
+        this.vehicleHealthFillEl.style.width = '0%';
       }
     }
   }
