@@ -145,7 +145,7 @@ export class CutsceneController {
         if (idx === this.selectedChoiceIndex) btn.classList.add('selected');
         btn.textContent = choice.label;
         btn.addEventListener('click', () => {
-          this.finish({ outcome: choice.outcome, reason: choice.reason || '' });
+          this.#selectChoice(choice);
         });
         this.choicesEl.appendChild(btn);
       });
@@ -178,7 +178,7 @@ export class CutsceneController {
       }
       if (action && !this.prevAction) {
         const chosen = step.choices[this.selectedChoiceIndex];
-        this.finish({ outcome: chosen.outcome, reason: chosen.reason || '' });
+        this.#selectChoice(chosen);
       }
     } else if (action && !this.prevAction) {
       this.advance();
@@ -187,6 +187,22 @@ export class CutsceneController {
     this.prevAction = action;
     this.prevUp = up;
     this.prevDown = down;
+  }
+
+  #selectChoice(choice) {
+    if (!choice) return;
+    if (choice.outcome === 'next') {
+      if (this.stepIndex < this.cutscene.steps.length - 1) {
+        this.stepIndex += 1;
+        this.selectedChoiceIndex = 0;
+        this.prevAction = true;
+        this.renderStep();
+      } else {
+        this.finish({ outcome: 'complete', reason: '' });
+      }
+      return;
+    }
+    this.finish({ outcome: choice.outcome, reason: choice.reason || '' });
   }
 
   advance() {

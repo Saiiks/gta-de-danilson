@@ -18,7 +18,9 @@ right: beto
 bg: Frente da CASA-01
 
 - Beto: Guanabara, deixei uma maleta importante na PRACA-02. Preciso que você passe lá para pegá-la e leve até o COM-05.
-- Guanabara: Pode deixar comigo! Vou até a PRACA-02 buscar a maleta e sigo para o COM-05.
+- OPCAO: Pode deixar comigo! Vou buscar agora mesmo. -> NEXT
+- OPCAO: Tô indo, mas espero que o trânsito esteja calmo! -> NEXT
+- OPCAO: Missão dada é missão cumprida, chefe. -> NEXT
 - Beto: Cuidado nas curvas e não caia na água nas bordas da ilha!
 
 ## CUTSCENE_FIM
