@@ -23,6 +23,7 @@ import {
   updateVehicleCriticalState
 } from '../physics/vehicle-physics.js';
 import { Minimap } from '../ui/minimap.js';
+import { Inventory } from './inventory.js';
 
 export class Engine {
   constructor(canvas, minimapCanvas, touchControlsEl, hud, options = {}) {
@@ -37,8 +38,11 @@ export class Engine {
     this.locationNames = this.storyPackage?.locationNames || new Map();
     this.cutscene = options.cutscene || null;
     this.pauseMenu = options.pauseMenu || null;
+    this.inventoryController = options.inventoryController || null;
     this.onExitToTitle = options.onExitToTitle || null;
 
+    this.inventory = new Inventory(20);
+    this.awaitingExitTarget = false;
     this.currentMissionIndex = 0;
     this.freeRoamMode = !this.storyPackage;
     this.missionOutTriggered = false;
@@ -88,9 +92,35 @@ export class Engine {
       }
     });
 
+    this.hud.onInventoryClick(() => {
+      if (!this.running || this.player.isDead || this.deathSequence || this.cutscene?.active || this.hud.isMissionCompleteOpen() || this.paused) {
+        return;
+      }
+      if (this.inventoryController?.isOpen) {
+        if (this.inventoryController.mode === 'browse') this.inventoryController.close();
+      } else {
+        this.openInventory();
+      }
+    });
+    this.#syncInventoryHud();
+
     this.#onKeyDown = (e) => {
-      if (!this.running || this.player.isDead || this.cutscene?.active) return;
+      if (!this.running || this.player.isDead || this.deathSequence || this.cutscene?.active || this.hud.isMissionCompleteOpen()) return;
+      if (e.key === 'i' || e.key === 'I' || e.key === 'Tab') {
+        e.preventDefault();
+        if (this.inventoryController?.isOpen) {
+          if (this.inventoryController.mode === 'browse') this.inventoryController.close();
+        } else if (!this.paused) {
+          this.openInventory();
+        }
+        return;
+      }
+      if (e.key === 'Escape' && this.inventoryController?.isOpen) {
+        this.inventoryController.close();
+        return;
+      }
       if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+        if (this.inventoryController?.isOpen) return;
         if (this.pauseMenu?.isOpen) this.pauseMenu.close();
         else this.pauseMenu?.open();
       }
@@ -137,6 +167,7 @@ export class Engine {
     this.currentMissionIndex = clamped;
     this.freeRoamMode = false;
     this.missionOutTriggered = false;
+    this.awaitingExitTarget = false;
     const mission = this.storyPackage.missions[clamped];
 
     if (preserveState) {
@@ -158,11 +189,19 @@ export class Engine {
         angle: this.player.angle,
         health: this.player.health,
         inVehicleId: this.player.inVehicleId,
-        vehiclePos: currentVehicle ? { x: currentVehicle.x, y: currentVehicle.y, angle: currentVehicle.angle } : null
+        vehiclePos: currentVehicle ? { x: currentVehicle.x, y: currentVehicle.y, angle: currentVehicle.angle } : null,
+        inventorySlots: this.inventory.getSlots()
       };
     } else if (this.missionCheckpoint && this.missionCheckpoint.missionIndex === clamped) {
       const cp = this.missionCheckpoint;
       this.resetMatch(mission.startLocation, mission.targetLocation);
+      if (Array.isArray(cp.inventorySlots)) {
+        this.inventory.clear();
+        for (const item of cp.inventorySlots) {
+          if (item) this.inventory.addItem(item);
+        }
+        this.#syncInventoryHud();
+      }
       this.player.x = cp.x;
       this.player.y = cp.y;
       this.player.angle = cp.angle;
@@ -182,6 +221,8 @@ export class Engine {
       this.camera.y = this.player.y;
     } else {
       this.missionCheckpoint = null;
+      this.inventory.clear();
+      this.#syncInventoryHud();
       this.resetMatch(mission.startLocation, mission.targetLocation);
     }
 
@@ -201,9 +242,44 @@ export class Engine {
       }
     });
 
+    const grantMissionStartItem = () => {
+      if (mission.giveItem && !this.inventory.hasItem(mission.giveItem)) {
+        this.#grantMissionItem(mission.giveItem);
+      }
+    };
+
     if (!skipIntro && mission.introCutscene?.steps?.length > 0 && this.cutscene) {
-      this.cutscene.play(mission.introCutscene, this.storyPackage.characters, () => {});
+      this.cutscene.play(mission.introCutscene, this.storyPackage.characters, () => {
+        grantMissionStartItem();
+      });
+    } else {
+      grantMissionStartItem();
     }
+  }
+
+  #syncInventoryHud() {
+    this.hud?.setInventoryCount?.(this.inventory.getCount(), this.inventory.capacity);
+  }
+
+  #grantMissionItem(itemId) {
+    const itemDef = this.storyPackage?.items?.get(itemId);
+    if (!itemDef) return;
+    const res = this.inventory.addItem(itemDef);
+    if (!res.ok && res.reason === 'inventory_full') {
+      console.warn(`[Engine] Inventário cheio (20/20); não foi possível adicionar "${itemDef.name}".`);
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert(`Inventário cheio (20/20)! Não foi possível guardar "${itemDef.name}".`);
+      }
+      return;
+    }
+    this.#syncInventoryHud();
+  }
+
+  openInventory() {
+    if (!this.inventoryController || this.inventoryController.isOpen) return;
+    this.inventoryController.openBrowse(this.inventory, () => {
+      this.#syncInventoryHud();
+    });
   }
 
   resetMatch(startCode = 'CASA-01', targetCode = null) {
@@ -311,16 +387,36 @@ export class Engine {
       });
     };
 
-    if (mission.outroCutscene?.steps?.length > 0 && this.cutscene) {
-      this.cutscene.play(mission.outroCutscene, this.storyPackage.characters, (result) => {
-        if (result?.outcome === 'gameover') {
-          this.triggerGameOver(result.reason || 'Você falhou na missão.');
-        } else {
-          finishMission();
+    const runOutro = () => {
+      if (mission.outroCutscene?.steps?.length > 0 && this.cutscene) {
+        this.cutscene.play(mission.outroCutscene, this.storyPackage.characters, (result) => {
+          if (result?.outcome === 'gameover') {
+            this.triggerGameOver(result.reason || 'Você falhou na missão.');
+          } else {
+            finishMission();
+          }
+        });
+      } else {
+        finishMission();
+      }
+    };
+
+    if (mission.requireItem && this.inventoryController) {
+      this.inventoryController.openDelivery(this.inventory, {
+        prompt: mission.deliveryPrompt || 'Escolha o item correto do seu inventário para entregar:',
+        expectedItemId: mission.requireItem,
+        wrongItemMessage: mission.wrongItemMessage || 'Não é esse item que o personagem espera. Tente outro!',
+        onDeliver: () => {
+          this.#syncInventoryHud();
+          runOutro();
+        },
+        onCancel: () => {
+          this.missionOutTriggered = false;
+          this.awaitingExitTarget = true;
         }
       });
     } else {
-      finishMission();
+      runOutro();
     }
   }
 
@@ -347,9 +443,14 @@ export class Engine {
     this.elapsedTime += dt;
     const input = this.input.update(dt);
 
-    if (input.pauseJustPressed && !this.player.isDead && !this.deathSequence && !this.cutscene?.active && !this.hud.isMissionCompleteOpen()) {
+    if (input.pauseJustPressed && !this.player.isDead && !this.deathSequence && !this.cutscene?.active && !this.inventoryController?.isOpen && !this.hud.isMissionCompleteOpen()) {
       if (this.pauseMenu?.isOpen) this.pauseMenu.close();
       else this.pauseMenu?.open();
+      return;
+    }
+
+    if (this.inventoryController?.isOpen) {
+      this.inventoryController.updateInput(input);
       return;
     }
 
@@ -898,7 +999,11 @@ export class Engine {
       (Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 76 ||
         (activeMission && this.player.insideLocationCode === activeMission.targetLocation));
 
-    if (this.objectivePoint && !this.missionOutTriggered && reachedTarget) {
+    if (this.awaitingExitTarget) {
+      if (!reachedTarget) {
+        this.awaitingExitTarget = false;
+      }
+    } else if (this.objectivePoint && !this.missionOutTriggered && reachedTarget) {
       if (this.storyPackage && !this.freeRoamMode) {
         this.missionOutTriggered = true;
         this.#handleMissionArrival();
