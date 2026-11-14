@@ -32,7 +32,7 @@ test('carrega e valida o pacote de história de exemplo completo contra a cidade
   const cityMap = new CityMap();
   const manifest = parseStoryManifest(fs.readFileSync(path.join(storyDir, 'story.md'), 'utf8'), 'story.md');
 
-  assert.equal(manifest.title, 'Encomenda Urgente');
+  assert.equal(manifest.title, 'Missão Vibe Coding');
   assert.ok(manifest.characters.length >= 3);
   assert.ok(manifest.missions.length >= 2);
 
@@ -47,27 +47,29 @@ test('carrega e valida o pacote de história de exemplo completo contra a cidade
   }
 
   const m1 = parseMissionMarkdown(
-    fs.readFileSync(path.join(storyDir, 'missions', '01-encomenda-urgente.md'), 'utf8'),
-    'missions/01-encomenda-urgente.md',
+    fs.readFileSync(path.join(storyDir, 'missions', '01-caixa-secreta.md'), 'utf8'),
+    'missions/01-caixa-secreta.md',
     cityMap
   );
   assert.equal(m1.startLocation, 'CASA-01');
-  assert.equal(m1.targetLocation, 'COM-05');
+  assert.equal(m1.targetLocation, 'COM-320');
   assert.ok(m1.introCutscene.steps.length >= 2);
   const choiceStep = m1.introCutscene.steps.find((s) => s.choices?.length);
   assert.ok(choiceStep);
   assert.equal(choiceStep.choices.length, 3);
   assert.ok(choiceStep.choices.every((c) => c.outcome === 'next'));
-  const lastOutroStep = m1.outroCutscene.steps.at(-1);
-  assert.equal(lastOutroStep.type, 'deliver');
-  assert.equal(lastOutroStep.itemId, 'maleta-executiva');
+  assert.ok(m1.outroCutscene.steps.some((step) => step.type === 'deliver' && step.itemId === 'caixa-secreta'));
 
-  const m2 = parseMissionMarkdown(
-    fs.readFileSync(path.join(storyDir, 'missions', '02-volta-segura.md'), 'utf8'),
-    'missions/02-volta-segura.md',
-    cityMap
-  );
-  assert.equal(m2.outroCutscene.steps.at(-1).choices[0].outcome, 'complete');
+  assert.equal(manifest.missions.length, 5);
+  for (const missionId of manifest.missions) {
+    const parsed = parseMissionMarkdown(
+      fs.readFileSync(path.join(storyDir, 'missions', `${missionId}.md`), 'utf8'),
+      `missions/${missionId}.md`,
+      cityMap
+    );
+    assert.ok(parsed.introCutscene.steps.length >= 2);
+    assert.ok(parsed.outroCutscene.steps.length >= 2);
+  }
 });
 
 test('rejeita caminhos de assets externos ou com traversal', () => {

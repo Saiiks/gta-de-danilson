@@ -1,12 +1,12 @@
 ---
-title: Encomenda Urgente
-subtitle: Atravesse a cidade-base, entregue a maleta no COM-05 e decida seu destino.
+title: Missão Vibe Coding
+subtitle: Cruzando a cidade pelo Curso em Vídeo entre GPUs, servidores, robôs e uma caixa secreta!
 splash: assets/splash.svg
-characters: guanabara, beto, clara
-items: maleta-executiva, chave-oficina
-missions: 01-encomenda-urgente, 02-volta-segura
+characters: guanabara, jason, lucia, pundar, maltmon
+items: caixa-secreta, placa-video, servidor, peca-robo, chave-secreta
+missions: 01-caixa-secreta, 02-placa-de-video, 03-servidor-alucinado, 04-peca-do-robo, 05-chave-do-vibe-coding
 ---
 
-# Encomenda Urgente
+# Missão Vibe Coding
 
-História de exemplo editável. Você pode alterar textos, personagens, missões e imagens nesta pasta sem tocar no código do jogo.
+Uma aventura bem-humorada pelo universo do Curso em Vídeo, Inteligência Artificial e Vibe Coding.

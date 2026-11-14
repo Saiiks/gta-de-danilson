@@ -60,10 +60,10 @@ test('inventário possui grade 4x5 (20 slots) e rejeita adição quando cheio', 
   assert.equal(refill.slotIndex, 3);
 });
 
-test('parser de itens e missões lê story/items/ e valida entrega da maleta na missão 01', () => {
+test('parser de itens e missões lê story/items/ e valida entrega da caixa secreta na missão 01', () => {
   const cityMap = new CityMap();
   const manifest = parseStoryManifest(fs.readFileSync(path.join(storyDir, 'story.md'), 'utf8'), 'story.md');
-  assert.ok(manifest.items.includes('maleta-executiva'));
+  assert.ok(manifest.items.includes('caixa-secreta'));
 
   const itemsMap = new Map();
   for (const itemId of manifest.items) {
@@ -77,19 +77,19 @@ test('parser de itens e missões lê story/items/ e valida entrega da maleta na 
   }
 
   const mission1 = parseMissionMarkdown(
-    fs.readFileSync(path.join(storyDir, 'missions', '01-encomenda-urgente.md'), 'utf8'),
-    'missions/01-encomenda-urgente.md',
+    fs.readFileSync(path.join(storyDir, 'missions', '01-caixa-secreta.md'), 'utf8'),
+    'missions/01-caixa-secreta.md',
     cityMap,
   );
-  assert.equal(mission1.pickupLocation, 'PRACA-02');
-  assert.equal(mission1.giveItem, 'maleta-executiva');
-  assert.equal(mission1.requireItem, 'maleta-executiva');
+  assert.equal(mission1.pickupLocation, 'PRACA-01');
+  assert.equal(mission1.giveItem, 'caixa-secreta');
+  assert.equal(mission1.requireItem, 'caixa-secreta');
   assert.ok(mission1.deliveryPrompt.length > 0);
   assert.ok(mission1.wrongItemMessage.length > 0);
-  assert.ok(mission1.outroCutscene.steps.some((step) => step.type === 'deliver' && step.itemId === 'maleta-executiva'));
+  assert.ok(mission1.outroCutscene.steps.some((step) => step.type === 'deliver' && step.itemId === 'caixa-secreta'));
 
   const assetUrls = collectStoryAssetUrls({ items: itemsMap, characters: new Map(), missions: [] });
-  assert.ok(assetUrls.includes('./story/assets/item-maleta.svg'));
+  assert.ok(assetUrls.includes('./story/assets/item-caixa-secreta.svg'));
 });
 
 test('rejeita item sem campos obrigatórios ou caminho de imagem externo', () => {
