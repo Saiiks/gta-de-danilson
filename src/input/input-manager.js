@@ -233,7 +233,7 @@ export class InputManager {
 
   #readGamepad() {
     if (typeof navigator === 'undefined' || !navigator.getGamepads) {
-      return { moveX: 0, moveY: 0, action: false, secondary: false };
+      return { moveX: 0, moveY: 0, action: false, secondary: false, exit: false, pause: false };
     }
     const gamepads = navigator.getGamepads();
     for (const gp of gamepads) {
@@ -252,12 +252,13 @@ export class InputManager {
       if (gp.buttons[12]?.pressed) moveY = -1;
       if (gp.buttons[13]?.pressed) moveY = 1;
 
-      const action = Boolean(gp.buttons[0]?.pressed);
-      const secondary = Boolean(gp.buttons[1]?.pressed || gp.buttons[2]?.pressed);
+      const action = Boolean(gp.buttons[0]?.pressed || gp.buttons[7]?.pressed);
+      const secondary = Boolean(gp.buttons[1]?.pressed || gp.buttons[2]?.pressed || gp.buttons[6]?.pressed);
+      const exit = Boolean(gp.buttons[3]?.pressed);
       const pause = Boolean(gp.buttons[9]?.pressed);
-      return { moveX, moveY, action, secondary, pause };
+      return { moveX, moveY, action, secondary, exit, pause };
     }
-    return { moveX: 0, moveY: 0, action: false, secondary: false, pause: false };
+    return { moveX: 0, moveY: 0, action: false, secondary: false, exit: false, pause: false };
   }
 
   update(dt) {
@@ -300,7 +301,7 @@ export class InputManager {
       moveY /= len;
     }
 
-    const exitPressed = this.touchButtons.has('exit');
+    const exitPressed = this.touchButtons.has('exit') || gp.exit;
     const exitJustPressed = exitPressed && !this.prevExit;
 
     const actionJustPressed = actionPressed && !this.prevAction;

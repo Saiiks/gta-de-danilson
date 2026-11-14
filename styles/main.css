@@ -175,7 +175,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  padding: max(22px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
+  padding: 24px max(36px, calc(env(safe-area-inset-right) + 20px)) max(48px, calc(env(safe-area-inset-bottom) + 28px)) max(36px, calc(env(safe-area-inset-left) + 20px));
 }
 
 .touch-cluster {
@@ -1195,7 +1195,7 @@ body {
   }
 
   #touch-controls {
-    padding: max(22px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    padding: 20px max(26px, calc(env(safe-area-inset-right) + 14px)) max(44px, calc(env(safe-area-inset-bottom) + 24px)) max(26px, calc(env(safe-area-inset-left) + 14px));
   }
 
   .touch-analog {
@@ -1251,7 +1251,7 @@ body {
 
 @media (max-width: 440px) {
   #touch-controls {
-    padding: max(20px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    padding: 18px max(18px, calc(env(safe-area-inset-right) + 10px)) max(40px, calc(env(safe-area-inset-bottom) + 22px)) max(18px, calc(env(safe-area-inset-left) + 10px));
   }
 
   .touch-analog {
@@ -1286,6 +1286,10 @@ body {
 }
 
 @media (max-height: 460px) {
+  #touch-controls {
+    padding: 16px max(28px, calc(env(safe-area-inset-right) + 16px)) max(30px, calc(env(safe-area-inset-bottom) + 16px)) max(28px, calc(env(safe-area-inset-left) + 16px));
+  }
+
   .overlay-card {
     padding: 18px 22px;
   }

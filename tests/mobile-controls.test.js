@@ -291,3 +291,58 @@ test('modo dirigir transforma analógico em volante horizontal e alterna botões
   assert.equal(accelIcon.classList.contains('hidden'), true);
   assert.equal(wheel.style.transform, 'rotate(0deg)');
 });
+
+test('teclado e joystick controlam caminhada e direção normalmente', async () => {
+  setupGlobals({ maxTouchPoints: 0 });
+  const { InputManager } = await import('../src/input/input-manager.js');
+
+  let activeGamepad = null;
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { maxTouchPoints: 0, getGamepads: () => [activeGamepad] },
+  });
+
+  const input = new InputManager(null);
+
+  // Teclado: WASD / Setas + Espaço + Shift
+  window.dispatchEvent('keydown', { code: 'KeyD' });
+  window.dispatchEvent('keydown', { code: 'KeyW' });
+  window.dispatchEvent('keydown', { code: 'Space' });
+  let snap = input.update(0.016);
+  assert.ok(snap.moveX > 0.7 && snap.moveY < -0.7);
+  assert.equal(snap.actionPressed, true);
+  assert.equal(snap.actionJustPressed, true);
+
+  // Combo Espaço + Shift no teclado para sair do veículo
+  window.dispatchEvent('keydown', { code: 'ShiftLeft' });
+  snap = input.update(0.016);
+  assert.equal(snap.secondaryPressed, true);
+  assert.equal(snap.comboExitJustPressed, true);
+
+  window.dispatchEvent('keyup', { code: 'KeyD' });
+  window.dispatchEvent('keyup', { code: 'KeyW' });
+  window.dispatchEvent('keyup', { code: 'Space' });
+  window.dispatchEvent('keyup', { code: 'ShiftLeft' });
+
+  // Joystick: analógico, gatilhos R2/L2 e botão Y (sair)
+  activeGamepad = {
+    connected: true,
+    axes: [-0.8, 0.5],
+    buttons: [
+      { pressed: false }, // 0: A
+      { pressed: false }, // 1: B
+      { pressed: false }, // 2: X
+      { pressed: true },  // 3: Y (sair)
+      { pressed: false }, // 4
+      { pressed: false }, // 5
+      { pressed: false }, // 6: L2
+      { pressed: true },  // 7: R2 (acelerar)
+    ],
+  };
+
+  snap = input.update(0.016);
+  assert.ok(snap.moveX < -0.7);
+  assert.ok(snap.moveY > 0.4);
+  assert.equal(snap.actionPressed, true);
+  assert.equal(snap.exitJustPressed, true);
+});
