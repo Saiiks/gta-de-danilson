@@ -1,9 +1,9 @@
-import { CityMap } from '../world/city-map.js?v=24';
+import { CityMap } from '../world/city-map.js?v=26';
 import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js?v=20';
 import { BoatManager } from '../world/boat-manager.js?v=17';
 import { InputManager } from '../input/input-manager.js?v=17';
-import { WebGLRenderer } from '../render/webgl-renderer.js?v=25';
+import { WebGLRenderer } from '../render/webgl-renderer.js?v=26';
 import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=11';
 import {
   applyPedestrianDamage,
@@ -73,6 +73,8 @@ export class Engine {
     this.pathfinder = null;
     this.trafficManager = null;
     this.vehicles = [];
+    this.activeChunkKeys = new Set();
+    this.lastVehicleChunkKey = null;
     this.skidMarks = [];
     this.bloodMarks = [];
     this.smokeParticles = [];
@@ -230,6 +232,7 @@ export class Engine {
         currentVehicle.speed = 0;
       }
       this.setObjective(initialObjective);
+      this.#syncVehicleChunks(this.player.x, this.player.y);
       this.trafficManager?.normalizeTrafficAtMissionStart?.(this.vehicles, this.player);
       this.hud.hideGameOver();
       this.missionCheckpoint = {
@@ -336,7 +339,9 @@ export class Engine {
   }
 
   resetMatch(startCode = 'CASA-01', targetCode = null) {
-    this.vehicles = this.cityMap.vehicleSpawns.map(createVehicleEntity);
+    this.vehicles = [];
+    this.activeChunkKeys = new Set();
+    this.lastVehicleChunkKey = null;
     this.trashBins = (this.cityMap.trashBinSpawns || []).map(createTrashBinEntity);
     this.trafficManager = new TrafficManager(this.cityMap);
     this.boatManager = new BoatManager(this.cityMap);
@@ -400,8 +405,51 @@ export class Engine {
     this.camera.y = this.player.y;
 
     this.setObjective(targetCode);
+    this.#syncVehicleChunks(this.player.x, this.player.y);
     this.trafficManager?.normalizeTrafficAtMissionStart?.(this.vehicles, this.player);
     this.hud.hideGameOver();
+  }
+
+  #syncVehicleChunks(anchorX, anchorY) {
+    if (typeof this.cityMap?.getActiveChunks !== 'function') return;
+    const current = this.cityMap.getChunkCoordsAt(anchorX, anchorY);
+    if (this.lastVehicleChunkKey === current.key && this.activeChunkKeys.size > 0) {
+      return;
+    }
+
+    const activeChunks = this.cityMap.getActiveChunks(anchorX - 10, anchorY - 10, anchorX + 10, anchorY + 10, 1);
+    const nextKeys = new Set(activeChunks.map((c) => c.key));
+
+    // Remove veículos de chunks que saíram da vizinhança ativa (preservando o carro do jogador, próximos ou em chamas)
+    if (this.vehicles.length > 0) {
+      this.vehicles = this.vehicles.filter((v) => {
+        if (v.id === this.player.inVehicleId) return true;
+        if (v.destroyed || v.burning || v.isCritical || v.claimedByPedId) return true;
+        if (nextKeys.has(v.chunkKey)) return true;
+        const posChunk = this.cityMap.getChunkCoordsAt(v.x, v.y);
+        if (nextKeys.has(posChunk.key)) return true;
+        return Math.hypot(v.x - this.player.x, v.y - this.player.y) < 1100;
+      });
+    }
+
+    const existingIds = new Set(this.vehicles.map((v) => v.id));
+    for (const chunk of activeChunks) {
+      if (this.activeChunkKeys.has(chunk.key)) continue;
+      for (const spawn of chunk.vehicleSpawns) {
+        if (existingIds.has(spawn.id)) continue;
+        if (Math.hypot(spawn.x - this.player.x, spawn.y - this.player.y) < 90) continue;
+        const veh = createVehicleEntity(spawn);
+        veh.chunkKey = spawn.chunkKey;
+        veh.vx = Math.cos(veh.angle) * 135;
+        veh.vy = Math.sin(veh.angle) * 135;
+        veh.speed = 135;
+        this.vehicles.push(veh);
+        existingIds.add(veh.id);
+      }
+    }
+
+    this.activeChunkKeys = nextKeys;
+    this.lastVehicleChunkKey = current.key;
   }
 
   applyDamage(amount, fatalReason = 'Você se deu mal!', { bypassResistance = false } = {}) {
@@ -853,6 +901,7 @@ export class Engine {
 
     this.input.setDrivingMode(Boolean(activeVehicle));
 
+    this.#syncVehicleChunks(this.player.x, this.player.y);
     this.trafficManager.update(dt, this.player, this.vehicles, this.trashBins, this.elapsedTime);
     this.boatManager?.update(dt);
 

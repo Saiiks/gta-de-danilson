@@ -97,3 +97,25 @@ test('resolveItemLocation posiciona itens em praças, interiores e esquinas entr
   assert.equal(cornerPt.kind, 'corner');
   assert.equal(map.getLocationAt(cornerPt.x, cornerPt.y), null);
 });
+
+test('divide a cidade em chunks ativos com cerca de 2 veículos variados por quarteirão dirigidos por NPCs', () => {
+  const map = new CityMap();
+  assert.equal(map.chunkCols * map.chunkRows, 100);
+  assert.equal(map.vehicleSpawns.length, map.gridBlocks * map.gridBlocks * 2);
+  assert.ok(map.vehicleSpawns.every((v) => v.driver === 'npc' && v.isParked === false));
+
+  const casa1 = map.resolveLocationCode('CASA-01');
+  const localChunks = map.getActiveChunks(
+    casa1.spawnPoint.x - 10,
+    casa1.spawnPoint.y - 10,
+    casa1.spawnPoint.x + 10,
+    casa1.spawnPoint.y + 10,
+    1,
+  );
+  assert.ok(localChunks.length >= 4 && localChunks.length <= 9);
+  for (const chunk of localChunks) {
+    assert.equal(chunk.vehicleSpawns.length, chunk.blocks.length * 2);
+    const kinds = new Set(chunk.vehicleSpawns.map((v) => v.kind));
+    assert.ok(kinds.size >= 2);
+  }
+});

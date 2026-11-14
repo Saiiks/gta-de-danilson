@@ -256,11 +256,39 @@ export class WebGLRenderer {
       this.#pushQuad(Math.max(-shore, minX), cityMap.worldHeight, Math.min(cityMap.worldWidth + shore, maxX) - Math.max(-shore, minX), shore, 0, 'sidewalk', [0.85, 0.8, 0.65, 1]);
     }
 
-    // Faixas amarelas nas ruas visíveis dentro da ilha
+    // Chunks visíveis na área da câmera (evita varrer o mapa inteiro por frame)
+    const activeChunks = typeof cityMap.getActiveChunks === 'function'
+      ? cityMap.getActiveChunks(minX, minY, maxX, maxY, 0)
+      : [];
+    const seenRoadY = new Set();
+    const seenRoadX = new Set();
+    const seenCrosswalks = new Set();
+    const visibleBlocks = [];
+
+    if (activeChunks.length > 0) {
+      for (const chunk of activeChunks) {
+        for (const ryIdx of chunk.roadYIndices) seenRoadY.add(ryIdx);
+        for (const rxIdx of chunk.roadXIndices) seenRoadX.add(rxIdx);
+        for (const cw of chunk.crosswalks) seenCrosswalks.add(cw);
+        for (const block of chunk.blocks) {
+          const b = block.bounds;
+          if (b.x + b.w < minX || b.x > maxX || b.y + b.h < minY || b.y > maxY) continue;
+          visibleBlocks.push(block);
+        }
+      }
+    } else {
+      for (let i = 0; i < cityMap.roadYOffsets.length; i += 1) seenRoadY.add(i);
+      for (let i = 0; i < cityMap.roadXOffsets.length; i += 1) seenRoadX.add(i);
+      for (const cw of cityMap.crosswalks || []) seenCrosswalks.add(cw);
+      visibleBlocks.push(...cityMap.getVisibleBlocks(minX, minY, maxX, maxY));
+    }
+
+    // Faixas amarelas nas ruas dos chunks visíveis
     const stripeColor = [0.95, 0.78, 0.22, 0.85];
     const clampMinX = Math.max(0, Math.floor(minX / 64) * 64);
     const clampMaxX = Math.min(cityMap.worldWidth - 34, maxX);
-    for (const roadY of cityMap.roadYOffsets) {
+    for (const ryIdx of seenRoadY) {
+      const roadY = cityMap.roadYOffsets[ryIdx];
       if (roadY + cityMap.roadWidth < minY || roadY > maxY) continue;
       const ry = roadY + cityMap.roadWidth * 0.5 - 2;
       for (let sx = clampMinX; sx < clampMaxX; sx += 64) {
@@ -269,7 +297,8 @@ export class WebGLRenderer {
     }
     const clampMinY = Math.max(0, Math.floor(minY / 64) * 64);
     const clampMaxY = Math.min(cityMap.worldHeight - 34, maxY);
-    for (const roadX of cityMap.roadXOffsets) {
+    for (const rxIdx of seenRoadX) {
+      const roadX = cityMap.roadXOffsets[rxIdx];
       if (roadX + cityMap.roadWidth < minX || roadX > maxX) continue;
       const rx = roadX + cityMap.roadWidth * 0.5 - 2;
       for (let sy = clampMinY; sy < clampMaxY; sy += 64) {
@@ -277,10 +306,10 @@ export class WebGLRenderer {
       }
     }
 
-    // Faixas de pedestre nos cruzamentos selecionados
-    if (cityMap.crosswalks) {
+    // Faixas de pedestre nos cruzamentos dos chunks visíveis
+    if (seenCrosswalks.size > 0) {
       const cwColor = [0.94, 0.95, 0.97, 0.86];
-      for (const cw of cityMap.crosswalks) {
+      for (const cw of seenCrosswalks) {
         if (cw.x + cw.w < minX || cw.x > maxX || cw.y + cw.h < minY || cw.y > maxY) continue;
         if (cw.axis === 'h') {
           for (let sx = cw.x + 4; sx <= cw.x + cw.w - 10; sx += 14) {
@@ -295,7 +324,6 @@ export class WebGLRenderer {
     }
 
     // Quarteirões visíveis: primeiro o piso (calçadas e gramado das praças)
-    const visibleBlocks = cityMap.getVisibleBlocks(minX, minY, maxX, maxY);
     const closedRoofs = [];
     for (const block of visibleBlocks) {
       const b = block.bounds;

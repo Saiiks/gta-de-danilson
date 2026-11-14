@@ -9,10 +9,15 @@ import {
   hashBlock
 } from './city-layout.js?v=21';
 
+export const CHUNK_BLOCK_SIZE = 3;
+
 export class CityMap {
   constructor() {
     this.gridBlocks = GRID_BLOCKS;
     this.roadWidth = ROAD_WIDTH;
+    this.chunkBlockSize = CHUNK_BLOCK_SIZE;
+    this.chunkCols = Math.ceil(this.gridBlocks / this.chunkBlockSize);
+    this.chunkRows = Math.ceil(this.gridBlocks / this.chunkBlockSize);
 
     const metrics = buildGridMetrics();
     this.colWidths = metrics.colWidths;
@@ -33,11 +38,14 @@ export class CityMap {
     this.trashBinSpawns = [];
     this.crosswalks = [];
     this.trafficLights = [];
+    this.chunks = [];
+    this.chunksByKey = new Map();
 
     this.#buildRoads();
     this.#buildBlocks();
     this.#buildCrosswalksAndLights();
     this.#buildVehicleSpawns();
+    this.#buildChunks();
   }
 
   #buildRoads() {
@@ -427,43 +435,177 @@ export class CityMap {
   #buildVehicleSpawns() {
     let idCounter = 1;
     const cols = this.gridBlocks;
-    const totalBlocks = cols * cols;
-    const targetCount = 350;
 
-    for (let k = 0; k < targetCount; k += 1) {
-      const blockIndex = Math.floor((k * totalBlocks) / targetCount);
-      const by = Math.floor(blockIndex / cols);
-      const bx = blockIndex % cols;
-      const seed = hashBlock(bx + 7, by + 13);
-      const variant = VEHICLE_VARIANTS[seed % VEHICLE_VARIANTS.length];
-      const horizontal = (bx + by + k) % 2 === 0;
-      const reverseLane = Math.floor((k + by) / 2) % 2 === 1;
-      const hLaneFactor = reverseLane ? 0.28 : 0.72;
-      const vLaneFactor = reverseLane ? 0.72 : 0.28;
+    // Cerca de 2 veículos variados por quarteirão, sempre dirigidos por NPCs por padrão
+    for (let by = 0; by < cols; by += 1) {
+      for (let bx = 0; bx < cols; bx += 1) {
+        const cx = Math.floor(bx / this.chunkBlockSize);
+        const cy = Math.floor(by / this.chunkBlockSize);
+        const chunkKey = `${cx},${cy}`;
 
-      // Veículo em tráfego na faixa da rua (sempre com motorista)
-      const tx = horizontal
-        ? this.blockXOffsets[bx] + this.colWidths[bx] * (0.25 + ((seed >>> 3) % 5) * 0.12)
-        : this.roadXOffsets[bx] + this.roadWidth * vLaneFactor;
-      const ty = horizontal
-        ? this.roadYOffsets[by] + this.roadWidth * hLaneFactor
-        : this.blockYOffsets[by] + this.rowHeights[by] * (0.25 + ((seed >>> 3) % 5) * 0.12);
-      const angle = horizontal
-        ? (reverseLane ? Math.PI : 0)
-        : (reverseLane ? -Math.PI / 2 : Math.PI / 2);
+        for (let slot = 0; slot < 2; slot += 1) {
+          const seed = hashBlock(bx * 3 + slot * 17 + 7, by * 5 + slot * 23 + 13);
+          const variant = VEHICLE_VARIANTS[(seed + slot * 3) % VEHICLE_VARIANTS.length];
+          const horizontal = slot === 0;
+          const reverseLane = (bx + by + slot) % 2 === 1;
+          const hLaneFactor = reverseLane ? 0.28 : 0.72;
+          const vLaneFactor = reverseLane ? 0.72 : 0.28;
+          const alongRatio = 0.28 + ((seed >>> 3) % 5) * 0.11;
 
-      this.vehicleSpawns.push({
-        id: `VEH-${String(idCounter++).padStart(3, '0')}`,
-        kind: variant.kind,
-        model: variant.model,
-        color: variant.color,
-        x: tx,
-        y: ty,
-        angle,
-        isParked: false,
-        driver: 'npc'
-      });
+          const tx = horizontal
+            ? this.blockXOffsets[bx] + this.colWidths[bx] * alongRatio
+            : this.roadXOffsets[bx] + this.roadWidth * vLaneFactor;
+          const ty = horizontal
+            ? this.roadYOffsets[by] + this.roadWidth * hLaneFactor
+            : this.blockYOffsets[by] + this.rowHeights[by] * alongRatio;
+          const angle = horizontal
+            ? (reverseLane ? Math.PI : 0)
+            : (reverseLane ? -Math.PI / 2 : Math.PI / 2);
+
+          this.vehicleSpawns.push({
+            id: `VEH-${String(idCounter++).padStart(4, '0')}`,
+            kind: variant.kind,
+            model: variant.model,
+            color: variant.color,
+            x: tx,
+            y: ty,
+            angle,
+            isParked: false,
+            driver: 'npc',
+            blockX: bx,
+            blockY: by,
+            chunkKey
+          });
+        }
+      }
     }
+  }
+
+  #buildChunks() {
+    const spawnsByChunk = new Map();
+    for (const spawn of this.vehicleSpawns) {
+      if (!spawnsByChunk.has(spawn.chunkKey)) {
+        spawnsByChunk.set(spawn.chunkKey, []);
+      }
+      spawnsByChunk.get(spawn.chunkKey).push(spawn);
+    }
+
+    for (let cy = 0; cy < this.chunkRows; cy += 1) {
+      const row = [];
+      for (let cx = 0; cx < this.chunkCols; cx += 1) {
+        const startBx = cx * this.chunkBlockSize;
+        const endBx = Math.min(this.gridBlocks - 1, startBx + this.chunkBlockSize - 1);
+        const startBy = cy * this.chunkBlockSize;
+        const endBy = Math.min(this.gridBlocks - 1, startBy + this.chunkBlockSize - 1);
+
+        const minX = this.roadXOffsets[startBx];
+        const maxX = this.roadXOffsets[endBx + 1] + this.roadWidth;
+        const minY = this.roadYOffsets[startBy];
+        const maxY = this.roadYOffsets[endBy + 1] + this.roadWidth;
+
+        const blocks = [];
+        for (let by = startBy; by <= endBy; by += 1) {
+          for (let bx = startBx; bx <= endBx; bx += 1) {
+            blocks.push(this.blocks[by][bx]);
+          }
+        }
+
+        const roadXIndices = [];
+        for (let rx = startBx; rx <= endBx + 1; rx += 1) {
+          roadXIndices.push(rx);
+        }
+        const roadYIndices = [];
+        for (let ry = startBy; ry <= endBy + 1; ry += 1) {
+          roadYIndices.push(ry);
+        }
+
+        const crosswalks = [];
+        for (const cw of this.crosswalks) {
+          const cwx = cw.x + cw.w * 0.5;
+          const cwy = cw.y + cw.h * 0.5;
+          if (cwx >= minX && cwx <= maxX && cwy >= minY && cwy <= maxY) {
+            crosswalks.push(cw);
+          }
+        }
+
+        const key = `${cx},${cy}`;
+        const chunk = {
+          cx,
+          cy,
+          key,
+          startBx,
+          endBx,
+          startBy,
+          endBy,
+          bounds: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+          blocks,
+          roadXIndices,
+          roadYIndices,
+          crosswalks,
+          vehicleSpawns: spawnsByChunk.get(key) || []
+        };
+        row.push(chunk);
+        this.chunksByKey.set(key, chunk);
+      }
+      this.chunks.push(row);
+    }
+  }
+
+  getChunkCoordsAt(x, y) {
+    let cx = this.chunkCols - 1;
+    for (let i = 0; i < this.chunkCols; i += 1) {
+      const b = this.chunks[0][i].bounds;
+      if (x < b.x + b.w) {
+        cx = i;
+        break;
+      }
+    }
+    let cy = this.chunkRows - 1;
+    for (let j = 0; j < this.chunkRows; j += 1) {
+      const b = this.chunks[j][0].bounds;
+      if (y < b.y + b.h) {
+        cy = j;
+        break;
+      }
+    }
+    cx = Math.max(0, Math.min(this.chunkCols - 1, cx));
+    cy = Math.max(0, Math.min(this.chunkRows - 1, cy));
+    return { cx, cy, key: `${cx},${cy}` };
+  }
+
+  getChunkAt(x, y) {
+    const { cx, cy } = this.getChunkCoordsAt(x, y);
+    return this.chunks[cy][cx];
+  }
+
+  getActiveChunks(minX, minY, maxX, maxY, marginChunks = 0) {
+    let startCx = this.chunkCols - 1;
+    let endCx = 0;
+    for (let cx = 0; cx < this.chunkCols; cx += 1) {
+      const b = this.chunks[0][cx].bounds;
+      if (b.x + b.w >= minX && cx < startCx) startCx = cx;
+      if (b.x <= maxX && cx > endCx) endCx = cx;
+    }
+    let startCy = this.chunkRows - 1;
+    let endCy = 0;
+    for (let cy = 0; cy < this.chunkRows; cy += 1) {
+      const b = this.chunks[cy][0].bounds;
+      if (b.y + b.h >= minY && cy < startCy) startCy = cy;
+      if (b.y <= maxY && cy > endCy) endCy = cy;
+    }
+
+    startCx = Math.max(0, startCx - marginChunks);
+    endCx = Math.min(this.chunkCols - 1, endCx + marginChunks);
+    startCy = Math.max(0, startCy - marginChunks);
+    endCy = Math.min(this.chunkRows - 1, endCy + marginChunks);
+
+    const active = [];
+    for (let cy = startCy; cy <= endCy; cy += 1) {
+      for (let cx = startCx; cx <= endCx; cx += 1) {
+        active.push(this.chunks[cy][cx]);
+      }
+    }
+    return active;
   }
 
   resolveLocationCode(code) {

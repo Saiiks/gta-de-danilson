@@ -45,7 +45,7 @@ test('todos os veículos iniciam com motorista NPC, sem carros parados vazios, e
   const trafficSpawns = map.vehicleSpawns.filter((v) => v.driver === 'npc');
   assert.equal(parked.length, 0);
   assert.equal(trafficSpawns.length, map.vehicleSpawns.length);
-  assert.ok(trafficSpawns.length > 0 && trafficSpawns.length <= 500);
+  assert.equal(trafficSpawns.length, map.gridBlocks * map.gridBlocks * 2);
 
   const vehicles = map.vehicleSpawns.map(createVehicleEntity);
   const traffic = new TrafficManager(map);
