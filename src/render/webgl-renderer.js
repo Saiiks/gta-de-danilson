@@ -1,4 +1,4 @@
-import { createTextureAtlas } from './texture-atlas.js?v=9';
+import { createTextureAtlas } from './texture-atlas.js?v=10';
 
 const VERTEX_SHADER = `
   attribute vec2 a_position;

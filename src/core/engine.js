@@ -2,8 +2,8 @@ import { CityMap } from '../world/city-map.js';
 import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js';
 import { InputManager } from '../input/input-manager.js';
-import { WebGLRenderer } from '../render/webgl-renderer.js?v=9';
-import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=9';
+import { WebGLRenderer } from '../render/webgl-renderer.js?v=10';
+import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=10';
 import {
   applyPedestrianDamage,
   applyVehicleDamage,
@@ -454,7 +454,14 @@ export class Engine {
   }
 
   #resolvePlayerMissionNpcCollision() {
-    if (this.player.inVehicleId || this.player.isDead || this.#isPickupStageActive() || !this.objectiveNpcPoint) {
+    if (
+      this.player.inVehicleId ||
+      this.player.isDead ||
+      this.#isPickupStageActive() ||
+      this.missionOutTriggered ||
+      this.freeRoamMode ||
+      !this.objectiveNpcPoint
+    ) {
       return;
     }
     const radius = this.player.radius || 11;
@@ -494,6 +501,7 @@ export class Engine {
 
     this.player.speed = 0;
     const finishMission = () => {
+      this.setObjective(null);
       const hasNext = this.currentMissionIndex + 1 < this.storyPackage.missions.length;
       this.paused = true;
       this.hud.showMissionComplete(mission.title, hasNext, () => {
@@ -1415,6 +1423,7 @@ export class Engine {
     const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
     const pickupItemDef = isPickupStage ? this.storyPackage?.items?.get(activeMission.giveItem) : null;
 
+    const hideTargetNpc = isPickupStage || this.missionOutTriggered || this.freeRoamMode;
     this.renderer.renderFrame({
       camera: renderCam,
       cityMap: this.cityMap,
@@ -1426,9 +1435,9 @@ export class Engine {
       bloodMarks: this.bloodMarks,
       smokeParticles: this.smokeParticles,
       explosions: this.explosions,
-      objectivePoint: isPickupStage ? null : this.objectivePoint,
-      objectiveNpcPoint: isPickupStage ? null : this.objectiveNpcPoint,
-      emitNpcWaves: !isPickupStage && !this.missionOutTriggered && !this.freeRoamMode && Boolean(this.objectiveNpcPoint || this.objectivePoint),
+      objectivePoint: hideTargetNpc ? null : this.objectivePoint,
+      objectiveNpcPoint: hideTargetNpc ? null : this.objectiveNpcPoint,
+      emitNpcWaves: !hideTargetNpc && Boolean(this.objectiveNpcPoint || this.objectivePoint),
       time: this.elapsedTime
     });
     if (isPickupStage && pickupItemDef?.imageUrl && !this.cutscene?.active && !this.paused && !this.player.isDead) {
