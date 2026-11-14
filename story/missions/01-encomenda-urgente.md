@@ -29,6 +29,3 @@ bg: Entrada do COM-05
 - Clara: Você chegou rápido, Guanabara! Conseguiu pegar a maleta?
 - Guanabara: Sim, passei lá e trouxe ela comigo. Aqui está:
 - ENTREGAR: maleta-executiva
-- Clara: Perfeito! Era exatamente essa maleta que eu estava esperando.
-- OPCAO: Concluir entrega para Clara -> COMPLETE
-- OPCAO: Mudar de ideia e fugir com a maleta -> GAMEOVER: Você tentou fugir com a maleta e foi cercado pela segurança do local!

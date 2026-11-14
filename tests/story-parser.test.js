@@ -55,9 +55,15 @@ test('carrega e valida o pacote de história de exemplo completo contra a cidade
   assert.equal(m1.targetLocation, 'COM-05');
   assert.ok(m1.introCutscene.steps.length >= 2);
   const lastOutroStep = m1.outroCutscene.steps.at(-1);
-  assert.equal(lastOutroStep.choices.length, 2);
-  assert.equal(lastOutroStep.choices[0].outcome, 'complete');
-  assert.equal(lastOutroStep.choices[1].outcome, 'gameover');
+  assert.equal(lastOutroStep.type, 'deliver');
+  assert.equal(lastOutroStep.itemId, 'maleta-executiva');
+
+  const m2 = parseMissionMarkdown(
+    fs.readFileSync(path.join(storyDir, 'missions', '02-volta-segura.md'), 'utf8'),
+    'missions/02-volta-segura.md',
+    cityMap
+  );
+  assert.equal(m2.outroCutscene.steps.at(-1).choices[0].outcome, 'complete');
 });
 
 test('rejeita caminhos de assets externos ou com traversal', () => {
