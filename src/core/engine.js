@@ -289,18 +289,22 @@ export class Engine {
       }
     });
 
-    const grantMissionStartItem = () => {
+    const onMapReady = () => {
       if (!needsPickup && mission.giveItem && !this.inventory.hasItem(mission.giveItem)) {
         this.#grantMissionItem(mission.giveItem);
       }
+      const bannerObjective = needsPickup
+        ? (mission.pickupObjective || mission.objective)
+        : mission.objective;
+      this.hud?.showMissionBanner?.(clamped + 1, bannerObjective);
     };
 
     if (!skipIntro && mission.introCutscene?.steps?.length > 0 && this.cutscene) {
       this.cutscene.play(mission.introCutscene, this.storyPackage.characters, () => {
-        grantMissionStartItem();
+        onMapReady();
       });
     } else {
-      grantMissionStartItem();
+      onMapReady();
     }
   }
 

@@ -15,6 +15,11 @@ export class HudController {
     this.hudToastImgEl = document.getElementById('hud-toast-img');
     this.hudToastTextEl = document.getElementById('hud-toast-text');
     this.hudToastTimer = null;
+    this.missionBannerEl = document.getElementById('mission-banner');
+    this.missionBannerTitleEl = document.getElementById('mission-banner-title');
+    this.missionBannerObjectiveEl = document.getElementById('mission-banner-objective');
+    this.missionBannerTimer = null;
+    this.missionBannerHideTimer = null;
     this.inventoryClickHandler = null;
     this.inventoryButton?.addEventListener('click', () => this.inventoryClickHandler?.());
     this.errorScreen = document.getElementById('error-screen');
@@ -287,6 +292,30 @@ export class HudController {
     clearTimeout(this.hudToastTimer);
     this.hudToastTimer = setTimeout(() => {
       this.hudToastEl.classList.add('hidden');
+    }, durationMs);
+  }
+
+  showMissionBanner(missionNumber, objectiveText, durationMs = 3600) {
+    if (!this.missionBannerEl) return;
+    clearTimeout(this.missionBannerTimer);
+    clearTimeout(this.missionBannerHideTimer);
+
+    if (this.missionBannerTitleEl) {
+      this.missionBannerTitleEl.textContent = `MISSÃO ${missionNumber}`;
+    }
+    if (this.missionBannerObjectiveEl) {
+      this.missionBannerObjectiveEl.textContent = String(objectiveText || '');
+    }
+
+    this.missionBannerEl.classList.remove('hidden', 'visible');
+    void this.missionBannerEl.offsetWidth;
+    this.missionBannerEl.classList.add('visible');
+
+    this.missionBannerTimer = setTimeout(() => {
+      this.missionBannerEl?.classList.remove('visible');
+      this.missionBannerHideTimer = setTimeout(() => {
+        this.missionBannerEl?.classList.add('hidden');
+      }, 650);
     }, durationMs);
   }
 

@@ -12,7 +12,7 @@
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <link rel="apple-touch-icon" href="./icon.svg">
   <title>Cidade Aberta Retrô</title>
-  <link rel="stylesheet" href="./styles/main.css?v=6">
+  <link rel="stylesheet" href="./styles/main.css?v=7">
 </head>
 <body>
   <div id="game-shell">
@@ -50,6 +50,11 @@
       <div id="hud-toast" class="hud-pill hud-toast hidden" role="status" aria-live="polite">
         <img id="hud-toast-img" class="hud-toast-img hidden" alt="">
         <span id="hud-toast-text"></span>
+      </div>
+
+      <div id="mission-banner" class="mission-banner hidden" role="status" aria-live="polite">
+        <div id="mission-banner-title" class="mission-banner-title"></div>
+        <div id="mission-banner-objective" class="mission-banner-objective"></div>
       </div>
 
       <div id="minimap-container" aria-label="Minimapa">
@@ -207,6 +212,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/main.js?v=11"></script>
+  <script type="module" src="./src/main.js?v=12"></script>
 </body>
 </html>
