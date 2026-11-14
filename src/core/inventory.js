@@ -1,5 +1,5 @@
-export const INVENTORY_COLUMNS = 4;
-export const INVENTORY_ROWS = 5;
+export const INVENTORY_COLUMNS = 5;
+export const INVENTORY_ROWS = 1;
 export const INVENTORY_CAPACITY = INVENTORY_COLUMNS * INVENTORY_ROWS;
 
 export class Inventory {

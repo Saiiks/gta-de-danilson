@@ -34,7 +34,7 @@ test('carrega e valida o pacote de história de exemplo completo contra a cidade
   const cityMap = new CityMap();
   const manifest = parseStoryManifest(fs.readFileSync(path.join(storyDir, 'story.md'), 'utf8'), 'story.md');
 
-  assert.equal(manifest.title, 'Missão Vibe Coding');
+  assert.equal(manifest.title, 'GTA: Missão Vibe Coding');
   assert.ok(manifest.characters.length >= 3);
   assert.ok(manifest.missions.length >= 2);
 

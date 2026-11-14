@@ -23,7 +23,7 @@ import {
   updateVehicleCriticalState
 } from '../physics/vehicle-physics.js';
 import { Minimap } from '../ui/minimap.js';
-import { Inventory } from './inventory.js';
+import { Inventory } from './inventory.js?v=16';
 import { getPendingMissionAssetUrls, preloadMissionAssets } from '../story/story-loader.js';
 
 const PEDESTRIAN_CHAT_LINES = [
@@ -56,7 +56,7 @@ export class Engine {
     this.preloadedUrls = options.preloadedUrls || new Set();
     this.onExitToTitle = options.onExitToTitle || null;
 
-    this.inventory = new Inventory(20);
+    this.inventory = new Inventory(5);
     this.awaitingExitTarget = false;
     this.currentMissionIndex = 0;
     this.freeRoamMode = !this.storyPackage;
@@ -317,9 +317,9 @@ export class Engine {
     if (!itemDef) return;
     const res = this.inventory.addItem(itemDef);
     if (!res.ok && res.reason === 'inventory_full') {
-      console.warn(`[Engine] Inventário cheio (20/20); não foi possível adicionar "${itemDef.name}".`);
+      console.warn(`[Engine] Inventário cheio (${this.inventory.capacity}/${this.inventory.capacity}); não foi possível adicionar "${itemDef.name}".`);
       if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-        window.alert(`Inventário cheio (20/20)! Não foi possível guardar "${itemDef.name}".`);
+        window.alert(`Inventário cheio (${this.inventory.capacity}/${this.inventory.capacity})! Não foi possível guardar "${itemDef.name}".`);
       }
       return;
     }

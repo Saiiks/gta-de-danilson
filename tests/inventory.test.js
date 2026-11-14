@@ -21,17 +21,17 @@ import { collectStoryAssetUrls } from '../src/story/story-loader.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const storyDir = path.resolve(__dirname, '../story');
 
-test('inventário possui grade 4x5 (20 slots) e rejeita adição quando cheio', () => {
-  assert.equal(INVENTORY_COLUMNS, 4);
-  assert.equal(INVENTORY_ROWS, 5);
-  assert.equal(INVENTORY_CAPACITY, 20);
+test('inventário possui 5 slots e rejeita adição quando cheio', () => {
+  assert.equal(INVENTORY_COLUMNS, 5);
+  assert.equal(INVENTORY_ROWS, 1);
+  assert.equal(INVENTORY_CAPACITY, 5);
 
   const inv = new Inventory();
-  assert.equal(inv.capacity, 20);
+  assert.equal(inv.capacity, 5);
   assert.equal(inv.getCount(), 0);
   assert.equal(inv.isFull(), false);
 
-  for (let i = 0; i < 20; i += 1) {
+  for (let i = 0; i < 5; i += 1) {
     const res = inv.addItem({
       id: `item-${i}`,
       name: `Item ${i}`,
@@ -42,7 +42,7 @@ test('inventário possui grade 4x5 (20 slots) e rejeita adição quando cheio', 
     assert.equal(res.slotIndex, i);
   }
 
-  assert.equal(inv.getCount(), 20);
+  assert.equal(inv.getCount(), 5);
   assert.equal(inv.isFull(), true);
 
   const overflow = inv.addItem({ id: 'extra', name: 'Extra' });
@@ -52,7 +52,7 @@ test('inventário possui grade 4x5 (20 slots) e rejeita adição quando cheio', 
   const removed = inv.removeItem('item-3');
   assert.equal(removed.ok, true);
   assert.equal(removed.slotIndex, 3);
-  assert.equal(inv.getCount(), 19);
+  assert.equal(inv.getCount(), 4);
   assert.equal(inv.hasItem('item-3'), false);
 
   const refill = inv.addItem({ id: 'novo', name: 'Novo' });

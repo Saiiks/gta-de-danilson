@@ -1,4 +1,4 @@
-import { INVENTORY_CAPACITY, INVENTORY_COLUMNS } from '../core/inventory.js';
+import { INVENTORY_CAPACITY, INVENTORY_COLUMNS } from '../core/inventory.js?v=16';
 
 export class InventoryController {
   constructor() {

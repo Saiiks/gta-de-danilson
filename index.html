@@ -12,7 +12,7 @@
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <link rel="apple-touch-icon" href="./icon.svg">
   <title>Cidade Aberta Retrô</title>
-  <link rel="stylesheet" href="./styles/main.css?v=7">
+  <link rel="stylesheet" href="./styles/main.css?v=8">
 </head>
 <body>
   <div id="game-shell">
@@ -43,7 +43,7 @@
         </div>
         <div class="hud-quick-actions">
           <button id="pause-button" type="button" class="hud-pill pause-button" aria-label="Pausar jogo">PAUSA</button>
-          <button id="inventory-button" type="button" class="hud-pill pause-button" aria-label="Abrir inventário">ITENS (0/20)</button>
+          <button id="inventory-button" type="button" class="hud-pill pause-button" aria-label="Abrir inventário">ITENS (0/5)</button>
         </div>
       </div>
 
@@ -173,9 +173,9 @@
             <h2 id="inventory-title" class="retro-title inventory-title">INVENTÁRIO</h2>
             <p id="inventory-subtitle" class="overlay-subtitle inventory-subtitle">Selecione um item para ver os detalhes.</p>
           </div>
-          <span id="inventory-count" class="inventory-count">0 / 20</span>
+          <span id="inventory-count" class="inventory-count">0 / 5</span>
         </div>
-        <div id="inventory-grid" class="inventory-grid" role="grid" aria-label="Grade de 4 colunas por 5 linhas"></div>
+        <div id="inventory-grid" class="inventory-grid" role="grid" aria-label="Grade de 5 slots"></div>
         <div id="inventory-detail" class="inventory-detail">
           <div id="inventory-detail-name" class="inventory-detail-name">Slot vazio</div>
           <div id="inventory-detail-desc" class="inventory-detail-desc">Nenhum item selecionado.</div>
@@ -212,6 +212,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/main.js?v=15"></script>
+  <script type="module" src="./src/main.js?v=16"></script>
 </body>
 </html>
