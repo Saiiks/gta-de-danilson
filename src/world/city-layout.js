@@ -17,7 +17,8 @@ export const VEHICLE_VARIANTS = [
 
 const ROOF_PALETTES = {
   house: ['#8d5b4c', '#7f5539', '#9c6644', '#6d597a', '#a47148'],
-  commerce: ['#3d5a80', '#2a9d8f', '#b56576', '#4a4e69', '#355070']
+  commerce: ['#3d5a80', '#2a9d8f', '#b56576', '#4a4e69', '#355070'],
+  hospital: ['#ffffff']
 };
 
 export function formatCode(prefix, number) {
@@ -149,7 +150,7 @@ export function createBuildingWithInterior({
 
   const props = [];
   if (w >= 130 && h >= 100) {
-    if (type === 'commerce') {
+    if (type === 'commerce' || type === 'hospital') {
       props.push({ x: x + 26, y: y + 26, w: Math.min(90, w - 52), h: 20, kind: 'counter' });
     } else {
       props.push({ x: x + 26, y: y + 26, w: 36, h: 24, kind: 'table' });
@@ -162,7 +163,7 @@ export function createBuildingWithInterior({
     bounds: { x, y, w, h },
     roofRect: { x, y, w, h },
     roofColor,
-    floorColor: type === 'commerce' ? '#d8cfc0' : '#cbb99d',
+    floorColor: type === 'hospital' ? '#e2e8f0' : type === 'commerce' ? '#d8cfc0' : '#cbb99d',
     entrance,
     doormat,
     doorSide,

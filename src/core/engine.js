@@ -1,9 +1,9 @@
-import { CityMap } from '../world/city-map.js?v=20';
+import { CityMap } from '../world/city-map.js?v=23';
 import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js?v=20';
 import { BoatManager } from '../world/boat-manager.js?v=17';
 import { InputManager } from '../input/input-manager.js?v=17';
-import { WebGLRenderer } from '../render/webgl-renderer.js?v=17';
+import { WebGLRenderer } from '../render/webgl-renderer.js?v=21';
 import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=11';
 import {
   applyPedestrianDamage,
@@ -23,7 +23,7 @@ import {
   updateVehicle,
   updateVehicleCriticalState
 } from '../physics/vehicle-physics.js?v=17';
-import { Minimap } from '../ui/minimap.js';
+import { Minimap } from '../ui/minimap.js?v=21';
 import { Inventory } from './inventory.js?v=16';
 import { getPendingMissionAssetUrls, preloadMissionAssets } from '../story/story-loader.js';
 
@@ -64,6 +64,8 @@ export class Engine {
     this.missionOutTriggered = false;
     this.completedNpcPoints = [];
     this.paused = false;
+    this.hudDisplayHealth = 100;
+    this.wasInsideHospital = false;
 
     this.pathfinder = null;
     this.trafficManager = null;
@@ -203,6 +205,8 @@ export class Engine {
       this.hud.showLoading(100, 'Missão pronta!');
       this.hud.showGameHud();
       this.paused = false;
+    this.hudDisplayHealth = 100;
+    this.wasInsideHospital = false;
     }
 
     this.currentMissionIndex = clamped;
@@ -357,6 +361,8 @@ export class Engine {
     this.player.speed = 0;
     this.player.walkPhase = 0;
     this.player.health = 100;
+    this.hudDisplayHealth = 100;
+    this.wasInsideHospital = false;
     this.player.burnCooldown = 0;
     this.player.isDead = false;
     this.player.deathReason = null;
@@ -521,6 +527,8 @@ export class Engine {
       this.paused = true;
       this.hud.showMissionComplete(mission.title, hasNext, () => {
         this.paused = false;
+    this.hudDisplayHealth = 100;
+    this.wasInsideHospital = false;
         if (hasNext) {
           this.startMission(this.currentMissionIndex + 1, { preserveState: true });
         } else {
@@ -1167,9 +1175,17 @@ export class Engine {
     const loc = this.cityMap.getLocationAt(this.player.x, this.player.y);
     this.player.currentLocationCode = loc ? loc.code : 'CIDADE';
     this.player.insideLocationCode =
-      !this.player.inVehicleId && loc && (loc.type === 'house' || loc.type === 'commerce')
+      !this.player.inVehicleId && loc && (loc.type === 'house' || loc.type === 'commerce' || loc.type === 'hospital')
         ? loc.code
         : null;
+
+    const isInsideHospital = Boolean(!this.player.inVehicleId && loc && loc.type === 'hospital');
+    if (isInsideHospital && !this.wasInsideHospital && this.player.health < 100) {
+      this.player.health = 100;
+      this.hud.triggerHealFlash();
+      this.hud.showToast('Vida recuperada no hospital!');
+    }
+    this.wasInsideHospital = isInsideHospital;
 
     const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
     const reachedPickup =
@@ -1255,12 +1271,18 @@ export class Engine {
       ? 'Aperte Ação para falar'
       : this.getLocationDisplayName(this.objectiveCode);
 
+    if (this.hudDisplayHealth < this.player.health) {
+      this.hudDisplayHealth = Math.min(this.player.health, this.hudDisplayHealth + dt * 90);
+    } else {
+      this.hudDisplayHealth = this.player.health;
+    }
+
     this.hud.updateStatus({
       locationCode: this.getLocationDisplayName(this.player.currentLocationCode),
       vehicle: currentVehicle,
       isDrifting: Boolean(currentVehicle?.isDrifting),
       objectiveCode: objectiveHint,
-      health: this.player.health
+      health: this.hudDisplayHealth
     });
   }
 

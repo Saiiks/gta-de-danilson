@@ -50,3 +50,35 @@ test('gera veículos variados de cada tipo (carro, moto, van)', () => {
   assert.ok(kinds.has('moto'));
   assert.ok(kinds.has('van'));
 });
+
+test('gera hospitais espalhados pela cidade com telhado branco e interior acessível', () => {
+  const map = new CityMap();
+  const hospitals = [];
+  for (const row of map.blocks) {
+    for (const block of row) {
+      for (const b of block.buildings) {
+        if (b.type === 'hospital') hospitals.push(b);
+      }
+    }
+  }
+
+  assert.equal(hospitals.length, 40);
+  const hosp1 = map.resolveLocationCode('HOSP-01');
+  const hosp40 = map.resolveLocationCode('HOSP-40');
+  assert.equal(hosp40.type, 'hospital');
+  assert.equal(hosp1.type, 'hospital');
+  assert.equal(hosp1.roofColor, '#ffffff');
+  assert.ok(hosp1.interior.walls.length > 0);
+
+  const detected = map.getLocationAt(
+    hosp1.bounds.x + hosp1.bounds.w * 0.5,
+    hosp1.bounds.y + hosp1.bounds.h * 0.5
+  );
+  assert.equal(detected?.code, 'HOSP-01');
+  assert.equal(detected?.type, 'hospital');
+
+  // Garante que locais usados pelas missões continuam válidos
+  for (const code of ['CASA-01', 'COM-01', 'COM-24', 'COM-320', 'CASA-353', 'COM-554', 'CASA-656']) {
+    assert.ok(map.resolveLocationCode(code));
+  }
+});

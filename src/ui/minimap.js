@@ -43,8 +43,24 @@ export class Minimap {
 
       for (const building of block.buildings) {
         const bb = building.bounds;
-        ctx.fillStyle = building.type === 'commerce' ? '#4f6d9a' : '#7c5c4e';
-        ctx.fillRect(toMiniX(bb.x), toMiniY(bb.y), bb.w * scale, bb.h * scale);
+        const mx = toMiniX(bb.x);
+        const my = toMiniY(bb.y);
+        const mw = bb.w * scale;
+        const mh = bb.h * scale;
+        if (building.type === 'hospital') {
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillRect(mx, my, mw, mh);
+          const cx = mx + mw * 0.5;
+          const cy = my + mh * 0.5;
+          const arm = Math.max(6, Math.min(mw, mh) * 0.85);
+          const thick = Math.max(2, arm * 0.32);
+          ctx.fillStyle = '#ef4444';
+          ctx.fillRect(cx - thick * 0.5, cy - arm * 0.5, thick, arm);
+          ctx.fillRect(cx - arm * 0.5, cy - thick * 0.5, arm, thick);
+        } else {
+          ctx.fillStyle = building.type === 'commerce' ? '#4f6d9a' : '#7c5c4e';
+          ctx.fillRect(mx, my, mw, mh);
+        }
       }
     }
 

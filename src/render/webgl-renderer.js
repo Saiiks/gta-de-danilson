@@ -358,7 +358,14 @@ export class WebGLRenderer {
 
         // Cobertura superior oculta quando o jogador está dentro (desenhada após pedestres)
         if (!isInside) {
-          closedRoofs.push({ x: bb.x, y: bb.y, w: bb.w, h: bb.h, color: hexToRgba(building.roofColor) });
+          closedRoofs.push({
+            x: bb.x,
+            y: bb.y,
+            w: bb.w,
+            h: bb.h,
+            color: hexToRgba(building.roofColor),
+            isHospital: building.type === 'hospital'
+          });
         }
 
         // Indicação discreta da porta de entrada (soleira) e folha da porta animada
@@ -582,6 +589,15 @@ export class WebGLRenderer {
     // Telhados fechados cobrem pessoas dentro dos prédios quando o jogador está fora
     for (const roof of closedRoofs) {
       this.#pushQuad(roof.x, roof.y, roof.w, roof.h, 0, 'roof', roof.color);
+      if (roof.isHospital) {
+        const crossLen = Math.min(roof.w, roof.h) * 0.56;
+        const armThick = Math.max(10, Math.round(crossLen * 0.3));
+        const cx = roof.x + roof.w * 0.5;
+        const cy = roof.y + roof.h * 0.5;
+        const red = [0.88, 0.14, 0.18, 1];
+        this.#pushQuad(cx - armThick * 0.5, cy - crossLen * 0.5, armThick, crossLen, 0, 'solid', red);
+        this.#pushQuad(cx - crossLen * 0.5, cy - armThick * 0.5, crossLen, armThick, 0, 'solid', red);
+      }
     }
 
     // Ondas circulares estilo sinal Wi-Fi ao redor do personagem de destino (visíveis mesmo com teto fechado)

@@ -46,6 +46,11 @@ body {
   transition: opacity 0.22s ease-out;
 }
 
+#damage-flash.heal {
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.24) 35%, rgba(22, 163, 74, 0.72) 100%);
+  transition: opacity 0.35s ease-out;
+}
+
 #damage-flash.active {
   opacity: 1;
   transition: none;

@@ -7,7 +7,7 @@ import {
   createBuildingWithInterior,
   formatCode,
   hashBlock
-} from './city-layout.js';
+} from './city-layout.js?v=21';
 
 export class CityMap {
   constructor() {
@@ -263,6 +263,99 @@ export class CityMap {
         row.push(block);
       }
       this.blocks.push(row);
+    }
+
+    this.#placeHospitals();
+  }
+
+  #placeHospitals() {
+    const protectedCodes = new Set([
+      'CASA-01', 'CASA-02', 'COM-01', 'COM-24',
+      'COM-320', 'CASA-353', 'COM-554', 'CASA-656'
+    ]);
+    const offsets = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]];
+    const usedBlocks = new Set();
+    const cols = 8;
+    const rows = 5;
+    let hospIdx = 1;
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const baseBx = Math.floor(((col + 0.5) * this.gridBlocks) / cols);
+        const baseBy = Math.floor(((row + 0.5) * this.gridBlocks) / rows);
+        let placed = false;
+
+        for (const [dx, dy] of offsets) {
+          const bx = baseBx + dx;
+          const by = baseBy + dy;
+          const key = `${bx},${by}`;
+          if (usedBlocks.has(key)) continue;
+
+          const block = this.blocks[by]?.[bx];
+          if (!block || block.isPlaza || block.buildings.length === 0) continue;
+
+          let targetIdx = -1;
+          let bestArea = -1;
+          for (let i = 0; i < block.buildings.length; i++) {
+            const candidate = block.buildings[i];
+            if (protectedCodes.has(candidate.code)) continue;
+            const area = candidate.bounds.w * candidate.bounds.h;
+            if (area > bestArea) {
+              bestArea = area;
+              targetIdx = i;
+            }
+          }
+          if (targetIdx === -1) continue;
+
+          const orig = block.buildings[targetIdx];
+          const hosp = createBuildingWithInterior({
+            code: formatCode('HOSP', hospIdx++),
+            type: 'hospital',
+            x: orig.bounds.x,
+            y: orig.bounds.y,
+            w: orig.bounds.w,
+            h: orig.bounds.h,
+            doorSide: orig.doorSide,
+            seed: hashBlock(bx, by)
+          });
+          block.buildings[targetIdx] = hosp;
+          this.locationsByCode.delete(orig.code);
+          this.locationsByCode.set(hosp.code, hosp);
+          usedBlocks.add(key);
+          placed = true;
+          break;
+        }
+
+        if (!placed) {
+          // Fallback varrendo a grade caso algum setor fique sem bloco elegível
+          for (let by = 0; by < this.gridBlocks && !placed; by++) {
+            for (let bx = 0; bx < this.gridBlocks && !placed; bx++) {
+              const key = `${bx},${by}`;
+              if (usedBlocks.has(key)) continue;
+              const block = this.blocks[by]?.[bx];
+              if (!block || block.isPlaza || block.buildings.length === 0) continue;
+              const idx = block.buildings.findIndex((b) => !protectedCodes.has(b.code));
+              if (idx === -1) continue;
+              const orig = block.buildings[idx];
+              const hosp = createBuildingWithInterior({
+                code: formatCode('HOSP', hospIdx++),
+                type: 'hospital',
+                x: orig.bounds.x,
+                y: orig.bounds.y,
+                w: orig.bounds.w,
+                h: orig.bounds.h,
+                doorSide: orig.doorSide,
+                seed: hashBlock(bx, by)
+              });
+              block.buildings[idx] = hosp;
+              this.locationsByCode.delete(orig.code);
+              this.locationsByCode.set(hosp.code, hosp);
+              usedBlocks.add(key);
+              placed = true;
+            }
+          }
+        }
+      }
     }
   }
 

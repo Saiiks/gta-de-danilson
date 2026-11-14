@@ -1729,3 +1729,43 @@ CASA-869: Vila Cavalcanti Ribeiro
 CASA-870: Vila Dias Ribeiro
 CASA-871: Vila Castro Ribeiro
 CASA-872: Vila Campos Ribeiro
+HOSP-01: Hospital Noroeste
+HOSP-02: Hospital Norte
+HOSP-03: Hospital Nordeste
+HOSP-04: Hospital Oeste
+HOSP-05: Hospital Central
+HOSP-06: Hospital Leste
+HOSP-07: Hospital Sudoeste
+HOSP-08: Hospital Sul
+HOSP-09: Hospital Sudeste
+HOSP-10: Hospital Aurora
+HOSP-11: Hospital Esperança
+HOSP-12: Hospital Santa Clara
+HOSP-13: Hospital São Lucas
+HOSP-14: Hospital Vitória
+HOSP-15: Hospital Horizonte
+HOSP-16: Hospital Liberdade
+HOSP-17: Hospital Atlântico
+HOSP-18: Hospital Paulista
+HOSP-19: Hospital Guanabara
+HOSP-20: Hospital Boa Vista
+HOSP-21: Hospital Primavera
+HOSP-22: Hospital Bela Vista
+HOSP-23: Hospital Alvorada
+HOSP-24: Hospital Progresso
+HOSP-25: Hospital Independência
+HOSP-26: Hospital Bandeirantes
+HOSP-27: Hospital Planalto
+HOSP-28: Hospital Serra Verde
+HOSP-29: Hospital Parque Novo
+HOSP-30: Hospital Jardins
+HOSP-31: Hospital Centro-Sul
+HOSP-32: Hospital Vila Nova
+HOSP-33: Hospital Porto Seguro
+HOSP-34: Hospital Monte Verde
+HOSP-35: Hospital Santa Cruz
+HOSP-36: Hospital São José
+HOSP-37: Hospital São Gabriel
+HOSP-38: Hospital São Vicente
+HOSP-39: Hospital Santa Maria
+HOSP-40: Hospital Metropolitano

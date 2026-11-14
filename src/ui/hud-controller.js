@@ -350,11 +350,21 @@ export class HudController {
 
   triggerDamageFlash() {
     if (!this.damageFlashEl) return;
+    this.damageFlashEl.classList.remove('heal');
     this.damageFlashEl.classList.add('active');
     clearTimeout(this.damageFlashTimer);
     this.damageFlashTimer = setTimeout(() => {
       this.damageFlashEl.classList.remove('active');
     }, 90);
+  }
+
+  triggerHealFlash() {
+    if (!this.damageFlashEl) return;
+    this.damageFlashEl.classList.add('heal', 'active');
+    clearTimeout(this.damageFlashTimer);
+    this.damageFlashTimer = setTimeout(() => {
+      this.damageFlashEl.classList.remove('active');
+    }, 180);
   }
 
   showError(message) {
