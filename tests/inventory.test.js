@@ -81,10 +81,12 @@ test('parser de itens e missões lê story/items/ e valida entrega da maleta na 
     'missions/01-encomenda-urgente.md',
     cityMap,
   );
+  assert.equal(mission1.pickupLocation, 'PRACA-02');
   assert.equal(mission1.giveItem, 'maleta-executiva');
   assert.equal(mission1.requireItem, 'maleta-executiva');
   assert.ok(mission1.deliveryPrompt.length > 0);
   assert.ok(mission1.wrongItemMessage.length > 0);
+  assert.ok(mission1.outroCutscene.steps.some((step) => step.type === 'deliver' && step.itemId === 'maleta-executiva'));
 
   const assetUrls = collectStoryAssetUrls({ items: itemsMap, characters: new Map(), missions: [] });
   assert.ok(assetUrls.includes('./story/assets/item-maleta.svg'));

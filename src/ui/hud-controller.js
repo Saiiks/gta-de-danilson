@@ -10,6 +10,8 @@ export class HudController {
     this.loadingText = document.getElementById('loading-text');
     this.loadingPercent = document.getElementById('loading-percent');
     this.inventoryButton = document.getElementById('inventory-button');
+    this.hudToastEl = document.getElementById('hud-toast');
+    this.hudToastTimer = null;
     this.inventoryClickHandler = null;
     this.inventoryButton?.addEventListener('click', () => this.inventoryClickHandler?.());
     this.errorScreen = document.getElementById('error-screen');
@@ -201,6 +203,16 @@ export class HudController {
     if (this.inventoryButton) {
       this.inventoryButton.textContent = `ITENS (${count}/${capacity})`;
     }
+  }
+
+  showToast(message, durationMs = 3600) {
+    if (!this.hudToastEl) return;
+    this.hudToastEl.textContent = String(message || '');
+    this.hudToastEl.classList.remove('hidden');
+    clearTimeout(this.hudToastTimer);
+    this.hudToastTimer = setTimeout(() => {
+      this.hudToastEl.classList.add('hidden');
+    }, durationMs);
   }
 
   setDeathDesaturation(progress = 0) {

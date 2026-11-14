@@ -631,6 +631,28 @@ body {
   color: #fbbf24;
 }
 
+.hud-toast {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  background: rgba(14, 16, 21, 0.94);
+  border: 1px solid rgba(251, 191, 36, 0.65);
+  color: #fef08a;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 16px;
+  max-width: min(460px, 88vw);
+  text-align: center;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+#inventory-screen {
+  z-index: 30;
+}
+
 .pause-actions {
   display: flex;
   flex-direction: column;

@@ -15,11 +15,13 @@ export class CutsceneController {
     this.nextBtn = document.getElementById('cutscene-next-btn');
 
     this.active = false;
+    this.awaitingDelivery = false;
     this.cutscene = null;
     this.characters = null;
     this.stepIndex = 0;
     this.selectedChoiceIndex = 0;
     this.onFinish = null;
+    this.onDeliverRequest = null;
     this.prevAction = false;
     this.prevUp = false;
     this.prevDown = false;
@@ -27,18 +29,20 @@ export class CutsceneController {
     this.nextBtn.addEventListener('click', () => this.advance());
   }
 
-  play(cutscene, characters, onFinish) {
+  play(cutscene, characters, onFinish, options = {}) {
     if (!cutscene || !cutscene.steps || cutscene.steps.length === 0) {
       onFinish?.({ outcome: 'complete', reason: '' });
       return;
     }
 
     this.active = true;
+    this.awaitingDelivery = false;
     this.cutscene = cutscene;
     this.characters = characters;
     this.stepIndex = 0;
     this.selectedChoiceIndex = 0;
     this.onFinish = onFinish;
+    this.onDeliverRequest = options.onDeliverRequest || null;
     this.prevAction = true;
     this.prevUp = false;
     this.prevDown = false;
@@ -93,6 +97,32 @@ export class CutsceneController {
       return;
     }
 
+    if (step.type === 'deliver') {
+      if (typeof this.onDeliverRequest === 'function') {
+        this.awaitingDelivery = true;
+        this.onDeliverRequest(
+          step.itemId,
+          () => {
+            this.awaitingDelivery = false;
+            this.prevAction = true;
+            this.stepIndex += 1;
+            this.selectedChoiceIndex = 0;
+            this.renderStep();
+          },
+          () => {
+            this.awaitingDelivery = false;
+            this.prevAction = true;
+            this.stepIndex = Math.max(0, this.stepIndex - 1);
+            this.renderStep();
+          },
+        );
+        return;
+      }
+      this.stepIndex += 1;
+      this.renderStep();
+      return;
+    }
+
     this.speakerEl.textContent = step.speaker || '';
     this.textEl.textContent = step.text || '';
 
@@ -128,7 +158,7 @@ export class CutsceneController {
   }
 
   updateInput(inputState) {
-    if (!this.active) return;
+    if (!this.active || this.awaitingDelivery) return;
     const step = this.cutscene?.steps?.[this.stepIndex];
     if (!step) return;
 
@@ -160,7 +190,7 @@ export class CutsceneController {
   }
 
   advance() {
-    if (!this.active) return;
+    if (!this.active || this.awaitingDelivery) return;
     const step = this.cutscene.steps[this.stepIndex];
     if (step?.choices && step.choices.length > 0) return;
 

@@ -253,6 +253,9 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     }
 
     mission.objective = replaceLocationCodesWithNames(mission.objective, locationNames);
+    if (mission.pickupObjective) {
+      mission.pickupObjective = replaceLocationCodesWithNames(mission.pickupObjective, locationNames);
+    }
     if (mission.deliveryPrompt) {
       mission.deliveryPrompt = replaceLocationCodesWithNames(mission.deliveryPrompt, locationNames);
     }

@@ -154,6 +154,18 @@ function parseCutsceneBlock(blockLines, startLine, fileName) {
     const trimmed = blockLines[i].trim();
     if (!trimmed) continue;
 
+    if (trimmed.startsWith('- ENTREGAR:')) {
+      const itemId = trimmed.slice('- ENTREGAR:'.length).trim();
+      pendingChoices = null;
+      cutscene.steps.push({
+        type: 'deliver',
+        itemId,
+        speaker: '',
+        text: '',
+      });
+      continue;
+    }
+
     if (trimmed.startsWith('- OPCAO:')) {
       const optionBody = trimmed.slice('- OPCAO:'.length).trim();
       const arrowIdx = optionBody.indexOf('->');
@@ -248,6 +260,13 @@ export function parseMissionMarkdown(rawText, fileName = 'mission.md', cityMap =
     } catch (err) {
       throw new StoryParseError(fileName, 2, `Local de destino inválido ("target: ${meta.target}"): ${err.message}`);
     }
+    if (meta.pickup) {
+      try {
+        cityMap.resolveLocationCode(meta.pickup);
+      } catch (err) {
+        throw new StoryParseError(fileName, 2, `Local de coleta inválido ("pickup: ${meta.pickup}"): ${err.message}`);
+      }
+    }
   }
 
   const lines = body ? body.split('\n') : [];
@@ -276,6 +295,8 @@ export function parseMissionMarkdown(rawText, fileName = 'mission.md', cityMap =
     id: meta.id,
     title: meta.title,
     startLocation: meta.start,
+    pickupLocation: String(meta.pickup || '').trim(),
+    pickupObjective: String(meta.pickup_objective || '').trim(),
     targetLocation: meta.target,
     objective: meta.objective || `Vá até ${meta.target}`,
     giveItem: String(meta.give_item || '').trim(),

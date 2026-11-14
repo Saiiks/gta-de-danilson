@@ -107,7 +107,12 @@ export class Engine {
     this.#syncInventoryHud();
 
     this.#onKeyDown = (e) => {
-      if (!this.running || this.player.isDead || this.deathSequence || this.cutscene?.active || this.hud.isMissionCompleteOpen()) return;
+      if (!this.running || this.player.isDead || this.deathSequence || this.hud.isMissionCompleteOpen()) return;
+      if (e.key === 'Escape' && this.inventoryController?.isOpen) {
+        this.inventoryController.close();
+        return;
+      }
+      if (this.cutscene?.active) return;
       if (e.key === 'i' || e.key === 'I' || e.key === 'Tab') {
         e.preventDefault();
         if (this.inventoryController?.isOpen) {
@@ -115,10 +120,6 @@ export class Engine {
         } else if (!this.paused) {
           this.openInventory();
         }
-        return;
-      }
-      if (e.key === 'Escape' && this.inventoryController?.isOpen) {
-        this.inventoryController.close();
         return;
       }
       if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
@@ -190,6 +191,9 @@ export class Engine {
     this.freeRoamMode = false;
     this.missionOutTriggered = false;
     this.awaitingExitTarget = false;
+    const needsPickup = Boolean(mission.pickupLocation && mission.giveItem);
+    this.itemPickedUp = !needsPickup;
+    const initialObjective = needsPickup ? mission.pickupLocation : mission.targetLocation;
 
     if (preserveState) {
       const currentVehicle = this.player.inVehicleId
@@ -201,7 +205,7 @@ export class Engine {
         currentVehicle.vy = 0;
         currentVehicle.speed = 0;
       }
-      this.setObjective(mission.targetLocation);
+      this.setObjective(initialObjective);
       this.hud.hideGameOver();
       this.missionCheckpoint = {
         missionIndex: clamped,
@@ -215,13 +219,17 @@ export class Engine {
       };
     } else if (this.missionCheckpoint && this.missionCheckpoint.missionIndex === clamped) {
       const cp = this.missionCheckpoint;
-      this.resetMatch(mission.startLocation, mission.targetLocation);
+      this.resetMatch(mission.startLocation, initialObjective);
       if (Array.isArray(cp.inventorySlots)) {
         this.inventory.clear();
         for (const item of cp.inventorySlots) {
           if (item) this.inventory.addItem(item);
         }
         this.#syncInventoryHud();
+      }
+      if (needsPickup && mission.giveItem && this.inventory.hasItem(mission.giveItem)) {
+        this.itemPickedUp = true;
+        this.setObjective(mission.targetLocation);
       }
       this.player.x = cp.x;
       this.player.y = cp.y;
@@ -244,7 +252,7 @@ export class Engine {
       this.missionCheckpoint = null;
       this.inventory.clear();
       this.#syncInventoryHud();
-      this.resetMatch(mission.startLocation, mission.targetLocation);
+      this.resetMatch(mission.startLocation, initialObjective);
     }
 
     this.pauseMenu?.configure(this.storyPackage.missions, clamped, {
@@ -264,7 +272,7 @@ export class Engine {
     });
 
     const grantMissionStartItem = () => {
-      if (mission.giveItem && !this.inventory.hasItem(mission.giveItem)) {
+      if (!needsPickup && mission.giveItem && !this.inventory.hasItem(mission.giveItem)) {
         this.#grantMissionItem(mission.giveItem);
       }
     };
@@ -408,33 +416,54 @@ export class Engine {
       });
     };
 
+    const openDeliveryModal = (expectedId, onSuccess, onCancel) => {
+      this.inventoryController.openDelivery(this.inventory, {
+        prompt: mission.deliveryPrompt || 'Escolha o item correto do seu inventário para entregar:',
+        expectedItemId: expectedId || mission.requireItem,
+        wrongItemMessage: mission.wrongItemMessage || 'Não é esse item que o personagem espera. Tente outro!',
+        onDeliver: () => {
+          this.#syncInventoryHud();
+          onSuccess?.();
+        },
+        onCancel
+      });
+    };
+
+    const hasInlineDelivery = Boolean(
+      mission.outroCutscene?.steps?.some((step) => step.type === 'deliver')
+    );
+
     const runOutro = () => {
       if (mission.outroCutscene?.steps?.length > 0 && this.cutscene) {
-        this.cutscene.play(mission.outroCutscene, this.storyPackage.characters, (result) => {
-          if (result?.outcome === 'gameover') {
-            this.triggerGameOver(result.reason || 'Você falhou na missão.');
-          } else {
-            finishMission();
+        this.cutscene.play(
+          mission.outroCutscene,
+          this.storyPackage.characters,
+          (result) => {
+            if (result?.outcome === 'gameover') {
+              this.triggerGameOver(result.reason || 'Você falhou na missão.');
+            } else {
+              finishMission();
+            }
+          },
+          {
+            onDeliverRequest: (stepItemId, onDelivered, onCancelled) => {
+              if (!this.inventoryController) {
+                onDelivered?.();
+                return;
+              }
+              openDeliveryModal(stepItemId, onDelivered, onCancelled);
+            }
           }
-        });
+        );
       } else {
         finishMission();
       }
     };
 
-    if (mission.requireItem && this.inventoryController) {
-      this.inventoryController.openDelivery(this.inventory, {
-        prompt: mission.deliveryPrompt || 'Escolha o item correto do seu inventário para entregar:',
-        expectedItemId: mission.requireItem,
-        wrongItemMessage: mission.wrongItemMessage || 'Não é esse item que o personagem espera. Tente outro!',
-        onDeliver: () => {
-          this.#syncInventoryHud();
-          runOutro();
-        },
-        onCancel: () => {
-          this.missionOutTriggered = false;
-          this.awaitingExitTarget = true;
-        }
+    if (mission.requireItem && !hasInlineDelivery && this.inventoryController) {
+      openDeliveryModal(mission.requireItem, runOutro, () => {
+        this.missionOutTriggered = false;
+        this.awaitingExitTarget = true;
       });
     } else {
       runOutro();
@@ -1015,21 +1044,39 @@ export class Engine {
         : null;
 
     const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
-    const reachedTarget =
+    const reachedPickup =
+      !this.itemPickedUp &&
+      activeMission?.pickupLocation &&
       this.objectivePoint &&
       (Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 76 ||
-        (activeMission && this.player.insideLocationCode === activeMission.targetLocation));
+        this.player.insideLocationCode === activeMission.pickupLocation);
 
-    if (this.awaitingExitTarget) {
-      if (!reachedTarget) {
-        this.awaitingExitTarget = false;
+    if (reachedPickup) {
+      this.itemPickedUp = true;
+      if (activeMission.giveItem && !this.inventory.hasItem(activeMission.giveItem)) {
+        this.#grantMissionItem(activeMission.giveItem);
       }
-    } else if (this.objectivePoint && !this.missionOutTriggered && reachedTarget) {
-      if (this.storyPackage && !this.freeRoamMode) {
-        this.missionOutTriggered = true;
-        this.#handleMissionArrival();
-      } else {
-        this.setObjective(null);
+      const itemName = this.storyPackage?.items?.get(activeMission.giveItem)?.name || 'Item';
+      const targetName = this.locationNames.get(activeMission.targetLocation) || activeMission.targetLocation;
+      this.hud.showToast(`${itemName} guardada no inventário! Leve até ${targetName}.`);
+      this.setObjective(activeMission.targetLocation);
+    } else {
+      const reachedTarget =
+        this.objectivePoint &&
+        (Math.hypot(this.player.x - this.objectivePoint.x, this.player.y - this.objectivePoint.y) < 76 ||
+          (activeMission && this.player.insideLocationCode === activeMission.targetLocation));
+
+      if (this.awaitingExitTarget) {
+        if (!reachedTarget) {
+          this.awaitingExitTarget = false;
+        }
+      } else if (this.objectivePoint && !this.missionOutTriggered && reachedTarget) {
+        if (this.storyPackage && !this.freeRoamMode) {
+          this.missionOutTriggered = true;
+          this.#handleMissionArrival();
+        } else {
+          this.setObjective(null);
+        }
       }
     }
 
