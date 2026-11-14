@@ -1,4 +1,4 @@
-import { createTextureAtlas } from './texture-atlas.js?v=8';
+import { createTextureAtlas } from './texture-atlas.js?v=9';
 
 const VERTEX_SHADER = `
   attribute vec2 a_position;
@@ -190,7 +190,7 @@ export class WebGLRenderer {
     this.quadCount++;
   }
 
-  renderFrame({ camera, cityMap, vehicles, trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, objectiveNpcPoint, time }) {
+  renderFrame({ camera, cityMap, vehicles, trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, objectiveNpcPoint, emitNpcWaves = false, time }) {
     const gl = this.gl;
     this.quadCount = 0;
 
@@ -542,6 +542,25 @@ export class WebGLRenderer {
     // Telhados fechados cobrem pessoas dentro dos prédios quando o jogador está fora
     for (const roof of closedRoofs) {
       this.#pushQuad(roof.x, roof.y, roof.w, roof.h, 0, 'roof', roof.color);
+    }
+
+    // Ondas circulares estilo sinal Wi-Fi ao redor do personagem de destino (visíveis mesmo com teto fechado)
+    if (npcMarker && emitNpcWaves) {
+      const cycle = 1.9;
+      for (let i = 0; i < 3; i++) {
+        const phase = ((time / cycle) + i / 3) % 1;
+        const waveSize = 32 + phase * 156;
+        const alpha = (1 - phase) * (1 - phase) * 0.72;
+        this.#pushQuad(
+          npcMarker.x - waveSize * 0.5,
+          npcMarker.y - waveSize * 0.5,
+          waveSize,
+          waveSize,
+          0,
+          'shockwave',
+          [0.98, 0.78, 0.2, alpha]
+        );
+      }
     }
 
     // Jogador a pé ou montado em moto (que não possui teto)

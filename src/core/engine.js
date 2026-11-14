@@ -2,8 +2,8 @@ import { CityMap } from '../world/city-map.js';
 import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js';
 import { InputManager } from '../input/input-manager.js';
-import { WebGLRenderer } from '../render/webgl-renderer.js?v=8';
-import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=8';
+import { WebGLRenderer } from '../render/webgl-renderer.js?v=9';
+import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=9';
 import {
   applyPedestrianDamage,
   applyVehicleDamage,
@@ -1428,6 +1428,7 @@ export class Engine {
       explosions: this.explosions,
       objectivePoint: isPickupStage ? null : this.objectivePoint,
       objectiveNpcPoint: isPickupStage ? null : this.objectiveNpcPoint,
+      emitNpcWaves: !isPickupStage && !this.missionOutTriggered && !this.freeRoamMode && Boolean(this.objectiveNpcPoint || this.objectivePoint),
       time: this.elapsedTime
     });
     if (isPickupStage && pickupItemDef?.imageUrl && !this.cutscene?.active && !this.paused && !this.player.isDead) {
