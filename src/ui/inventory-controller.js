@@ -172,10 +172,6 @@ export class InventoryController {
           img.alt = item.name;
           btn.appendChild(img);
         }
-        const label = document.createElement('span');
-        label.className = 'inventory-slot-name';
-        label.textContent = item.name;
-        btn.appendChild(label);
       } else {
         const emptyMark = document.createElement('span');
         emptyMark.className = 'inventory-slot-empty';
@@ -194,9 +190,23 @@ export class InventoryController {
       this.gridEl.appendChild(btn);
     });
 
+    const RARITY_LABELS = {
+      normal: 'Normal',
+      especial: 'Especial',
+      lendario: 'Lendário',
+    };
     const selected = this.inventory.getItemAt(this.selectedIndex);
     if (selected) {
-      this.detailNameEl.textContent = selected.name;
+      this.detailNameEl.replaceChildren();
+      const titleSpan = document.createElement('span');
+      titleSpan.textContent = selected.name;
+      this.detailNameEl.appendChild(titleSpan);
+      if (selected.category === 'extra' && selected.rarity && RARITY_LABELS[selected.rarity]) {
+        const raritySpan = document.createElement('span');
+        raritySpan.className = `inventory-detail-rarity rarity-${selected.rarity}`;
+        raritySpan.textContent = RARITY_LABELS[selected.rarity];
+        this.detailNameEl.appendChild(raritySpan);
+      }
       this.detailDescEl.textContent = selected.description || 'Item de missão.';
     } else {
       this.detailNameEl.textContent = 'Espaço vazio';

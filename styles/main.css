@@ -1013,7 +1013,7 @@ body {
   appearance: none;
   position: relative;
   min-width: 0;
-  min-height: clamp(62px, 13vw, 104px);
+  min-height: 0;
   width: 100%;
   aspect-ratio: 1 / 1;
   background: rgba(15, 23, 42, 0.85);
@@ -1120,8 +1120,8 @@ body {
 }
 
 .inventory-slot-img {
-  width: min(64%, 52px);
-  height: min(64%, 52px);
+  width: min(74%, 60px);
+  height: min(74%, 60px);
   object-fit: contain;
   pointer-events: none;
   flex-shrink: 1;
@@ -1153,10 +1153,33 @@ body {
 }
 
 .inventory-detail-name {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
   font-size: 13px;
   font-weight: 800;
   color: #fbbf24;
   margin-bottom: 2px;
+}
+
+.inventory-detail-rarity {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.inventory-detail-rarity.rarity-normal {
+  color: #38bdf8;
+}
+
+.inventory-detail-rarity.rarity-especial {
+  color: #c084fc;
+}
+
+.inventory-detail-rarity.rarity-lendario {
+  color: #facc15;
 }
 
 .inventory-detail-desc {
@@ -1204,7 +1227,7 @@ body {
   }
 
   .inventory-slot {
-    min-height: 60px;
+    min-height: 0;
   }
 }
 
@@ -1219,11 +1242,14 @@ body {
   .inventory-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 8px;
+    max-width: 440px;
+    width: 100%;
+    margin: 0 auto;
   }
 
   .inventory-slot {
-    min-height: 58px;
-    aspect-ratio: 1.15 / 1;
+    min-height: 0;
+    aspect-ratio: 1 / 1;
   }
 
   .inventory-detail {
