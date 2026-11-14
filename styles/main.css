@@ -749,9 +749,9 @@ body {
 
 .hud-toast {
   position: fixed;
-  top: max(14px, env(safe-area-inset-top));
+  top: max(108px, 26%);
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   z-index: 15;
   display: inline-flex;
   align-items: center;
