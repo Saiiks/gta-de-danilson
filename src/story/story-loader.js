@@ -361,6 +361,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
 
   return {
     title: replaceLocationCodesWithNames(manifest.title, locationNames),
+    pageTitle: replaceLocationCodesWithNames(manifest.pageTitle || manifest.title, locationNames),
     subtitle: replaceLocationCodesWithNames(manifest.subtitle, locationNames),
     splashUrl: withBust(splashUrl),
     characters,

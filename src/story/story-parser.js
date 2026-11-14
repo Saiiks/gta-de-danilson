@@ -94,6 +94,7 @@ export function parseStoryManifest(rawText, fileName = 'story.md') {
 
   return {
     title: meta.title,
+    pageTitle: meta.page_title || '',
     subtitle: meta.subtitle || '',
     splash: validateAssetPath(meta.splash || '', fileName, 2),
     characters,

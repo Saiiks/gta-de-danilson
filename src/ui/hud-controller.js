@@ -120,8 +120,12 @@ export class HudController {
     }
   }
 
-  setStoryHeader({ title, subtitle, splashUrl }) {
+  setStoryHeader({ title, pageTitle, subtitle, splashUrl }) {
     if (title) this.startTitleEl.textContent = title;
+    const browserTitle = pageTitle || title;
+    if (browserTitle && typeof document !== 'undefined') {
+      document.title = browserTitle;
+    }
     if (subtitle) this.startSubtitleEl.textContent = subtitle;
     if (splashUrl) {
       this.startSplashEl.src = splashUrl;

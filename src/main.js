@@ -1,10 +1,10 @@
 import { Engine } from './core/engine.js?v=12';
-import { HudController } from './ui/hud-controller.js?v=12';
+import { HudController } from './ui/hud-controller.js?v=15';
 import { CutsceneController } from './ui/cutscene-controller.js?v=14';
 import { PauseMenuController } from './ui/pause-menu.js';
 import { InventoryController } from './ui/inventory-controller.js';
 import { CityMap } from './world/city-map.js';
-import { loadStoryPackage, preloadMissionAssets } from './story/story-loader.js?v=14';
+import { loadStoryPackage, preloadMissionAssets } from './story/story-loader.js?v=15';
 
 function waitMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -49,6 +49,7 @@ async function boot() {
 
     hud.setStoryHeader({
       title: storyPackage.title,
+      pageTitle: storyPackage.pageTitle,
       subtitle: storyPackage.subtitle,
       splashUrl: storyPackage.splashUrl
     });

@@ -303,3 +303,18 @@ test('detecta variantes numeradas por tipo e sorteia cenários evitando repetiç
   const afterCycle = pickCutsceneBackground(pool, recent, () => 0);
   assert.notEqual(afterCycle.url, recent[recent.length - 1]);
 });
+
+test('lê page_title opcional do story.md para personalizar o título da aba', () => {
+  const custom = parseStoryManifest(
+    '---\ntitle: Minha História\npage_title: Título da Aba\ncharacters: guanabara\nmissions: 01-caixa-secreta\n---\n',
+    'story.md'
+  );
+  assert.equal(custom.title, 'Minha História');
+  assert.equal(custom.pageTitle, 'Título da Aba');
+
+  const fallback = parseStoryManifest(
+    '---\ntitle: Minha História\ncharacters: guanabara\nmissions: 01-caixa-secreta\n---\n',
+    'story.md'
+  );
+  assert.equal(fallback.pageTitle, '');
+});

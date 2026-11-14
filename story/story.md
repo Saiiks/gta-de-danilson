@@ -1,5 +1,6 @@
 ---
 title: Missão Vibe Coding
+page_title: Missão Vibe Coding — Curso em Vídeo
 subtitle: Cruzando a cidade pelo Curso em Vídeo entre GPUs, servidores, robôs e uma caixa secreta!
 splash: splash/splash-start.png
 characters: guanabara, jason, lucia, pundar, maltmon
