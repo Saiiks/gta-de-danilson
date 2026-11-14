@@ -85,62 +85,77 @@ export class TrafficManager {
     );
   }
 
+  #spawnSidewalkPedestrian(bx, by, sw, side, idx) {
+    const color = PED_COLORS[idx % PED_COLORS.length];
+    const skinColor = SKIN_COLORS[(idx + 1) % SKIN_COLORS.length];
+    const hairColor = HAIR_COLORS[(idx + 2) % HAIR_COLORS.length];
+    const pantsColor = PANTS_COLORS[(idx + 3) % PANTS_COLORS.length];
+    const cw = (idx % 2 === 0) ? 1 : -1;
+    const dir = this.#getSidewalkDirection(side, cw);
+    const offsetFrac = 0.25 + ((idx % 5) * 0.125);
+    const startX = (side === 'south' || side === 'north')
+      ? sw.westX + (sw.eastX - sw.westX) * offsetFrac
+      : (side === 'east' ? sw.eastX : sw.westX);
+    const startY = (side === 'south' || side === 'north')
+      ? (side === 'south' ? sw.southY : sw.northY)
+      : sw.northY + (sw.southY - sw.northY) * offsetFrac;
+    const idNum = this.nextPedId++;
+
+    this.pedestrians.push({
+      id: `PED-${idNum}`,
+      x: startX,
+      y: startY,
+      dirX: dir.x,
+      dirY: dir.y,
+      angle: Math.atan2(dir.y, dir.x),
+      speed: 62,
+      baseSpeed: 62,
+      health: 100,
+      radius: 10,
+      hitCooldown: 0,
+      fleeTimer: 0,
+      crossTimer: 2.2 + ((bx + by + idx) % 4) * 1.1,
+      crossCooldown: 0,
+      visitCooldown: 3 + (idx % 5),
+      walkPhase: (bx + by + idx) * 0.7,
+      color,
+      skinColor,
+      hairColor,
+      pantsColor,
+      state: 'walking',
+      substate: null,
+      bx,
+      by,
+      side,
+      cw,
+      rngState: ((idNum * 2654435761) >>> 0) || 1,
+      crossTarget: null,
+      targetBuilding: null,
+      visitStep: 0,
+      insideTimer: 0,
+      plazaTarget: null,
+      plazaVisitsLeft: 0,
+      returnTarget: null,
+      stuckTimer: 0,
+      lastCheckX: startX,
+      lastCheckY: startY
+    });
+  }
+
   #spawnInitialPedestrians() {
-    for (let by = 0; by < this.cityMap.gridBlocks; by += 2) {
-      for (let bx = 0; bx < this.cityMap.gridBlocks; bx += 2) {
+    const sides = ['south', 'east', 'north', 'west'];
+    for (let by = 0; by < this.cityMap.gridBlocks; by += 1) {
+      for (let bx = 0; bx < this.cityMap.gridBlocks; bx += 1) {
         const block = this.cityMap.blocks[by][bx];
         const sw = this.#getSidewalkBounds(block);
         const idx = bx * 3 + by * 5;
-        const color = PED_COLORS[idx % PED_COLORS.length];
-        const skinColor = SKIN_COLORS[(idx + 1) % SKIN_COLORS.length];
-        const hairColor = HAIR_COLORS[(idx + 2) % HAIR_COLORS.length];
-        const pantsColor = PANTS_COLORS[(idx + 3) % PANTS_COLORS.length];
-        const side = (bx + by) % 4 === 0 ? 'south' : 'east';
-        const cw = (idx % 2 === 0) ? 1 : -1;
-        const dir = this.#getSidewalkDirection(side, cw);
-        const startX = side === 'south' ? (sw.westX + sw.eastX) * 0.5 : sw.eastX;
-        const startY = side === 'south' ? sw.southY : (sw.northY + sw.southY) * 0.5;
-        const idNum = this.nextPedId++;
+        const primarySide = sides[(bx + by) % sides.length];
+        this.#spawnSidewalkPedestrian(bx, by, sw, primarySide, idx);
 
-        this.pedestrians.push({
-          id: `PED-${idNum}`,
-          x: startX,
-          y: startY,
-          dirX: dir.x,
-          dirY: dir.y,
-          angle: Math.atan2(dir.y, dir.x),
-          speed: 62,
-          baseSpeed: 62,
-          health: 100,
-          radius: 10,
-          hitCooldown: 0,
-          fleeTimer: 0,
-          crossTimer: 2.2 + ((bx + by) % 4) * 1.1,
-          crossCooldown: 0,
-          visitCooldown: 3 + (idx % 5),
-          walkPhase: (bx + by) * 0.7,
-          color,
-          skinColor,
-          hairColor,
-          pantsColor,
-          state: 'walking',
-          substate: null,
-          bx,
-          by,
-          side,
-          cw,
-          rngState: ((idNum * 2654435761) >>> 0) || 1,
-          crossTarget: null,
-          targetBuilding: null,
-          visitStep: 0,
-          insideTimer: 0,
-          plazaTarget: null,
-          plazaVisitsLeft: 0,
-          returnTarget: null,
-          stuckTimer: 0,
-          lastCheckX: startX,
-          lastCheckY: startY
-        });
+        if ((bx + by) % 2 === 0) {
+          const secondarySide = sides[(bx + by + 2) % sides.length];
+          this.#spawnSidewalkPedestrian(bx, by, sw, secondarySide, idx + 7);
+        }
       }
     }
   }

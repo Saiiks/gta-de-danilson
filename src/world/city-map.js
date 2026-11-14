@@ -333,19 +333,24 @@ export class CityMap {
 
   #buildVehicleSpawns() {
     let idCounter = 1;
-    for (let by = 0; by < this.gridBlocks; by += 2) {
-      for (let bx = 0; bx < this.gridBlocks; bx += 2) {
+    for (let by = 0; by < this.gridBlocks; by += 1) {
+      for (let bx = 0; bx < this.gridBlocks; bx += 1) {
         const seed = hashBlock(bx + 7, by + 13);
         const variant = VEHICLE_VARIANTS[seed % VEHICLE_VARIANTS.length];
         const horizontal = seed % 2 === 0;
+        const reverseLane = (seed >>> 1) % 2 === 1;
+        const laneFactor = reverseLane ? 0.28 : 0.72;
 
-        // Veículo em tráfego na faixa da rua
+        // Veículo em tráfego na faixa da rua (mão dupla)
         const tx = horizontal
-          ? this.blockXOffsets[bx] + this.colWidths[bx] * 0.5
-          : this.roadXOffsets[bx] + this.roadWidth * 0.72;
+          ? this.blockXOffsets[bx] + this.colWidths[bx] * (0.25 + ((seed >>> 3) % 5) * 0.12)
+          : this.roadXOffsets[bx] + this.roadWidth * laneFactor;
         const ty = horizontal
-          ? this.roadYOffsets[by] + this.roadWidth * 0.72
-          : this.blockYOffsets[by] + this.rowHeights[by] * 0.5;
+          ? this.roadYOffsets[by] + this.roadWidth * laneFactor
+          : this.blockYOffsets[by] + this.rowHeights[by] * (0.25 + ((seed >>> 3) % 5) * 0.12);
+        const angle = horizontal
+          ? (reverseLane ? Math.PI : 0)
+          : (reverseLane ? -Math.PI / 2 : Math.PI / 2);
 
         this.vehicleSpawns.push({
           id: `VEH-${String(idCounter++).padStart(3, '0')}`,
@@ -354,22 +359,29 @@ export class CityMap {
           color: variant.color,
           x: tx,
           y: ty,
-          angle: horizontal ? 0 : Math.PI / 2,
+          angle,
           isParked: false,
           driver: 'npc'
         });
 
         // Veículo estacionado junto à calçada para o jogador pegar
-        if ((bx + by) % 4 === 0) {
+        if ((bx + by) % 2 === 0) {
           const pVariant = VEHICLE_VARIANTS[(seed >>> 2) % VEHICLE_VARIANTS.length];
+          const parkVertical = (seed >>> 4) % 2 === 1;
+          const px = parkVertical
+            ? this.blockXOffsets[bx] - 18
+            : this.blockXOffsets[bx] + this.colWidths[bx] * 0.35;
+          const py = parkVertical
+            ? this.blockYOffsets[by] + this.rowHeights[by] * 0.35
+            : this.blockYOffsets[by] - 18;
           this.vehicleSpawns.push({
             id: `VEH-${String(idCounter++).padStart(3, '0')}`,
             kind: pVariant.kind,
             model: pVariant.model,
             color: pVariant.color,
-            x: this.blockXOffsets[bx] + this.colWidths[bx] * 0.35,
-            y: this.blockYOffsets[by] - 18,
-            angle: 0,
+            x: px,
+            y: py,
+            angle: parkVertical ? Math.PI / 2 : 0,
             isParked: true,
             driver: null
           });
