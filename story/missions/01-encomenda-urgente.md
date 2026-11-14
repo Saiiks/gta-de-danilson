@@ -17,6 +17,7 @@ left: guanabara
 right: beto
 bg: Frente da CASA-01
 
+- Guanabara: Fala, chefe! Tudo bem aí? Qual é a missão da vez?
 - Beto: Guanabara, deixei uma maleta importante na PRACA-02. Preciso que você passe lá para pegá-la e leve até o COM-05.
 - OPCAO: Pode deixar comigo! Vou buscar agora mesmo. -> NEXT
 - OPCAO: Tô indo, mas espero que o trânsito esteja calmo! -> NEXT
