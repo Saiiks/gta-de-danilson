@@ -252,5 +252,12 @@ export function createTextureAtlas() {
     c.fillRect(x + 42, y + 54, s - 84, 20);
   });
 
+  register('disc', 7, 1, (c, x, y, s) => {
+    c.fillStyle = '#ffffff';
+    c.beginPath();
+    c.arc(x + s / 2, y + s / 2, s * 0.45, 0, Math.PI * 2);
+    c.fill();
+  });
+
   return { canvas, uvs };
 }

@@ -517,8 +517,8 @@ export class WebGLRenderer {
     // Boneco do personagem de destino (dentro do estabelecimento ou no ponto de encontro)
     const npcMarker = objectiveNpcPoint || objectivePoint;
     if (npcMarker) {
-      const pulse = 1 + Math.sin(time * 5) * 0.15;
-      const ringSize = 28 * pulse;
+      const pulse = 1 + Math.sin(time * 5) * 0.14;
+      const ringSize = 36 * pulse;
       this.#pushQuad(
         npcMarker.x - ringSize * 0.5,
         npcMarker.y - ringSize * 0.5,
@@ -526,12 +526,17 @@ export class WebGLRenderer {
         ringSize,
         0,
         'circle',
-        [0.98, 0.75, 0.14, 0.55]
+        [0.98, 0.78, 0.18, 0.75]
       );
-      this.#pushQuad(npcMarker.x - 10, npcMarker.y - 10, 20, 20, 0, 'circle', [0.12, 0.16, 0.22, 1]);
-      this.#pushQuad(npcMarker.x - 7, npcMarker.y - 5, 14, 14, 0, 'circle', [0.92, 0.25, 0.25, 1]);
-      this.#pushQuad(npcMarker.x - 4, npcMarker.y + 1, 8, 8, 0, 'circle', [0.95, 0.78, 0.65, 1]);
-      this.#pushQuad(npcMarker.x - 3.8, npcMarker.y - 0.5, 7.6, 7.6, 0, 'circle', [0.22, 0.14, 0.08, 1]);
+      // Braços e sombra no chão
+      this.#pushQuad(npcMarker.x - 13, npcMarker.y - 2, 6, 7, 0, 'solid', [0.95, 0.78, 0.65, 1]);
+      this.#pushQuad(npcMarker.x + 7, npcMarker.y - 2, 6, 7, 0, 'solid', [0.95, 0.78, 0.65, 1]);
+      this.#pushQuad(npcMarker.x - 10, npcMarker.y - 9, 22, 22, 0, 'disc', [0, 0, 0, 0.35]);
+      // Ombros, camisa, rosto e cabelo nítidos
+      this.#pushQuad(npcMarker.x - 11, npcMarker.y - 11, 22, 22, 0, 'disc', [0.12, 0.16, 0.22, 1]);
+      this.#pushQuad(npcMarker.x - 8, npcMarker.y - 7, 16, 16, 0, 'disc', [0.92, 0.25, 0.25, 1]);
+      this.#pushQuad(npcMarker.x - 5, npcMarker.y + 1, 10, 10, 0, 'disc', [0.95, 0.78, 0.65, 1]);
+      this.#pushQuad(npcMarker.x - 4.5, npcMarker.y - 2, 9, 9, 0, 'disc', [0.22, 0.14, 0.08, 1]);
     }
 
     // Telhados fechados cobrem pessoas dentro dos prédios quando o jogador está fora
