@@ -2,8 +2,8 @@ import { CityMap } from '../world/city-map.js';
 import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js';
 import { InputManager } from '../input/input-manager.js';
-import { WebGLRenderer } from '../render/webgl-renderer.js';
-import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js';
+import { WebGLRenderer } from '../render/webgl-renderer.js?v=8';
+import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=8';
 import {
   applyPedestrianDamage,
   applyVehicleDamage,
