@@ -102,22 +102,32 @@ export async function resolveFirstExistingAsset(candidates, existsFn = checkAsse
   return '';
 }
 
-export async function loadStoryPackage(basePath = './story', cityMap = null) {
+export async function loadStoryPackage(basePath = './story', cityMap = null, options = {}) {
+  const { onProgress } = options;
+  const reportProgress = (ratio, message) => {
+    if (typeof onProgress === 'function') {
+      onProgress({ ratio: Math.max(0, Math.min(1, ratio)), message });
+    }
+  };
+
   const cleanBase = basePath.replace(/\/+$/, '');
   const manifestUrl = `${cleanBase}/story.md`;
   const cacheBust = typeof window !== 'undefined' ? `?v=${Date.now()}` : '';
   const withBust = (url) => (url && cacheBust ? `${url}${cacheBust}` : url);
 
+  reportProgress(0.05, 'Lendo manifesto da história...');
   const manifestRaw = await fetchText(manifestUrl, 'story.md');
   const manifest = parseStoryManifest(manifestRaw, 'story.md');
 
   let locationNames = new Map();
   const mapUrl = `${cleanBase}/map/map.md`;
   if (await checkAssetExists(mapUrl)) {
+    reportProgress(0.15, 'Carregando mapa de locais...');
     const mapRaw = await fetchText(mapUrl, 'map/map.md');
     locationNames = parseMapMarkdown(mapRaw, 'map/map.md');
   }
 
+  reportProgress(0.25, 'Resolvendo imagem de abertura...');
   let splashUrl = await resolveFirstExistingAsset(
     getSplashPngCandidates(cleanBase, manifest.splash),
   );
@@ -130,6 +140,8 @@ export async function loadStoryPackage(basePath = './story', cityMap = null) {
     }
   }
 
+  const totalChars = Math.max(1, manifest.characters.length);
+  let loadedChars = 0;
   const characters = new Map();
   await Promise.all(
     manifest.characters.map(async (charId) => {
@@ -165,11 +177,15 @@ export async function loadStoryPackage(basePath = './story', cityMap = null) {
         ...character,
         sprites: resolvedSprites,
       });
+      loadedChars += 1;
+      reportProgress(0.3 + (loadedChars / totalChars) * 0.35, `Carregando personagens (${loadedChars}/${totalChars})...`);
     }),
   );
 
+  const totalMissions = Math.max(1, manifest.missions.length);
   const missions = [];
-  for (const missionId of manifest.missions) {
+  for (let i = 0; i < manifest.missions.length; i += 1) {
+    const missionId = manifest.missions[i];
     const missionFile = `missions/${missionId}.md`;
     const raw = await fetchText(`${cleanBase}/${missionFile}`, missionFile);
     const mission = parseMissionMarkdown(raw, missionFile, cityMap);
@@ -203,6 +219,10 @@ export async function loadStoryPackage(basePath = './story', cityMap = null) {
 
     mission.objective = replaceLocationCodesWithNames(mission.objective, locationNames);
     missions.push(mission);
+    reportProgress(
+      0.65 + ((i + 1) / totalMissions) * 0.35,
+      `Carregando missões (${i + 1}/${totalMissions})...`,
+    );
   }
 
   console.info(
@@ -217,4 +237,88 @@ export async function loadStoryPackage(basePath = './story', cityMap = null) {
     missions,
     locationNames,
   };
+}
+
+export function collectStoryAssetUrls(storyPackage) {
+  if (!storyPackage) return [];
+  const urls = new Set();
+  if (storyPackage.splashUrl) {
+    urls.add(storyPackage.splashUrl);
+  }
+  if (storyPackage.characters instanceof Map) {
+    for (const character of storyPackage.characters.values()) {
+      for (const spriteUrl of Object.values(character?.sprites || {})) {
+        if (spriteUrl) urls.add(spriteUrl);
+      }
+    }
+  }
+  for (const mission of storyPackage.missions || []) {
+    if (mission?.introCutscene?.backgroundImage) {
+      urls.add(mission.introCutscene.backgroundImage);
+    }
+    if (mission?.outroCutscene?.backgroundImage) {
+      urls.add(mission.outroCutscene.backgroundImage);
+    }
+  }
+  return [...urls];
+}
+
+export function preloadImageAsset(url, loadImageFn = null) {
+  if (!url) return Promise.resolve({ url, ok: false });
+  if (typeof loadImageFn === 'function') {
+    return Promise.resolve(loadImageFn(url))
+      .then((ok) => ({ url, ok: ok !== false }))
+      .catch(() => ({ url, ok: false }));
+  }
+  if (typeof Image === 'undefined') {
+    return Promise.resolve({ url, ok: true });
+  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    const finish = (ok) => resolve({ url, ok });
+    img.onload = () => {
+      if (typeof img.decode === 'function') {
+        img.decode().then(() => finish(true)).catch(() => finish(true));
+      } else {
+        finish(true);
+      }
+    };
+    img.onerror = () => finish(false);
+    img.src = url;
+  });
+}
+
+export async function preloadStoryAssets(storyPackage, options = {}) {
+  const { onProgress, loadImageFn = null } = options;
+  const urls = collectStoryAssetUrls(storyPackage);
+  const total = urls.length;
+  if (total === 0) {
+    if (typeof onProgress === 'function') {
+      onProgress({ loaded: 0, total: 0, ratio: 1, url: '' });
+    }
+    return { total: 0, loaded: 0, failed: [] };
+  }
+
+  let loaded = 0;
+  const failed = [];
+  await Promise.all(
+    urls.map(async (url) => {
+      const result = await preloadImageAsset(url, loadImageFn);
+      if (!result.ok) {
+        failed.push(url);
+        console.warn(`[StoryLoader] Falha ao pré-carregar imagem: ${url}`);
+      }
+      loaded += 1;
+      if (typeof onProgress === 'function') {
+        onProgress({
+          loaded,
+          total,
+          ratio: loaded / total,
+          url,
+        });
+      }
+    }),
+  );
+
+  return { total, loaded, failed };
 }

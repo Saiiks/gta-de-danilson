@@ -349,6 +349,26 @@ body {
   transition: width 0.2s ease;
 }
 
+.loading-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.loading-meta .overlay-subtitle {
+  margin: 0;
+  text-align: left;
+}
+
+.loading-percent {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
 .error-card {
   border-color: rgba(239, 68, 68, 0.5);
 }
@@ -449,7 +469,7 @@ body {
 
 .cutscene-bg-label {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   align-self: flex-start;
   background: rgba(14, 16, 21, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -463,20 +483,19 @@ body {
 
 .cutscene-actors {
   position: absolute;
-  top: 0;
-  left: 16px;
-  right: 16px;
-  bottom: -48px;
+  top: 12px;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
   z-index: 1;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
   pointer-events: none;
-  gap: 16px;
 }
 
 .cutscene-actor {
-  position: relative;
+  position: absolute;
+  bottom: 0;
+  height: 92%;
+  width: min(54%, 340px);
   z-index: 1;
   display: flex;
   flex-direction: column;
@@ -485,43 +504,47 @@ body {
   gap: 0;
   opacity: 1;
   transform-origin: bottom center;
-  transform: translate3d(0, 0, 0) scale(0.76);
-  transition: transform 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translate3d(0, 8px, 0) scale(0.94);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
+}
+
+#cutscene-left-slot {
+  left: 0;
+  --speak-shift-x: clamp(8px, 3vw, 32px);
+}
+
+#cutscene-right-slot {
+  right: 0;
+  --speak-shift-x: calc(-1 * clamp(8px, 3vw, 32px));
 }
 
 .cutscene-actor.speaking {
   z-index: 2;
-}
-
-#cutscene-left-slot.speaking {
-  transform: translate3d(clamp(24px, 8vw, 96px), 0, 0) scale(1.3);
-}
-
-#cutscene-right-slot.speaking {
-  transform: translate3d(calc(-1 * clamp(24px, 8vw, 96px)), 0, 0) scale(1.3);
+  transform: translate3d(var(--speak-shift-x, 0px), 0, 0) scale(1.06);
 }
 
 #cutscene-right-slot .cutscene-portrait {
   scale: -1 1;
 }
 
-.cutscene-actor.speaking .cutscene-portrait {
-  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.72));
-}
-
 .cutscene-portrait {
   aspect-ratio: 9 / 16;
-  height: clamp(320px, 76dvh, 470px);
+  height: 92%;
   width: auto;
-  max-width: 42vw;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   object-position: bottom center;
   border: none;
   border-radius: 0;
   background: transparent;
-  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.55));
-  transition: filter 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+  filter: brightness(0.78) saturate(0.85) drop-shadow(0 8px 16px rgba(0, 0, 0, 0.48));
+  transition: filter 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cutscene-actor.speaking .cutscene-portrait {
+  filter: brightness(1.04) saturate(1.05) drop-shadow(0 14px 24px rgba(0, 0, 0, 0.72));
 }
 
 .cutscene-actor-name {
@@ -530,7 +553,7 @@ body {
 
 .cutscene-dialog-box {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   margin-top: auto;
   background: rgba(14, 16, 21, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -752,8 +775,13 @@ body {
   }
 
   .cutscene-actors {
-    padding: 8px 4px 0;
-    gap: 10px;
+    top: 8px;
+    left: 4px;
+    right: 4px;
+  }
+
+  .cutscene-actor {
+    width: min(58%, 260px);
   }
 }
 
@@ -801,9 +829,17 @@ body {
     height: 66px;
   }
 
-  .cutscene-portrait {
-    height: clamp(240px, 86dvh, 360px);
-    width: auto;
-    max-width: 38vw;
+  .cutscene-stage {
+    padding: 10px 14px;
+  }
+
+  .cutscene-dialog-box {
+    padding: 10px 14px;
+    gap: 6px;
+  }
+
+  .cutscene-actor {
+    height: 94%;
+    width: min(44%, 240px);
   }
 }

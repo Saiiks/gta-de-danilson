@@ -64,7 +64,7 @@
       </div>
     </div>
 
-    <section id="start-screen" class="overlay-screen">
+    <section id="start-screen" class="overlay-screen hidden">
       <div class="overlay-card start-card">
         <img id="start-splash" class="start-splash hidden" alt="Capa da história">
         <h1 id="start-title" class="retro-title">CIDADE ABERTA</h1>
@@ -74,13 +74,16 @@
       </div>
     </section>
 
-    <section id="loading-screen" class="overlay-screen hidden">
-      <div class="overlay-card">
+    <section id="loading-screen" class="overlay-screen" role="status" aria-live="polite">
+      <div class="overlay-card loading-card">
         <h2 class="overlay-heading">Carregando cidade...</h2>
         <div class="progress-track">
           <div id="loading-bar" class="progress-fill"></div>
         </div>
-        <p id="loading-text" class="overlay-subtitle">Preparando mapa e texturas</p>
+        <div class="loading-meta">
+          <p id="loading-text" class="overlay-subtitle">Preparando mapa e texturas</p>
+          <span id="loading-percent" class="loading-percent">0%</span>
+        </div>
       </div>
     </section>
 

@@ -8,6 +8,7 @@ export class HudController {
     this.loadingScreen = document.getElementById('loading-screen');
     this.loadingBar = document.getElementById('loading-bar');
     this.loadingText = document.getElementById('loading-text');
+    this.loadingPercent = document.getElementById('loading-percent');
     this.errorScreen = document.getElementById('error-screen');
     this.errorMessage = document.getElementById('error-message');
 
@@ -165,11 +166,15 @@ export class HudController {
   }
 
   showLoading(percent, message) {
+    const clamped = Math.max(0, Math.min(100, Number(percent) || 0));
     this.startScreen.classList.add('hidden');
     this.errorScreen.classList.add('hidden');
     this.loadingScreen.classList.remove('hidden');
-    this.loadingBar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+    this.loadingBar.style.width = `${clamped}%`;
     this.loadingText.textContent = message;
+    if (this.loadingPercent) {
+      this.loadingPercent.textContent = `${Math.round(clamped)}%`;
+    }
   }
 
   showGameHud() {

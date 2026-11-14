@@ -14,9 +14,11 @@ import {
   StoryParseError
 } from '../src/story/story-parser.js';
 import {
+  collectStoryAssetUrls,
   getCharacterSidePngCandidates,
   getCutsceneBackgroundCandidates,
   getSplashPngCandidates,
+  preloadStoryAssets,
   resolveFirstExistingAsset
 } from '../src/story/story-loader.js';
 
@@ -153,4 +155,46 @@ test('resolve cenários PNG/JPG de cutscene por código ou tipo (RUA, PRACA, COM
 
   const resolved = await resolveFirstExistingAsset(candidates, async (url) => url === './story/map/casa.png');
   assert.equal(resolved, './story/map/casa.png');
+});
+
+test('coleta URLs únicas e pré-carrega assets da história reportando progresso até 100%', async () => {
+  const fakeStory = {
+    splashUrl: './story/splash.png',
+    characters: new Map([
+      ['alex', { sprites: { top: './story/assets/alex-top.svg', left: './story/characters/alex.png', right: './story/characters/alex.png' } }],
+      ['clara', { sprites: { front: './story/assets/clara-front.svg', empty: '' } }],
+    ]),
+    missions: [
+      {
+        introCutscene: { backgroundImage: './story/map/casa.png' },
+        outroCutscene: { backgroundImage: './story/map/com.jpg' },
+      },
+      {
+        introCutscene: { backgroundImage: './story/map/casa.png' },
+        outroCutscene: { backgroundImage: '' },
+      },
+    ],
+  };
+
+  const urls = collectStoryAssetUrls(fakeStory);
+  assert.deepEqual(urls, [
+    './story/splash.png',
+    './story/assets/alex-top.svg',
+    './story/characters/alex.png',
+    './story/assets/clara-front.svg',
+    './story/map/casa.png',
+    './story/map/com.jpg',
+  ]);
+
+  const progressEvents = [];
+  const summary = await preloadStoryAssets(fakeStory, {
+    loadImageFn: async (url) => !url.endsWith('com.jpg'),
+    onProgress: (ev) => progressEvents.push(ev),
+  });
+
+  assert.equal(summary.total, 6);
+  assert.equal(summary.loaded, 6);
+  assert.deepEqual(summary.failed, ['./story/map/com.jpg']);
+  assert.equal(progressEvents.length, 6);
+  assert.equal(progressEvents.at(-1).ratio, 1);
 });
