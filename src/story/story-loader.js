@@ -103,6 +103,75 @@ export async function resolveFirstExistingAsset(candidates, existsFn = checkAsse
   return '';
 }
 
+export function extractCutsceneLocationType(bgText = '', fallbackCode = '') {
+  const rawBg = String(bgText || '').trim();
+  const codeMatch = rawBg.match(/\b((?:RUA|CASA|COM|PRACA)-\d+)\b/i);
+  const code = (codeMatch ? codeMatch[1] : String(fallbackCode || '')).trim().toUpperCase();
+  if (!code) return '';
+  return code.split('-')[0].toLowerCase();
+}
+
+export async function discoverTypeBackgroundPool(basePath, typePrefix, existsFn = checkAssetExists, maxProbe = 50) {
+  const cleanBase = String(basePath || '').replace(/\/+$/, '');
+  const prefix = String(typePrefix || '').trim().toLowerCase();
+  if (!prefix) return [];
+
+  const pool = [];
+  for (let n = 1; n <= maxProbe; n += 1) {
+    const pngUrl = `${cleanBase}/map/${prefix}-${n}.png`;
+    if (await existsFn(pngUrl)) {
+      pool.push(pngUrl);
+      continue;
+    }
+    const jpgUrl = `${cleanBase}/map/${prefix}-${n}.jpg`;
+    if (await existsFn(jpgUrl)) {
+      pool.push(jpgUrl);
+      continue;
+    }
+    break;
+  }
+
+  if (pool.length === 0) {
+    for (const fallbackUrl of [`${cleanBase}/map/${prefix}.png`, `${cleanBase}/map/${prefix}.jpg`]) {
+      if (await existsFn(fallbackUrl)) {
+        pool.push(fallbackUrl);
+        break;
+      }
+    }
+  }
+
+  return pool;
+}
+
+export function pickCutsceneBackground(pool = [], recentList = [], rng = Math.random) {
+  if (!Array.isArray(pool) || pool.length === 0) {
+    return { url: '', nextRecent: [] };
+  }
+  if (pool.length === 1) {
+    return { url: pool[0], nextRecent: [pool[0]] };
+  }
+
+  const recentSet = new Set(recentList);
+  let candidates = pool.filter((url) => !recentSet.has(url));
+  let baseRecent = [...recentList];
+
+  if (candidates.length === 0) {
+    const lastShown = recentList[recentList.length - 1];
+    candidates = pool.filter((url) => url !== lastShown);
+    baseRecent = lastShown ? [lastShown] : [];
+    if (candidates.length === 0) {
+      candidates = [...pool];
+    }
+  }
+
+  const idx = Math.min(candidates.length - 1, Math.max(0, Math.floor(rng() * candidates.length)));
+  const chosen = candidates[idx];
+  return {
+    url: chosen,
+    nextRecent: [...baseRecent, chosen],
+  };
+}
+
 export async function loadStoryPackage(basePath = './story', cityMap = null, options = {}) {
   const { onProgress } = options;
   const reportProgress = (ratio, message) => {
@@ -210,6 +279,14 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     }),
   );
 
+  const typePools = new Map();
+  await Promise.all(
+    ['casa', 'com', 'praca', 'rua'].map(async (typePrefix) => {
+      const discovered = await discoverTypeBackgroundPool(cleanBase, typePrefix);
+      typePools.set(typePrefix, discovered.map((url) => withBust(url)));
+    }),
+  );
+
   const totalMissions = Math.max(1, manifest.missions.length);
   const missions = [];
   for (let i = 0; i < manifest.missions.length; i += 1) {
@@ -237,7 +314,15 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
       if (cutscene.rightChar && !characters.has(cutscene.rightChar)) {
         throw new StoryParseError(missionFile, 0, `Personagem "${cutscene.rightChar}" não declarado em story.md.`);
       }
-      cutscene.backgroundImage = withBust(await resolveFirstExistingAsset(
+      const bgType = extractCutsceneLocationType(cutscene.background, fallbackCode);
+      const pool = typePools.get(bgType) || [];
+      const explicitCandidates = getCutsceneBackgroundCandidates(cleanBase, cutscene.background, fallbackCode)
+        .filter((url) => !/\/map\/(?:casa|com|praca|rua)\.(?:png|jpe?g)$/i.test(url));
+      const explicitBg = withBust(await resolveFirstExistingAsset(explicitCandidates));
+
+      cutscene.backgroundType = bgType;
+      cutscene.backgroundPool = explicitBg ? [explicitBg] : pool;
+      cutscene.backgroundImage = explicitBg || pool[0] || withBust(await resolveFirstExistingAsset(
         getCutsceneBackgroundCandidates(cleanBase, cutscene.background, fallbackCode),
       ));
       cutscene.background = replaceLocationCodesWithNames(cutscene.background, locationNames);
@@ -330,6 +415,11 @@ export function collectMissionAssetUrls(storyPackage, missionIndex = 0, options 
   for (const cs of cutscenes) {
     if (!cs) continue;
     if (cs.backgroundImage) urls.add(cs.backgroundImage);
+    if (Array.isArray(cs.backgroundPool)) {
+      for (const bgUrl of cs.backgroundPool) {
+        if (bgUrl) urls.add(bgUrl);
+      }
+    }
     if (cs.leftChar) charIds.add(cs.leftChar);
     if (cs.rightChar) charIds.add(cs.rightChar);
   }

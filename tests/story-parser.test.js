@@ -16,8 +16,10 @@ import {
 import {
   collectMissionAssetUrls,
   collectStoryAssetUrls,
+  discoverTypeBackgroundPool,
   getCharacterSidePngCandidates,
   getCutsceneBackgroundCandidates,
+  pickCutsceneBackground,
   getPendingMissionAssetUrls,
   getSplashPngCandidates,
   preloadMissionAssets,
@@ -153,9 +155,9 @@ test('map/map.md mapeia todos os locais da cidade e substitui códigos em falas 
 
 test('resolve cenários PNG/JPG de cutscene por código ou tipo (RUA, PRACA, COM, CASA) e possui exemplos', async () => {
   for (const prefix of ['rua', 'praca', 'com', 'casa']) {
-    const hasPng = fs.existsSync(path.join(storyDir, 'map', `${prefix}.png`));
-    const hasJpg = fs.existsSync(path.join(storyDir, 'map', `${prefix}.jpg`));
-    assert.equal(hasPng || hasJpg, true, `Ausente: story/map/${prefix}.png ou ${prefix}.jpg`);
+    const hasExample = [`${prefix}.png`, `${prefix}.jpg`, `${prefix}-1.png`, `${prefix}-1.jpg`]
+      .some((name) => fs.existsSync(path.join(storyDir, 'map', name)));
+    assert.equal(hasExample, true, `Ausente: story/map/${prefix}(-1).png ou .jpg`);
   }
 
   const candidates = getCutsceneBackgroundCandidates('./story', 'Frente da CASA-01', 'CASA-01');
@@ -269,4 +271,31 @@ test('pré-carrega apenas splash e recursos da missão 0 na abertura e carrega d
   });
   assert.equal(m1Summary.total, 4);
   assert.equal(getPendingMissionAssetUrls(story, 1, preloadedUrls, { includeSplash: false }).length, 0);
+});
+
+test('detecta variantes numeradas por tipo e sorteia cenários evitando repetições consecutivas', async () => {
+  const existing = new Set([
+    './story/map/casa-1.png',
+    './story/map/casa-2.jpg',
+    './story/map/casa-3.jpg',
+  ]);
+  const pool = await discoverTypeBackgroundPool('./story', 'casa', async (url) => existing.has(url));
+  assert.deepEqual(pool, [
+    './story/map/casa-1.png',
+    './story/map/casa-2.jpg',
+    './story/map/casa-3.jpg',
+  ]);
+
+  const seen = new Set();
+  let recent = [];
+  for (let i = 0; i < 3; i += 1) {
+    const res = pickCutsceneBackground(pool, recent, () => 0);
+    assert.equal(seen.has(res.url), false);
+    seen.add(res.url);
+    recent = res.nextRecent;
+  }
+  assert.equal(seen.size, 3);
+
+  const afterCycle = pickCutsceneBackground(pool, recent, () => 0);
+  assert.notEqual(afterCycle.url, recent[recent.length - 1]);
 });

@@ -1,3 +1,5 @@
+import { pickCutsceneBackground } from '../story/story-loader.js?v=13';
+
 export class CutsceneController {
   constructor() {
     this.screen = document.getElementById('cutscene-screen');
@@ -25,6 +27,7 @@ export class CutsceneController {
     this.prevAction = false;
     this.prevUp = false;
     this.prevDown = false;
+    this.recentBackgroundsByType = new Map();
 
     this.nextBtn.addEventListener('click', () => this.advance());
   }
@@ -47,10 +50,21 @@ export class CutsceneController {
     this.prevUp = false;
     this.prevDown = false;
 
+    let chosenBackgroundImage = cutscene.backgroundImage || '';
+    if (Array.isArray(cutscene.backgroundPool) && cutscene.backgroundPool.length > 0) {
+      const typeKey = cutscene.backgroundType || 'default';
+      const recent = this.recentBackgroundsByType.get(typeKey) || [];
+      const picked = pickCutsceneBackground(cutscene.backgroundPool, recent);
+      if (picked.url) {
+        chosenBackgroundImage = picked.url;
+        this.recentBackgroundsByType.set(typeKey, picked.nextRecent);
+      }
+    }
+
     this.bgLabel.textContent = cutscene.background || 'Cena Lateral';
     if (this.stageEl) {
-      if (cutscene.backgroundImage) {
-        this.stageEl.style.backgroundImage = `linear-gradient(180deg, rgba(15, 23, 42, 0.16) 0%, rgba(15, 23, 42, 0.32) 62%, rgba(10, 14, 22, 0.78) 100%), url("${cutscene.backgroundImage}")`;
+      if (chosenBackgroundImage) {
+        this.stageEl.style.backgroundImage = `linear-gradient(180deg, rgba(15, 23, 42, 0.16) 0%, rgba(15, 23, 42, 0.32) 62%, rgba(10, 14, 22, 0.78) 100%), url("${chosenBackgroundImage}")`;
         this.stageEl.classList.add('has-bg-image');
       } else {
         this.stageEl.style.backgroundImage = '';
