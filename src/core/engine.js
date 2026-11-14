@@ -60,6 +60,7 @@ export class Engine {
     this.routePoints = [];
     this.objectiveCode = null;
     this.objectivePoint = null;
+    this.objectiveNpcPoint = null;
     this.objectiveLocationType = null;
     this.routeTimer = 0;
     this.elapsedTime = 0;
@@ -389,6 +390,7 @@ export class Engine {
     if (!code) {
       this.objectiveCode = null;
       this.objectivePoint = null;
+      this.objectiveNpcPoint = null;
       this.objectiveLocationType = null;
       this.routePoints = [];
       return;
@@ -397,6 +399,14 @@ export class Engine {
     this.objectiveCode = target.code;
     this.objectivePoint = target.spawnPoint;
     this.objectiveLocationType = target.type || null;
+    if ((target.type === 'commerce' || target.type === 'house') && target.bounds) {
+      this.objectiveNpcPoint = {
+        x: target.bounds.x + target.bounds.w * 0.5,
+        y: target.bounds.y + target.bounds.h * 0.55
+      };
+    } else {
+      this.objectiveNpcPoint = target.spawnPoint;
+    }
     this.routePoints = this.pathfinder.findRoute(this.player.x, this.player.y, this.objectiveCode);
   }
 
@@ -1346,6 +1356,7 @@ export class Engine {
       smokeParticles: this.smokeParticles,
       explosions: this.explosions,
       objectivePoint: isPickupStage ? null : this.objectivePoint,
+      objectiveNpcPoint: isPickupStage ? null : this.objectiveNpcPoint,
       time: this.elapsedTime
     });
     if (isPickupStage && pickupItemDef?.imageUrl && !this.cutscene?.active && !this.paused && !this.player.isDead) {

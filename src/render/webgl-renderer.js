@@ -190,7 +190,7 @@ export class WebGLRenderer {
     this.quadCount++;
   }
 
-  renderFrame({ camera, cityMap, vehicles, trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, time }) {
+  renderFrame({ camera, cityMap, vehicles, trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], objectivePoint, objectiveNpcPoint, time }) {
     const gl = this.gl;
     this.quadCount = 0;
 
@@ -388,6 +388,21 @@ export class WebGLRenderer {
       }
     }
 
+    // Marcação no chão indicando o estabelecimento/ponto de destino (veículos e pessoas passam por cima)
+    if (objectivePoint) {
+      const pulse = 1 + Math.sin(time * 5) * 0.18;
+      const size = 34 * pulse;
+      this.#pushQuad(
+        objectivePoint.x - size * 0.5,
+        objectivePoint.y - size * 0.5,
+        size,
+        size,
+        0,
+        'solid',
+        [0.92, 0.22, 0.22, 0.55]
+      );
+    }
+
     // Lixeiras dinâmicas nas esquinas (podem ser arremessadas e rebater)
     for (const bin of trashBins) {
       if (bin.x < minX || bin.x > maxX || bin.y < minY || bin.y > maxY) continue;
@@ -497,6 +512,20 @@ export class WebGLRenderer {
         this.#pushQuad(ped.x + cos * 5.2 - 3.8, ped.y + sin * 5.2 - 3.8, 7.6, 7.6, 0, 'circle', skin);
         this.#pushQuad(ped.x + cos * 4.0 - 3.6, ped.y + sin * 4.0 - 3.6, 7.2, 7.2, 0, 'circle', hair);
       }
+    }
+
+    // Boneco do personagem de destino (dentro do estabelecimento ou no ponto de encontro)
+    const npcMarker = objectiveNpcPoint || objectivePoint;
+    if (npcMarker) {
+      this.#pushQuad(
+        npcMarker.x - 12,
+        npcMarker.y - 12,
+        24,
+        24,
+        Math.PI * 0.5,
+        'pedestrian',
+        [0.92, 0.25, 0.25, 1]
+      );
     }
 
     // Telhados fechados cobrem pessoas dentro dos prédios quando o jogador está fora
@@ -678,30 +707,6 @@ export class WebGLRenderer {
           this.#pushQuad(sx - sz * 0.5, sy - sz * 0.5, sz, sz, sp.angle, 'circle', [1, 0.84, 0.25, spAlpha]);
         }
       }
-    }
-
-    // Marcador de objetivo ativo no mundo + personagem do ponto de encontro
-    if (objectivePoint) {
-      const pulse = 1 + Math.sin(time * 5) * 0.18;
-      const size = 34 * pulse;
-      this.#pushQuad(
-        objectivePoint.x - size * 0.5,
-        objectivePoint.y - size * 0.5,
-        size,
-        size,
-        0,
-        'solid',
-        [0.98, 0.75, 0.14, 0.55]
-      );
-      this.#pushQuad(
-        objectivePoint.x - 12,
-        objectivePoint.y - 12,
-        24,
-        24,
-        Math.PI * 0.5,
-        'pedestrian',
-        [0.92, 0.25, 0.25, 1]
-      );
     }
 
     gl.clearColor(0.08, 0.09, 0.12, 1);
