@@ -183,8 +183,8 @@ test('direcional analógico virtual produz vetor contínuo com deadzone, multi-t
   assert.equal(knob.style.transform, 'translate(0px, 0px)');
 });
 
-test('inicia em fullscreen na horizontal e sai do fullscreen exibindo erro ao girar para retrato', async () => {
-  const env = setupGlobals({ width: 844, height: 390, portrait: false, maxTouchPoints: 5 });
+test('inicia em fullscreen tanto em modo retrato quanto em paisagem sem bloquear orientação', async () => {
+  const env = setupGlobals({ width: 390, height: 844, portrait: true, maxTouchPoints: 5 });
   const { HudController } = await import('../src/ui/hud-controller.js');
 
   const hud = new HudController();
@@ -193,32 +193,17 @@ test('inicia em fullscreen na horizontal e sai do fullscreen exibindo erro ao gi
     started = true;
   });
 
-  // No início em paisagem, aviso de retrato oculto
-  assert.equal(hud.isPortraitBlocked(), false);
-
-  // Ao clicar em iniciar, entra em fullscreen
+  // Ao clicar em iniciar no modo retrato, entra em fullscreen normalmente
   env.elements.get('start-button').click();
   assert.equal(started, true);
   assert.equal(env.getStats().requestFullscreenCount, 1);
   assert.ok(env.getStats().fullscreenEl !== null);
 
-  // Ao girar o celular para retrato (vertical), sai do fullscreen e exibe mensagem de erro
-  env.state.portrait = true;
-  window.innerWidth = 390;
-  window.innerHeight = 844;
-  window.dispatchEvent('resize');
-
-  assert.equal(hud.isPortraitBlocked(), true);
-  assert.equal(env.elements.get('portrait-warning').classList.contains('hidden'), false);
-  assert.equal(env.getStats().exitFullscreenCount, 1);
-  assert.equal(env.getStats().fullscreenEl, null);
-
-  // Ao deitar o celular novamente (paisagem), oculta o aviso
+  // Ao girar entre retrato e paisagem, não sai do fullscreen
   env.state.portrait = false;
   window.innerWidth = 844;
   window.innerHeight = 390;
   window.dispatchEvent('resize');
-
-  assert.equal(hud.isPortraitBlocked(), false);
-  assert.equal(env.elements.get('portrait-warning').classList.contains('hidden'), true);
+  assert.equal(env.getStats().exitFullscreenCount, 0);
+  assert.ok(env.getStats().fullscreenEl !== null);
 });

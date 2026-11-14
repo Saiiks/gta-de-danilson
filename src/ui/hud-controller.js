@@ -33,7 +33,6 @@ export class HudController {
     this.missionCompleteTitleEl = document.getElementById('mission-complete-title');
     this.missionCompleteSubtitleEl = document.getElementById('mission-complete-subtitle');
     this.missionCompleteBtn = document.getElementById('mission-complete-btn');
-    this.portraitWarning = document.getElementById('portrait-warning');
     this.iosInstallHint = document.getElementById('ios-install-hint');
     this.hasStarted = false;
     this.missionCompleteHandler = null;
@@ -44,7 +43,9 @@ export class HudController {
       cb?.();
     });
 
-    this.#bindOrientationAndFullscreen();
+    this.#bindFullscreenRestore();
+    this.#updateIosInstallHint();
+    this.#bindZoomPrevention();
   }
 
   isTouchDevice() {
@@ -52,18 +53,6 @@ export class HudController {
       (typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) ||
       (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
     );
-  }
-
-  isPortraitOrientation() {
-    if (typeof window === 'undefined') return false;
-    if (window.matchMedia && window.matchMedia('(orientation: portrait)').matches) {
-      return true;
-    }
-    return window.innerHeight > window.innerWidth;
-  }
-
-  isPortraitBlocked() {
-    return Boolean(this.portraitWarning && !this.portraitWarning.classList.contains('hidden'));
   }
 
   requestAppFullscreen() {
@@ -76,46 +65,13 @@ export class HudController {
     }
   }
 
-  exitAppFullscreen() {
-    try {
-      if (document.fullscreenElement && document.exitFullscreen) {
-        Promise.resolve(document.exitFullscreen()).catch(() => {});
-      }
-    } catch {
-      // Ignora erro ao sair do fullscreen
-    }
-  }
-
-  syncOrientationAndFullscreen() {
-    const blocked = this.isTouchDevice() && this.isPortraitOrientation();
-    if (blocked) {
-      this.portraitWarning?.classList.remove('hidden');
-      this.exitAppFullscreen();
-    } else {
-      this.portraitWarning?.classList.add('hidden');
-    }
-    return !blocked;
-  }
-
-  #bindOrientationAndFullscreen() {
+  #bindFullscreenRestore() {
     if (typeof window === 'undefined') return;
-    const onOrientationCheck = () => {
-      this.syncOrientationAndFullscreen();
-    };
-    window.addEventListener('resize', onOrientationCheck);
-    window.addEventListener('orientationchange', onOrientationCheck);
-    if (window.matchMedia) {
-      const mq = window.matchMedia('(orientation: portrait)');
-      mq.addEventListener?.('change', onOrientationCheck);
-    }
     this.shell?.addEventListener('pointerdown', () => {
-      if (this.hasStarted && this.isTouchDevice() && !this.isPortraitOrientation() && !document.fullscreenElement) {
+      if (this.hasStarted && this.isTouchDevice() && !document.fullscreenElement) {
         this.requestAppFullscreen();
       }
     });
-    this.syncOrientationAndFullscreen();
-    this.#updateIosInstallHint();
-    this.#bindZoomPrevention();
   }
 
   #bindZoomPrevention() {
@@ -203,9 +159,7 @@ export class HudController {
   onStartClick(handler) {
     this.startButton.addEventListener('click', () => {
       this.hasStarted = true;
-      if (!this.isPortraitOrientation()) {
-        this.requestAppFullscreen();
-      }
+      this.requestAppFullscreen();
       handler();
     });
   }

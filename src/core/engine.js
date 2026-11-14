@@ -338,9 +338,6 @@ export class Engine {
   }
 
   update(dt) {
-    if (this.hud?.isPortraitBlocked?.()) {
-      return;
-    }
     this.elapsedTime += dt;
     const input = this.input.update(dt);
 

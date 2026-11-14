@@ -663,32 +663,73 @@ body {
   box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.25);
 }
 
-#portrait-warning {
-  z-index: 30;
-}
-
-.portrait-card {
-  border-color: rgba(251, 191, 36, 0.45);
-}
-
-.portrait-icon {
-  font-size: 38px;
-  margin-bottom: 10px;
-}
-
-@media (orientation: portrait) and (pointer: coarse) {
-  #portrait-warning {
-    display: flex !important;
-  }
-
-  #controls-hint {
-    display: none;
-  }
-}
-
 @media (pointer: coarse) {
   #controls-hint {
     display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  #top-left-stack {
+    max-width: calc(100vw - 140px);
+    gap: 6px;
+  }
+
+  #top-bar {
+    gap: 6px;
+  }
+
+  .hud-pill {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .health-track {
+    width: 48px;
+  }
+
+  #minimap-container {
+    padding: 4px;
+  }
+
+  #minimap-canvas {
+    width: 108px;
+    height: 108px;
+  }
+
+  #objective-hint {
+    font-size: 10px;
+    max-width: 108px;
+    text-align: center;
+  }
+
+  #touch-controls {
+    padding: max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+
+  .touch-analog {
+    width: 112px;
+    height: 112px;
+  }
+
+  .touch-analog-knob {
+    width: 46px;
+    height: 46px;
+  }
+
+  .touch-action {
+    width: 58px;
+    height: 58px;
+  }
+
+  .touch-primary {
+    width: 66px;
+    height: 66px;
+  }
+
+  .cutscene-actors {
+    padding: 8px 4px 0;
+    gap: 10px;
   }
 }
 
