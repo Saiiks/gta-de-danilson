@@ -7,6 +7,7 @@ export class HudController {
     this.startButton = document.getElementById('start-button');
     this.newGameButton = document.getElementById('new-game-button');
     this.startReadyLabel = 'Entrar na Cidade';
+    this.startSelectedIndex = 0;
     this.loadingScreen = document.getElementById('loading-screen');
     this.loadingBar = document.getElementById('loading-bar');
     this.loadingText = document.getElementById('loading-text');
@@ -150,6 +151,7 @@ export class HudController {
     this.loadingScreen.classList.add('hidden');
     this.errorScreen.classList.add('hidden');
     this.startScreen.classList.remove('hidden');
+    this.setStartSelection(0);
   }
 
   showMissionComplete(missionTitle, hasNextMission, onContinue) {
@@ -176,9 +178,34 @@ export class HudController {
     return !this.startScreen.classList.contains('hidden');
   }
 
+  #getVisibleStartButtons() {
+    return [this.startButton, this.newGameButton].filter(
+      (btn) => btn && !btn.classList.contains('hidden')
+    );
+  }
+
+  setStartSelection(index = 0) {
+    const buttons = this.#getVisibleStartButtons();
+    if (buttons.length === 0) return;
+    const len = buttons.length;
+    this.startSelectedIndex = ((Math.floor(index) % len) + len) % len;
+    buttons.forEach((btn, idx) => {
+      btn.classList.toggle('start-action-selected', len > 1 && idx === this.startSelectedIndex);
+    });
+  }
+
+  moveStartSelection(delta = 1) {
+    const buttons = this.#getVisibleStartButtons();
+    if (buttons.length <= 1) return;
+    this.setStartSelection(this.startSelectedIndex + delta);
+  }
+
   triggerStart() {
-    if (this.isStartScreenOpen()) {
-      this.startButton.click();
+    if (!this.isStartScreenOpen()) return;
+    const buttons = this.#getVisibleStartButtons();
+    const target = buttons[this.startSelectedIndex] || this.startButton;
+    if (target && !target.disabled) {
+      target.click();
     }
   }
 
@@ -210,6 +237,7 @@ export class HudController {
         this.newGameButton.disabled = this.startButton.disabled;
       }
     }
+    this.setStartSelection(0);
   }
 
   showLoading(percent, message) {

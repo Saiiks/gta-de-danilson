@@ -12,7 +12,7 @@
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <link rel="apple-touch-icon" href="./icon.svg">
   <title>Cidade Aberta Retrô</title>
-  <link rel="stylesheet" href="./styles/main.css?v=23">
+  <link rel="stylesheet" href="./styles/main.css?v=29">
 </head>
 <body>
   <div id="game-shell">
@@ -231,9 +231,14 @@
             <h2 id="inventory-title" class="retro-title inventory-title">INVENTÁRIO</h2>
             <p id="inventory-subtitle" class="overlay-subtitle inventory-subtitle">Selecione um item para ver os detalhes.</p>
           </div>
-          <span id="inventory-count" class="inventory-count">0 / 5</span>
+          <span id="inventory-count" class="inventory-count">0 / 10</span>
         </div>
-        <div id="inventory-grid" class="inventory-grid" role="grid" aria-label="Grade de 5 slots"></div>
+        <div id="inventory-grid" class="inventory-grid" role="grid" aria-label="Grade de 10 espaços"></div>
+        <div class="inventory-pagination" role="navigation" aria-label="Páginas do inventário">
+          <button id="inventory-prev-page" type="button" class="inventory-page-btn" aria-label="Página anterior" title="Página anterior (Q / L1)" disabled>&#9664;</button>
+          <span id="inventory-page-label" class="inventory-page-label">Página 1 / 1</span>
+          <button id="inventory-next-page" type="button" class="inventory-page-btn" aria-label="Próxima página" title="Próxima página (E / R1)" disabled>&#9654;</button>
+        </div>
         <div id="inventory-detail" class="inventory-detail">
           <div id="inventory-detail-name" class="inventory-detail-name">Slot vazio</div>
           <div id="inventory-detail-desc" class="inventory-detail-desc">Nenhum item selecionado.</div>
@@ -270,6 +275,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/main.js?v=48"></script>
+  <script type="module" src="./src/main.js?v=50"></script>
 </body>
 </html>

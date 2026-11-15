@@ -1,4 +1,4 @@
-import { INVENTORY_CAPACITY, INVENTORY_COLUMNS } from '../core/inventory.js?v=16';
+import { INVENTORY_PAGE_SIZE, INVENTORY_COLUMNS } from '../core/inventory.js?v=20';
 
 export class InventoryController {
   constructor() {
@@ -7,6 +7,9 @@ export class InventoryController {
     this.subtitleEl = document.getElementById('inventory-subtitle');
     this.countEl = document.getElementById('inventory-count');
     this.gridEl = document.getElementById('inventory-grid');
+    this.prevPageBtn = document.getElementById('inventory-prev-page');
+    this.nextPageBtn = document.getElementById('inventory-next-page');
+    this.pageLabelEl = document.getElementById('inventory-page-label');
     this.detailNameEl = document.getElementById('inventory-detail-name');
     this.detailDescEl = document.getElementById('inventory-detail-desc');
     this.feedbackEl = document.getElementById('inventory-feedback');
@@ -16,6 +19,7 @@ export class InventoryController {
     this.isOpen = false;
     this.mode = 'browse';
     this.inventory = null;
+    this.currentPage = 0;
     this.selectedIndex = 0;
     this.expectedItemId = '';
     this.wrongItemMessage = '';
@@ -26,9 +30,13 @@ export class InventoryController {
     this.prevRight = false;
     this.prevUp = false;
     this.prevDown = false;
+    this.prevPageInput = false;
+    this.nextPageInput = false;
     this.prevAction = false;
     this.prevSecondary = false;
 
+    this.prevPageBtn?.addEventListener('click', () => this.prevPage());
+    this.nextPageBtn?.addEventListener('click', () => this.nextPage());
     this.deliverBtn?.addEventListener('click', () => this.confirmDelivery());
     this.closeBtn?.addEventListener('click', () => this.close());
   }
@@ -75,6 +83,14 @@ export class InventoryController {
     this.#openScreen();
   }
 
+  #getPageSize() {
+    return this.inventory?.pageSize || INVENTORY_PAGE_SIZE;
+  }
+
+  #getTotalPages() {
+    return this.inventory?.getPageCount?.() || 1;
+  }
+
   #openScreen() {
     this.isOpen = true;
     this.prevAction = true;
@@ -83,6 +99,8 @@ export class InventoryController {
     this.prevRight = false;
     this.prevUp = false;
     this.prevDown = false;
+    this.prevPageInput = false;
+    this.nextPageInput = false;
     this.render();
     this.screen.classList.remove('hidden');
   }
@@ -91,6 +109,7 @@ export class InventoryController {
     const slots = this.inventory?.getSlots() || [];
     const firstOccupied = slots.findIndex(Boolean);
     this.selectedIndex = firstOccupied >= 0 ? firstOccupied : 0;
+    this.currentPage = Math.floor(this.selectedIndex / this.#getPageSize());
   }
 
   #showFeedback(message) {
@@ -105,9 +124,32 @@ export class InventoryController {
     this.feedbackEl.classList.add('hidden');
   }
 
+  goToPage(pageIndex) {
+    if (!this.inventory) return;
+    const totalPages = this.#getTotalPages();
+    const targetPage = Math.max(0, Math.min(totalPages - 1, Math.floor(pageIndex) || 0));
+    if (targetPage === this.currentPage) return;
+
+    const pageSize = this.#getPageSize();
+    const localOffset = ((this.selectedIndex % pageSize) + pageSize) % pageSize;
+    this.currentPage = targetPage;
+    this.selectedIndex = targetPage * pageSize + localOffset;
+    this.#hideFeedback();
+    this.render();
+  }
+
+  prevPage() {
+    this.goToPage(this.currentPage - 1);
+  }
+
+  nextPage() {
+    this.goToPage(this.currentPage + 1);
+  }
+
   selectSlot(index) {
-    const cap = this.inventory?.capacity || INVENTORY_CAPACITY;
+    const cap = this.inventory?.capacity || INVENTORY_PAGE_SIZE;
     this.selectedIndex = Math.max(0, Math.min(cap - 1, index));
+    this.currentPage = Math.floor(this.selectedIndex / this.#getPageSize());
     this.#hideFeedback();
     this.render();
   }
@@ -145,12 +187,27 @@ export class InventoryController {
 
   render() {
     if (!this.gridEl || !this.inventory) return;
-    const slots = this.inventory.getSlots();
+    const pageSize = this.#getPageSize();
+    const totalPages = this.#getTotalPages();
+    this.currentPage = Math.max(0, Math.min(totalPages - 1, this.currentPage));
+    const pageStart = this.currentPage * pageSize;
+    const pageSlots = this.inventory.getPageSlots(this.currentPage);
     const count = this.inventory.getCount();
     this.countEl.textContent = `${count} / ${this.inventory.capacity}`;
 
+    if (this.pageLabelEl) {
+      this.pageLabelEl.textContent = `Página ${this.currentPage + 1} / ${totalPages}`;
+    }
+    if (this.prevPageBtn) {
+      this.prevPageBtn.disabled = this.currentPage <= 0;
+    }
+    if (this.nextPageBtn) {
+      this.nextPageBtn.disabled = this.currentPage >= totalPages - 1;
+    }
+
     this.gridEl.replaceChildren();
-    slots.forEach((item, idx) => {
+    pageSlots.forEach((item, localIdx) => {
+      const globalIdx = pageStart + localIdx;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'inventory-slot';
@@ -158,11 +215,13 @@ export class InventoryController {
         btn.classList.add('occupied');
         if (item.category === 'extra' && item.rarity) {
           btn.classList.add(`rarity-${item.rarity}`);
+        } else if (item.category !== 'extra') {
+          btn.classList.add('category-missao');
         }
       }
-      if (idx === this.selectedIndex) btn.classList.add('selected');
+      if (globalIdx === this.selectedIndex) btn.classList.add('selected');
       btn.setAttribute('role', 'gridcell');
-      btn.setAttribute('aria-label', item ? item.name : `Espaço ${idx + 1} vazio`);
+      btn.setAttribute('aria-label', item ? item.name : `Espaço ${globalIdx + 1} vazio`);
 
       if (item) {
         if (item.imageUrl) {
@@ -175,15 +234,15 @@ export class InventoryController {
       } else {
         const emptyMark = document.createElement('span');
         emptyMark.className = 'inventory-slot-empty';
-        emptyMark.textContent = String(idx + 1);
+        emptyMark.textContent = String(globalIdx + 1);
         btn.appendChild(emptyMark);
       }
 
       btn.addEventListener('click', () => {
-        if (this.mode === 'delivery' && idx === this.selectedIndex && item) {
+        if (this.mode === 'delivery' && globalIdx === this.selectedIndex && item) {
           this.confirmDelivery();
         } else {
-          this.selectSlot(idx);
+          this.selectSlot(globalIdx);
         }
       });
 
@@ -206,11 +265,19 @@ export class InventoryController {
         raritySpan.className = `inventory-detail-rarity rarity-${selected.rarity}`;
         raritySpan.textContent = RARITY_LABELS[selected.rarity];
         this.detailNameEl.appendChild(raritySpan);
+      } else if (selected.category !== 'extra') {
+        const missionSpan = document.createElement('span');
+        missionSpan.className = 'inventory-detail-rarity category-missao';
+        missionSpan.textContent = 'Missão';
+        this.detailNameEl.appendChild(missionSpan);
       }
       this.detailDescEl.textContent = selected.description || 'Item de missão.';
     } else {
       this.detailNameEl.textContent = 'Espaço vazio';
       this.detailDescEl.textContent = 'Nenhum item guardado neste espaço.';
+    }
+    if (this.detailDescEl) {
+      this.detailDescEl.scrollTop = 0;
     }
   }
 
@@ -220,18 +287,40 @@ export class InventoryController {
     const right = Boolean(inputState.moveX > 0.5);
     const up = Boolean(inputState.moveY < -0.5);
     const down = Boolean(inputState.moveY > 0.5);
+    const prevPage = Boolean(inputState.prevPagePressed);
+    const nextPage = Boolean(inputState.nextPagePressed);
     const action = Boolean(inputState.actionPressed ?? inputState.action);
     const secondary = Boolean(inputState.secondary);
 
-    const cap = this.inventory.capacity;
-    if (left && !this.prevLeft) {
-      this.selectSlot((this.selectedIndex - 1 + cap) % cap);
+    const pageSize = this.#getPageSize();
+    const totalPages = this.#getTotalPages();
+    const pageStart = this.currentPage * pageSize;
+    const localIdx = ((this.selectedIndex - pageStart) % pageSize + pageSize) % pageSize;
+    const localCol = localIdx % INVENTORY_COLUMNS;
+    const localRow = Math.floor(localIdx / INVENTORY_COLUMNS);
+
+    if (prevPage && !this.prevPageInput) {
+      this.prevPage();
+    } else if (nextPage && !this.nextPageInput) {
+      this.nextPage();
+    } else if (left && !this.prevLeft) {
+      if (localCol === 0 && this.currentPage > 0) {
+        const targetPage = this.currentPage - 1;
+        this.selectSlot(targetPage * pageSize + localRow * INVENTORY_COLUMNS + (INVENTORY_COLUMNS - 1));
+      } else {
+        this.selectSlot(pageStart + ((localIdx - 1 + pageSize) % pageSize));
+      }
     } else if (right && !this.prevRight) {
-      this.selectSlot((this.selectedIndex + 1) % cap);
+      if (localCol === INVENTORY_COLUMNS - 1 && this.currentPage < totalPages - 1) {
+        const targetPage = this.currentPage + 1;
+        this.selectSlot(targetPage * pageSize + localRow * INVENTORY_COLUMNS);
+      } else {
+        this.selectSlot(pageStart + ((localIdx + 1) % pageSize));
+      }
     } else if (up && !this.prevUp) {
-      this.selectSlot((this.selectedIndex - INVENTORY_COLUMNS + cap) % cap);
+      this.selectSlot(pageStart + ((localIdx - INVENTORY_COLUMNS + pageSize) % pageSize));
     } else if (down && !this.prevDown) {
-      this.selectSlot((this.selectedIndex + INVENTORY_COLUMNS) % cap);
+      this.selectSlot(pageStart + ((localIdx + INVENTORY_COLUMNS) % pageSize));
     }
 
     if (action && !this.prevAction) {
@@ -248,6 +337,8 @@ export class InventoryController {
     this.prevRight = right;
     this.prevUp = up;
     this.prevDown = down;
+    this.prevPageInput = prevPage;
+    this.nextPageInput = nextPage;
     this.prevAction = action;
     this.prevSecondary = secondary;
   }

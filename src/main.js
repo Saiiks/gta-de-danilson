@@ -1,8 +1,8 @@
 import { Engine } from './core/engine.js?v=41';
-import { HudController } from './ui/hud-controller.js?v=28';
+import { HudController } from './ui/hud-controller.js?v=29';
 import { CutsceneController } from './ui/cutscene-controller.js?v=14';
 import { PauseMenuController } from './ui/pause-menu.js';
-import { InventoryController } from './ui/inventory-controller.js?v=18';
+import { InventoryController } from './ui/inventory-controller.js?v=19';
 import { CityMap } from './world/city-map.js?v=27';
 import {
   loadGameState,
@@ -158,29 +158,46 @@ async function boot() {
   hud.onNewGameClick(() => launchGame({ useSaved: false }));
 
   window.addEventListener('keydown', (e) => {
-    if (hud.isStartScreenOpen() && (e.code === 'Enter' || e.code === 'Space')) {
+    if (!hud.isStartScreenOpen()) return;
+    if (e.code === 'ArrowLeft' || e.code === 'ArrowUp' || e.code === 'KeyA' || e.code === 'KeyW') {
+      e.preventDefault();
+      hud.moveStartSelection(-1);
+    } else if (e.code === 'ArrowRight' || e.code === 'ArrowDown' || e.code === 'KeyD' || e.code === 'KeyS') {
+      e.preventDefault();
+      hud.moveStartSelection(1);
+    } else if (e.code === 'Enter' || e.code === 'Space') {
       e.preventDefault();
       hud.triggerStart();
     }
   });
 
   let prevGpAction = false;
+  let prevGpPrev = false;
+  let prevGpNext = false;
   const pollStartGamepad = () => {
     if (hud.isStartScreenOpen() && navigator.getGamepads) {
       const gps = navigator.getGamepads();
       let gpAction = false;
+      let gpPrev = false;
+      let gpNext = false;
       for (const gp of gps) {
-        if (gp?.connected && gp.buttons[0]?.pressed) {
-          gpAction = true;
-          break;
-        }
+        if (!gp?.connected) continue;
+        if (gp.buttons[0]?.pressed) gpAction = true;
+        const ax0 = gp.axes[0] ?? 0;
+        const ax1 = gp.axes[1] ?? 0;
+        if (gp.buttons[14]?.pressed || gp.buttons[12]?.pressed || ax0 < -0.5 || ax1 < -0.5) gpPrev = true;
+        if (gp.buttons[15]?.pressed || gp.buttons[13]?.pressed || ax0 > 0.5 || ax1 > 0.5) gpNext = true;
       }
-      if (gpAction && !prevGpAction) {
-        hud.triggerStart();
-      }
+      if (gpPrev && !prevGpPrev) hud.moveStartSelection(-1);
+      if (gpNext && !prevGpNext) hud.moveStartSelection(1);
+      if (gpAction && !prevGpAction) hud.triggerStart();
       prevGpAction = gpAction;
+      prevGpPrev = gpPrev;
+      prevGpNext = gpNext;
     } else {
       prevGpAction = true;
+      prevGpPrev = true;
+      prevGpNext = true;
     }
     requestAnimationFrame(pollStartGamepad);
   };

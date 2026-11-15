@@ -21,13 +21,14 @@ import { collectStoryAssetUrls } from '../src/story/story-loader.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const storyDir = path.resolve(__dirname, '../story');
 
-test('inventário possui 10 slots (2 fileiras de 5) e rejeita adição quando cheio', () => {
+test('inventário inicia com 1 página de 10 slots (2x5) e cria nova página ao passar de 10 itens', () => {
   assert.equal(INVENTORY_COLUMNS, 5);
   assert.equal(INVENTORY_ROWS, 2);
   assert.equal(INVENTORY_CAPACITY, 10);
 
   const inv = new Inventory();
   assert.equal(inv.capacity, 10);
+  assert.equal(inv.getPageCount(), 1);
   assert.equal(inv.getCount(), 0);
   assert.equal(inv.isFull(), false);
 
@@ -40,24 +41,39 @@ test('inventário possui 10 slots (2 fileiras de 5) e rejeita adição quando ch
     });
     assert.equal(res.ok, true);
     assert.equal(res.slotIndex, i);
+    assert.equal(res.pageIndex, 0);
   }
 
   assert.equal(inv.getCount(), 10);
-  assert.equal(inv.isFull(), true);
+  assert.equal(inv.getPageCount(), 1);
+  assert.equal(inv.isFull(), false);
 
-  const overflow = inv.addItem({ id: 'extra', name: 'Extra' });
-  assert.equal(overflow.ok, false);
-  assert.equal(overflow.reason, 'inventory_full');
+  const page2Item = inv.addItem({ id: 'extra-11', name: 'Extra 11' });
+  assert.equal(page2Item.ok, true);
+  assert.equal(page2Item.slotIndex, 10);
+  assert.equal(page2Item.pageIndex, 1);
+  assert.equal(inv.getPageCount(), 2);
+  assert.equal(inv.capacity, 20);
+  assert.equal(inv.getPageSlots(0).length, 10);
+  assert.equal(inv.getPageSlots(1).length, 10);
+  assert.equal(inv.getPageSlots(1)[0].id, 'extra-11');
+
+  const removedExtra = inv.removeItem('extra-11');
+  assert.equal(removedExtra.ok, true);
+  assert.equal(inv.getPageCount(), 1);
+  assert.equal(inv.capacity, 10);
 
   const removed = inv.removeItem('item-3');
   assert.equal(removed.ok, true);
   assert.equal(removed.slotIndex, 3);
   assert.equal(inv.getCount(), 9);
   assert.equal(inv.hasItem('item-3'), false);
+  assert.equal(inv.getItemAt(3).id, 'item-4');
+  assert.equal(inv.getItemAt(9), null);
 
   const refill = inv.addItem({ id: 'novo', name: 'Novo' });
   assert.equal(refill.ok, true);
-  assert.equal(refill.slotIndex, 3);
+  assert.equal(refill.slotIndex, 9);
 });
 
 test('parser de itens e missões lê story/items/ e valida entrega da caixa secreta na missão 01', () => {

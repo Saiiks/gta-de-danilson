@@ -1,5 +1,5 @@
 const SHELL_CACHE = 'gta-cv-shell-v1';
-const ASSETS_CACHE = 'gta-cv-assets-v1';
+const ASSETS_CACHE = 'gta-cv-assets-v4';
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|svg)$/i;
 

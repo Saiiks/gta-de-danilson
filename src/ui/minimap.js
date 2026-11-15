@@ -76,19 +76,47 @@ export class Minimap {
     }
 
     if (objectivePoint) {
-      let ox = toMiniX(objectivePoint.x);
-      let oy = toMiniY(objectivePoint.y);
+      const rawOx = toMiniX(objectivePoint.x);
+      const rawOy = toMiniY(objectivePoint.y);
       const pad = 8;
-      ox = Math.max(pad, Math.min(w - pad, ox));
-      oy = Math.max(pad, Math.min(h - pad, oy));
+      const isOutOfView =
+        rawOx < pad || rawOx > w - pad || rawOy < pad || rawOy > h - pad;
 
-      ctx.fillStyle = '#fbbf24';
-      ctx.beginPath();
-      ctx.arc(ox, oy, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#111827';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      if (isOutOfView) {
+        const cx = w * 0.5;
+        const cy = h * 0.5;
+        const dx = rawOx - cx;
+        const dy = rawOy - cy;
+        const angle = Math.atan2(dy, dx);
+        const halfW = Math.max(1, cx - pad);
+        const halfH = Math.max(1, cy - pad);
+        const scale = Math.max(Math.abs(dx) / halfW, Math.abs(dy) / halfH, 1);
+        const bx = cx + dx / scale;
+        const by = cy + dy / scale;
+
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.rotate(angle);
+        ctx.fillStyle = '#fbbf24';
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(6.5, 0);
+        ctx.lineTo(-4.5, -5);
+        ctx.lineTo(-4.5, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(rawOx, rawOy, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
     }
 
     if (worldCollectibles && worldCollectibles.length > 0) {

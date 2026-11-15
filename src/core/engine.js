@@ -23,8 +23,8 @@ import {
   updateVehicle,
   updateVehicleCriticalState
 } from '../physics/vehicle-physics.js?v=17';
-import { Minimap } from '../ui/minimap.js?v=22';
-import { Inventory } from './inventory.js?v=19';
+import { Minimap } from '../ui/minimap.js?v=23';
+import { Inventory } from './inventory.js?v=20';
 import { createSaveSnapshot, saveGameState } from './save-state.js?v=1';
 import { getPendingMissionAssetUrls, preloadMissionAssets } from '../story/story-loader.js';
 
