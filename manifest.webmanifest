@@ -1,6 +1,6 @@
 {
   "name": "Cidade Aberta Retrô",
-  "short_name": "Cidade Aberta",
+  "short_name": "GTA",
   "description": "Jogo retrô de mundo aberto em visão superior.",
   "start_url": "./index.html",
   "scope": "./",
