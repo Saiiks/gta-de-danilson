@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CityMap } from '../src/world/city-map.js';
 import { TrafficManager } from '../src/world/traffic-manager.js';
+import { Minimap } from '../src/ui/minimap.js';
 
 test('gera cidade-base 30x30 com códigos únicos de ruas, casas, comércios e praças', () => {
   const map = new CityMap();
@@ -183,4 +184,34 @@ test('divide a cidade em chunks ativos com cerca de 2 veículos variados por qua
   const farKeys = new Set(farChunks.map((c) => c.key));
   traffic.syncPedestrianChunks(farChunks, farKeys, { x: farCorner.spawnPoint.x, y: farCorner.spawnPoint.y }, nextKeys);
   assert.ok(traffic.pedestrians.every((p) => farKeys.has(p.chunkKey)));
+});
+
+test('computeInitialExpandedView enquadra a maior dimensão mantendo jogador e destino visíveis', () => {
+  const map = new CityMap();
+  const minimap = new Minimap({ getContext: () => null });
+  const canvas = { width: 300, height: 300 };
+
+  // Jogador e destino próximos em tela retrato (iPhone)
+  const nearPlayer = { x: map.worldWidth * 0.35, y: map.worldHeight * 0.2 };
+  const nearObjective = { x: map.worldWidth * 0.55, y: map.worldHeight * 0.5 };
+  const portraitView = minimap.computeInitialExpandedView(canvas, map, nearPlayer, nearObjective, 390, 844);
+  assert.ok(portraitView.zoom > 1.3, `zoom deve preencher a maior dimensão (zoom=${portraitView.zoom})`);
+
+  const baseScale = minimap.getExpandedBaseScale(canvas, map);
+  const scale = baseScale * portraitView.zoom;
+  const halfW = (canvas.width * 0.5) / scale;
+  const halfH = (canvas.height * 0.5) / scale;
+  assert.ok(Math.abs(nearPlayer.x - portraitView.centerX) <= halfW);
+  assert.ok(Math.abs(nearPlayer.y - portraitView.centerY) <= halfH);
+  assert.ok(Math.abs(nearObjective.x - portraitView.centerX) <= halfW);
+  assert.ok(Math.abs(nearObjective.y - portraitView.centerY) <= halfH);
+
+  // Jogador e destino em extremos opostos reduzem o zoom o suficiente para manter ambos visíveis
+  const farPlayer = { x: map.worldWidth * 0.08, y: map.worldHeight * 0.1 };
+  const farObjective = { x: map.worldWidth * 0.92, y: map.worldHeight * 0.9 };
+  const farView = minimap.computeInitialExpandedView(canvas, map, farPlayer, farObjective, 390, 844);
+  const farScale = baseScale * farView.zoom;
+  const farHalfW = (canvas.width * 0.5) / farScale;
+  assert.ok(Math.abs(farPlayer.x - farView.centerX) <= farHalfW);
+  assert.ok(Math.abs(farObjective.x - farView.centerX) <= farHalfW);
 });

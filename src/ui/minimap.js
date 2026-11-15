@@ -189,9 +189,74 @@ export class Minimap {
     });
   }
 
+  getExpandedCanvasSize(viewportWidth = 800, viewportHeight = 600) {
+    const maxW = Math.max(240, Math.floor(viewportWidth * 0.88));
+    const maxH = Math.max(180, Math.floor(viewportHeight * 0.68));
+    const aspect = Math.max(0.4, Math.min(2.5, viewportWidth / Math.max(1, viewportHeight)));
+    let width = maxW;
+    let height = Math.round(width / aspect);
+    if (height > maxH) {
+      height = maxH;
+      width = Math.round(height * aspect);
+    }
+    return { width, height };
+  }
+
   getExpandedBaseScale(expandedCanvas, cityMap) {
     if (!expandedCanvas || !cityMap) return 1;
     return Math.min(expandedCanvas.width / cityMap.worldWidth, expandedCanvas.height / cityMap.worldHeight) * 0.94;
+  }
+
+  computeInitialExpandedView(
+    expandedCanvas,
+    cityMap,
+    player,
+    objectivePoint,
+    viewportWidth = 800,
+    viewportHeight = 600,
+  ) {
+    if (!cityMap) return { zoom: 1, centerX: 0, centerY: 0 };
+    const { width: targetW, height: targetH } = this.getExpandedCanvasSize(viewportWidth, viewportHeight);
+    if (expandedCanvas && (expandedCanvas.width !== targetW || expandedCanvas.height !== targetH)) {
+      expandedCanvas.width = targetW;
+      expandedCanvas.height = targetH;
+    }
+
+    const baseScale = Math.min(targetW / cityMap.worldWidth, targetH / cityMap.worldHeight) * 0.94;
+    const coverScale = Math.max(targetW / cityMap.worldWidth, targetH / cityMap.worldHeight);
+    const coverZoom = Math.max(1, Math.min(6, coverScale / Math.max(0.0001, baseScale)));
+
+    let zoom = coverZoom;
+    let centerX = Number.isFinite(player?.x) ? player.x : cityMap.worldWidth * 0.5;
+    let centerY = Number.isFinite(player?.y) ? player.y : cityMap.worldHeight * 0.5;
+
+    if (objectivePoint && Number.isFinite(objectivePoint.x) && Number.isFinite(objectivePoint.y)) {
+      const pad = Math.max(180, cityMap.worldWidth * 0.06);
+      const spanX = Math.max(1, Math.abs(objectivePoint.x - centerX) + pad * 2);
+      const spanY = Math.max(1, Math.abs(objectivePoint.y - centerY) + pad * 2);
+      const fitPairScale = Math.min(targetW / spanX, targetH / spanY);
+      const fitPairZoom = Math.max(1, Math.min(6, fitPairScale / Math.max(0.0001, baseScale)));
+      zoom = Math.min(coverZoom, fitPairZoom);
+      centerX = (centerX + objectivePoint.x) * 0.5;
+      centerY = (centerY + objectivePoint.y) * 0.5;
+    }
+
+    const scale = baseScale * zoom;
+    const halfVisibleW = (targetW * 0.5) / scale;
+    const halfVisibleH = (targetH * 0.5) / scale;
+
+    if (halfVisibleW * 2 >= cityMap.worldWidth) {
+      centerX = cityMap.worldWidth * 0.5;
+    } else {
+      centerX = Math.max(halfVisibleW, Math.min(cityMap.worldWidth - halfVisibleW, centerX));
+    }
+    if (halfVisibleH * 2 >= cityMap.worldHeight) {
+      centerY = cityMap.worldHeight * 0.5;
+    } else {
+      centerY = Math.max(halfVisibleH, Math.min(cityMap.worldHeight - halfVisibleH, centerY));
+    }
+
+    return { zoom, centerX, centerY };
   }
 
   renderExpanded(
@@ -206,15 +271,7 @@ export class Minimap {
     viewState = null,
   ) {
     if (!expandedCanvas || !cityMap) return;
-    const maxW = Math.max(240, Math.floor(viewportWidth * 0.88));
-    const maxH = Math.max(180, Math.floor(viewportHeight * 0.68));
-    const aspect = Math.max(0.4, Math.min(2.5, viewportWidth / Math.max(1, viewportHeight)));
-    let targetW = maxW;
-    let targetH = Math.round(targetW / aspect);
-    if (targetH > maxH) {
-      targetH = maxH;
-      targetW = Math.round(targetH * aspect);
-    }
+    const { width: targetW, height: targetH } = this.getExpandedCanvasSize(viewportWidth, viewportHeight);
     if (expandedCanvas.width !== targetW || expandedCanvas.height !== targetH) {
       expandedCanvas.width = targetW;
       expandedCanvas.height = targetH;

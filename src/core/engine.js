@@ -23,7 +23,7 @@ import {
   updateVehicle,
   updateVehicleCriticalState
 } from '../physics/vehicle-physics.js?v=17';
-import { Minimap } from '../ui/minimap.js?v=25';
+import { Minimap } from '../ui/minimap.js?v=26';
 import { Inventory } from './inventory.js?v=20';
 import { createSaveSnapshot, saveGameState } from './save-state.js?v=2';
 import { getPendingMissionAssetUrls, preloadMissionAssets } from '../story/story-loader.js';
@@ -910,12 +910,15 @@ export class Engine {
 
   #resetExpandedMapView() {
     if (!this.cityMap) return;
-    this.expandedMapView = {
-      zoom: 1,
-      centerX: this.cityMap.worldWidth * 0.5,
-      centerY: this.cityMap.worldHeight * 0.5,
-    };
-    this.hud.setExpandedMapZoomLabel(1);
+    this.expandedMapView = this.minimap.computeInitialExpandedView(
+      this.hud.expandedMapCanvas,
+      this.cityMap,
+      this.player,
+      this.objectivePoint,
+      window.innerWidth,
+      window.innerHeight,
+    );
+    this.hud.setExpandedMapZoomLabel(this.expandedMapView.zoom);
     this.#renderExpandedMap();
   }
 
@@ -923,13 +926,33 @@ export class Engine {
     if (!this.cityMap) return;
     const zoom = Math.max(1, Math.min(6, this.expandedMapView.zoom || 1));
     this.expandedMapView.zoom = zoom;
+    const canvas = this.hud.expandedMapCanvas;
+    const baseScale = this.minimap.getExpandedBaseScale(canvas, this.cityMap);
+    const scale = baseScale * zoom;
+    const halfVisibleW = canvas && scale > 0 ? (canvas.width * 0.5) / scale : this.cityMap.worldWidth * 0.5;
+    const halfVisibleH = canvas && scale > 0 ? (canvas.height * 0.5) / scale : this.cityMap.worldHeight * 0.5;
+
     if (zoom <= 1.001) {
       this.expandedMapView.zoom = 1;
       this.expandedMapView.centerX = this.cityMap.worldWidth * 0.5;
       this.expandedMapView.centerY = this.cityMap.worldHeight * 0.5;
     } else {
-      this.expandedMapView.centerX = Math.max(0, Math.min(this.cityMap.worldWidth, this.expandedMapView.centerX));
-      this.expandedMapView.centerY = Math.max(0, Math.min(this.cityMap.worldHeight, this.expandedMapView.centerY));
+      if (halfVisibleW * 2 >= this.cityMap.worldWidth) {
+        this.expandedMapView.centerX = this.cityMap.worldWidth * 0.5;
+      } else {
+        this.expandedMapView.centerX = Math.max(
+          halfVisibleW,
+          Math.min(this.cityMap.worldWidth - halfVisibleW, this.expandedMapView.centerX),
+        );
+      }
+      if (halfVisibleH * 2 >= this.cityMap.worldHeight) {
+        this.expandedMapView.centerY = this.cityMap.worldHeight * 0.5;
+      } else {
+        this.expandedMapView.centerY = Math.max(
+          halfVisibleH,
+          Math.min(this.cityMap.worldHeight - halfVisibleH, this.expandedMapView.centerY),
+        );
+      }
     }
     this.hud.setExpandedMapZoomLabel(this.expandedMapView.zoom);
   }
@@ -959,18 +982,24 @@ export class Engine {
     if (action.type === 'zoom') {
       const nextZoom = Math.max(1, Math.min(6, curZoom * (action.factor || 1)));
       if (Math.abs(nextZoom - curZoom) < 0.001 && nextZoom === curZoom) return;
+      const oldScale = baseScale * curZoom;
+      const newScale = baseScale * nextZoom;
       if (canvas && Number.isFinite(action.canvasX) && Number.isFinite(action.canvasY)) {
-        const oldScale = baseScale * curZoom;
-        const newScale = baseScale * nextZoom;
         const dx = action.canvasX - canvas.width * 0.5;
         const dy = action.canvasY - canvas.height * 0.5;
         const worldX = this.expandedMapView.centerX + dx / oldScale;
         const worldY = this.expandedMapView.centerY + dy / oldScale;
         this.expandedMapView.centerX = worldX - dx / newScale;
         this.expandedMapView.centerY = worldY - dy / newScale;
-      } else if (curZoom === 1 && nextZoom > 1 && this.player) {
-        this.expandedMapView.centerX = this.player.x;
-        this.expandedMapView.centerY = this.player.y;
+      } else if (canvas && this.player && nextZoom > curZoom) {
+        const px = canvas.width * 0.5 + (this.player.x - this.expandedMapView.centerX) * oldScale;
+        const py = canvas.height * 0.5 + (this.player.y - this.expandedMapView.centerY) * oldScale;
+        if (px >= 0 && px <= canvas.width && py >= 0 && py <= canvas.height) {
+          const dx = px - canvas.width * 0.5;
+          const dy = py - canvas.height * 0.5;
+          this.expandedMapView.centerX = this.player.x - dx / newScale;
+          this.expandedMapView.centerY = this.player.y - dy / newScale;
+        }
       }
       this.expandedMapView.zoom = nextZoom;
       this.#clampExpandedMapView();
