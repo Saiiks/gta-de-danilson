@@ -2,7 +2,7 @@ import { CityMap } from '../world/city-map.js?v=27';
 import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js?v=22';
 import { BoatManager } from '../world/boat-manager.js?v=17';
-import { InputManager } from '../input/input-manager.js?v=17';
+import { InputManager } from '../input/input-manager.js?v=18';
 import { WebGLRenderer } from '../render/webgl-renderer.js?v=27';
 import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=11';
 import {
@@ -23,7 +23,7 @@ import {
   updateVehicle,
   updateVehicleCriticalState
 } from '../physics/vehicle-physics.js?v=17';
-import { Minimap } from '../ui/minimap.js?v=23';
+import { Minimap } from '../ui/minimap.js?v=25';
 import { Inventory } from './inventory.js?v=20';
 import { createSaveSnapshot, saveGameState } from './save-state.js?v=1';
 import { getPendingMissionAssetUrls, preloadMissionAssets } from '../story/story-loader.js';
@@ -132,8 +132,20 @@ export class Engine {
     });
     this.#syncInventoryHud();
 
+    this.hud.onMinimapClick(() => {
+      if (!this.running || this.player.isDead || this.deathSequence || this.cutscene?.active || this.hud.isMissionCompleteOpen() || this.inventoryController?.isOpen || this.paused) {
+        return;
+      }
+      this.openExpandedMap();
+    });
+    this.hud.onExpandedMapClose(() => this.closeExpandedMap());
+
     this.#onKeyDown = (e) => {
       if (!this.running || this.player.isDead || this.deathSequence || this.hud.isMissionCompleteOpen()) return;
+      if (e.key === 'Escape' && this.hud.isExpandedMapOpen()) {
+        this.closeExpandedMap();
+        return;
+      }
       if (e.key === 'Escape' && this.inventoryController?.isOpen) {
         this.inventoryController.close();
         return;
@@ -141,6 +153,7 @@ export class Engine {
       if (this.cutscene?.active) return;
       if (e.key === 'i' || e.key === 'I' || e.key === 'Tab') {
         e.preventDefault();
+        if (this.hud.isExpandedMapOpen()) this.closeExpandedMap();
         if (this.inventoryController?.isOpen) {
           if (this.inventoryController.mode === 'browse') this.inventoryController.close();
         } else if (!this.paused) {
@@ -148,8 +161,17 @@ export class Engine {
         }
         return;
       }
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        if (this.hud.isExpandedMapOpen()) {
+          this.closeExpandedMap();
+        } else if (!this.paused && !this.inventoryController?.isOpen) {
+          this.openExpandedMap();
+        }
+        return;
+      }
       if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
-        if (this.inventoryController?.isOpen) return;
+        if (this.inventoryController?.isOpen || this.hud.isExpandedMapOpen()) return;
         if (this.pauseMenu?.isOpen) this.pauseMenu.close();
         else this.pauseMenu?.open();
       }
@@ -823,8 +845,46 @@ export class Engine {
     }
   }
 
+  openExpandedMap() {
+    if (this.hud.isExpandedMapOpen()) return;
+    this.paused = true;
+    const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
+    const objectiveText = this.freeRoamMode
+      ? 'Exploração livre'
+      : (activeMission?.objective || '');
+    this.hud.openExpandedMap(objectiveText);
+    this.minimap.renderExpanded(
+      this.hud.expandedMapCanvas,
+      this.cityMap,
+      this.player,
+      this.routePoints,
+      this.objectivePoint,
+      this.worldCollectibles,
+      window.innerWidth,
+      window.innerHeight,
+    );
+  }
+
+  closeExpandedMap() {
+    if (!this.hud.isExpandedMapOpen()) return;
+    this.hud.closeExpandedMap();
+    this.paused = false;
+  }
+
   #handleResize() {
     this.renderer.resize(window.innerWidth, window.innerHeight);
+    if (this.hud.isExpandedMapOpen()) {
+      this.minimap.renderExpanded(
+        this.hud.expandedMapCanvas,
+        this.cityMap,
+        this.player,
+        this.routePoints,
+        this.objectivePoint,
+        this.worldCollectibles,
+        window.innerWidth,
+        window.innerHeight,
+      );
+    }
   }
 
   start() {
@@ -845,6 +905,18 @@ export class Engine {
   update(dt) {
     this.elapsedTime += dt;
     const input = this.input.update(dt);
+
+    if (this.hud.isExpandedMapOpen()) {
+      if (input.mapToggleJustPressed || input.secondaryJustPressed || input.pauseJustPressed) {
+        this.closeExpandedMap();
+      }
+      return;
+    }
+
+    if (input.mapToggleJustPressed && !this.player.isDead && !this.deathSequence && !this.cutscene?.active && !this.inventoryController?.isOpen && !this.hud.isMissionCompleteOpen() && !this.paused) {
+      this.openExpandedMap();
+      return;
+    }
 
     if (input.pauseJustPressed && !this.player.isDead && !this.deathSequence && !this.cutscene?.active && !this.inventoryController?.isOpen && !this.hud.isMissionCompleteOpen()) {
       if (this.pauseMenu?.isOpen) this.pauseMenu.close();
@@ -1774,6 +1846,18 @@ export class Engine {
       this.hud.updateWorldCollectibles([]);
     }
     this.minimap.render(this.cityMap, this.player, this.routePoints, this.objectivePoint, this.worldCollectibles);
+    if (this.hud.isExpandedMapOpen()) {
+      this.minimap.renderExpanded(
+        this.hud.expandedMapCanvas,
+        this.cityMap,
+        this.player,
+        this.routePoints,
+        this.objectivePoint,
+        this.worldCollectibles,
+        window.innerWidth,
+        window.innerHeight,
+      );
+    }
   }
 
   #triggerVehicleExplosion(vehicle) {

@@ -56,6 +56,20 @@ export class HudController {
     this.missionCompleteTitleEl = document.getElementById('mission-complete-title');
     this.missionCompleteSubtitleEl = document.getElementById('mission-complete-subtitle');
     this.missionCompleteBtn = document.getElementById('mission-complete-btn');
+    this.minimapContainerEl = document.getElementById('minimap-container');
+    this.expandedMapScreen = document.getElementById('expanded-map-screen');
+    this.expandedMapCanvas = document.getElementById('expanded-map-canvas');
+    this.expandedMapObjectiveEl = document.getElementById('expanded-map-objective');
+    this.expandedMapCloseBtn = document.getElementById('expanded-map-close-btn');
+    this.minimapClickHandler = null;
+    this.expandedMapCloseHandler = null;
+    this.minimapContainerEl?.addEventListener('click', () => this.minimapClickHandler?.());
+    this.expandedMapCloseBtn?.addEventListener('click', () => this.expandedMapCloseHandler?.());
+    this.expandedMapScreen?.addEventListener('click', (e) => {
+      if (e.target === this.expandedMapScreen) {
+        this.expandedMapCloseHandler?.();
+      }
+    });
     this.iosInstallHint = document.getElementById('ios-install-hint');
     this.hasStarted = false;
     this.missionCompleteHandler = null;
@@ -287,6 +301,31 @@ export class HudController {
 
   onInventoryClick(handler) {
     this.inventoryClickHandler = handler;
+  }
+
+  onMinimapClick(handler) {
+    this.minimapClickHandler = handler;
+  }
+
+  onExpandedMapClose(handler) {
+    this.expandedMapCloseHandler = handler;
+  }
+
+  isExpandedMapOpen() {
+    return Boolean(this.expandedMapScreen && !this.expandedMapScreen.classList.contains('hidden'));
+  }
+
+  openExpandedMap(objectiveText = '') {
+    if (!this.expandedMapScreen) return;
+    if (this.expandedMapObjectiveEl) {
+      this.expandedMapObjectiveEl.textContent = objectiveText || this.objectiveHintEl?.textContent || 'Exploração livre';
+    }
+    this.expandedMapScreen.classList.remove('hidden');
+  }
+
+  closeExpandedMap() {
+    if (!this.expandedMapScreen) return;
+    this.expandedMapScreen.classList.add('hidden');
   }
 
   setInventoryCount(count, capacity = 5) {

@@ -256,11 +256,12 @@ export class InputManager {
       const secondary = Boolean(gp.buttons[1]?.pressed || gp.buttons[2]?.pressed || gp.buttons[6]?.pressed);
       const exit = Boolean(gp.buttons[3]?.pressed);
       const pause = Boolean(gp.buttons[9]?.pressed);
+      const mapToggle = Boolean(gp.buttons[8]?.pressed);
       const prevPage = Boolean(gp.buttons[4]?.pressed);
       const nextPage = Boolean(gp.buttons[5]?.pressed);
-      return { moveX, moveY, action, secondary, exit, pause, prevPage, nextPage };
+      return { moveX, moveY, action, secondary, exit, pause, mapToggle, prevPage, nextPage };
     }
-    return { moveX: 0, moveY: 0, action: false, secondary: false, exit: false, pause: false, prevPage: false, nextPage: false };
+    return { moveX: 0, moveY: 0, action: false, secondary: false, exit: false, pause: false, mapToggle: false, prevPage: false, nextPage: false };
   }
 
   update(dt) {
@@ -309,6 +310,8 @@ export class InputManager {
     const actionJustPressed = actionPressed && !this.prevAction;
     const secondaryJustPressed = secondaryPressed && !this.prevSecondary;
     const pauseJustPressed = pausePressed && !this.prevPause;
+    const mapTogglePressed = Boolean(gp.mapToggle);
+    const mapToggleJustPressed = mapTogglePressed && !this.prevMapToggle;
     const comboNow = actionPressed && secondaryPressed;
     const comboExitJustPressed = comboNow && !this.prevCombo;
 
@@ -325,6 +328,7 @@ export class InputManager {
     this.prevAction = actionPressed;
     this.prevSecondary = secondaryPressed;
     this.prevPause = pausePressed;
+    this.prevMapToggle = mapTogglePressed;
     this.prevCombo = comboNow;
     this.prevExit = exitPressed;
 
@@ -352,6 +356,7 @@ export class InputManager {
       nextPagePressed,
       exitJustPressed,
       pauseJustPressed,
+      mapToggleJustPressed,
       secondaryHeldTime: this.secondaryHeldTime,
       comboExitJustPressed,
       canTriggerHoldExit: this.exitCooldown === 0 && this.secondaryHeldTime >= 0.6

@@ -12,7 +12,7 @@
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <link rel="apple-touch-icon" href="./icon.svg">
   <title>Cidade Aberta Retrô</title>
-  <link rel="stylesheet" href="./styles/main.css?v=29">
+  <link rel="stylesheet" href="./styles/main.css?v=30">
 </head>
 <body>
   <div id="game-shell">
@@ -72,13 +72,13 @@
         <div id="mission-banner-objective" class="mission-banner-objective"></div>
       </div>
 
-      <div id="minimap-container" aria-label="Minimapa">
+      <div id="minimap-container" role="button" tabindex="0" aria-label="Ampliar minimapa" title="Ampliar mapa (M)">
         <canvas id="minimap-canvas" width="204" height="204"></canvas>
         <div id="objective-hint">Livre</div>
       </div>
 
       <div id="controls-hint" class="hud-pill">
-        Setas/WASD: Mover · Espaço: Ação/Acelerar · Shift/X: Freio/Ré · I/Tab: Inventário · Espaço+Shift: Sair
+        Setas/WASD: Mover · Espaço: Ação/Acelerar · Shift/X: Freio/Ré · I/Tab: Inventário · M: Mapa · Espaço+Shift: Sair
       </div>
 
       <div id="touch-controls" class="hidden" aria-label="Controles virtuais">
@@ -224,6 +224,28 @@
       </div>
     </section>
 
+    <section id="expanded-map-screen" class="overlay-screen hidden" role="dialog" aria-label="Mapa Ampliado">
+      <div class="overlay-card expanded-map-card">
+        <div class="expanded-map-header">
+          <div>
+            <h2 class="retro-title expanded-map-title">MAPA DA CIDADE</h2>
+            <p id="expanded-map-objective" class="overlay-subtitle expanded-map-objective">Exploração livre</p>
+          </div>
+          <button id="expanded-map-close-btn" type="button" class="secondary-button expanded-map-close-btn">Voltar</button>
+        </div>
+        <div class="expanded-map-stage">
+          <canvas id="expanded-map-canvas"></canvas>
+        </div>
+        <div class="expanded-map-legend">
+          <span class="legend-chip"><i class="legend-dot legend-player"></i> Você</span>
+          <span class="legend-chip"><i class="legend-dot legend-target"></i> Destino</span>
+          <span class="legend-chip"><i class="legend-dot legend-route"></i> Rota</span>
+          <span class="legend-chip"><i class="legend-dot legend-extra"></i> Extras (?)</span>
+          <span class="legend-chip"><i class="legend-dot legend-hospital"></i> Hospitais</span>
+        </div>
+      </div>
+    </section>
+
     <section id="inventory-screen" class="overlay-screen hidden" role="dialog" aria-label="Inventário">
       <div class="overlay-card inventory-card">
         <div class="inventory-header">
@@ -275,6 +297,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/main.js?v=50"></script>
+  <script type="module" src="./src/main.js?v=52"></script>
 </body>
 </html>

@@ -194,6 +194,9 @@ body {
   top: max(12px, env(safe-area-inset-top));
   right: max(12px, env(safe-area-inset-right));
   z-index: 12;
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
   background: rgba(14, 16, 21, 0.8);
   border: 2px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;
@@ -1072,6 +1075,90 @@ body {
   outline-offset: 2px;
   box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.25);
 }
+
+.expanded-map-card {
+  width: min(94vw, 960px);
+  max-height: 94dvh;
+  padding: clamp(10px, 2dvh, 18px) clamp(12px, 2.5vw, 22px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(8px, 1.4dvh, 12px);
+}
+
+.expanded-map-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+.expanded-map-title {
+  font-size: clamp(18px, 3.2vw, 24px);
+  margin-bottom: 2px;
+}
+
+.expanded-map-objective {
+  margin-bottom: 0;
+  font-size: clamp(11px, 1.7vw, 13px);
+  line-height: 1.3;
+}
+
+.expanded-map-close-btn {
+  padding: 9px 16px;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.expanded-map-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+}
+
+#expanded-map-canvas {
+  display: block;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: #1d4e6b;
+  max-width: 100%;
+  max-height: 70dvh;
+  touch-action: manipulation;
+}
+
+.expanded-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.legend-player { background: #f8fafc; border: 1px solid #0f172a; }
+.legend-target { background: #fbbf24; }
+.legend-route { background: #38bdf8; }
+.legend-extra { background: #c084fc; }
+.legend-hospital { background: #ef4444; }
 
 .inventory-card {
   width: min(620px, 94vw);
