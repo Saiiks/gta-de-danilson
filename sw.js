@@ -23,6 +23,9 @@ function isStoryRequest(url) {
 }
 
 async function handleStoryHead(request) {
+  if (request.cache === 'reload' || request.cache === 'no-store') {
+    return fetch(request);
+  }
   const cache = await caches.open(ASSETS_CACHE);
   const cached = await cache.match(request.url);
   if (cached) {
@@ -33,6 +36,15 @@ async function handleStoryHead(request) {
     });
   }
   return fetch(request);
+}
+
+async function handleNetworkRefresh(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const response = await fetch(request);
+  if (response && response.ok) {
+    cache.put(request, response.clone()).catch(() => {});
+  }
+  return response;
 }
 
 async function handleCacheFirst(request, cacheName) {
@@ -100,7 +112,13 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET') return;
 
+  const forceNetwork = request.cache === 'reload' || request.cache === 'no-store';
+
   if (isStoryRequest(url)) {
+    if (forceNetwork) {
+      event.respondWith(handleNetworkRefresh(request, ASSETS_CACHE));
+      return;
+    }
     if (IMAGE_EXT_RE.test(url.pathname)) {
       event.respondWith(handleCacheFirst(request, ASSETS_CACHE));
       return;
@@ -109,6 +127,11 @@ self.addEventListener('fetch', (event) => {
       event.respondWith(handleStaleWhileRevalidate(request, ASSETS_CACHE, event));
       return;
     }
+  }
+
+  if (forceNetwork) {
+    event.respondWith(handleNetworkRefresh(request, SHELL_CACHE));
+    return;
   }
 
   event.respondWith(handleNetworkFirst(request, SHELL_CACHE));

@@ -58,6 +58,7 @@ export class Engine {
     this.preloadedUrls = options.preloadedUrls || new Set();
     this.onExitToTitle = options.onExitToTitle || null;
     this.onNewGame = options.onNewGame || null;
+    this.onRefreshAssets = options.onRefreshAssets || null;
 
     this.inventory = new Inventory();
     this.awaitingExitTarget = false;
@@ -172,7 +173,7 @@ export class Engine {
         return;
       }
       if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
-        if (this.inventoryController?.isOpen || this.hud.isExpandedMapOpen() || this.pauseMenu?.confirmDialog?.isOpen) return;
+        if (this.inventoryController?.isOpen || this.hud.isExpandedMapOpen() || this.pauseMenu?.confirmDialog?.isOpen || this.pauseMenu?.assetsRefreshDialog?.isOpen) return;
         if (this.pauseMenu?.isOpen) this.pauseMenu.close();
         else this.pauseMenu?.open();
       }
@@ -240,6 +241,39 @@ export class Engine {
       },
     });
     saveGameState(snapshot);
+  }
+
+  applyRefreshedStoryPackage(freshPackage) {
+    if (!freshPackage) return;
+    this.storyPackage = freshPackage;
+    this.locationNames = freshPackage.locationNames || new Map();
+    if (this.freeRoamMode || !freshPackage.missions?.length) return;
+    const clamped = Math.max(0, Math.min(this.currentMissionIndex, freshPackage.missions.length - 1));
+    this.currentMissionIndex = clamped;
+    this.pauseMenu?.configure(freshPackage.missions, clamped, {
+      onPauseChange: (isPaused) => {
+        this.paused = isPaused;
+        if (isPaused) this.#persistSaveState();
+      },
+      onRestartMission: () => {
+        this.startMission(this.currentMissionIndex);
+      },
+      onSelectMission: (missionIdx) => {
+        this.missionCheckpoint = null;
+        this.startMission(missionIdx);
+      },
+      onNewGame: () => {
+        this.onNewGame?.();
+      },
+      onRefreshAssets: () => {
+        this.onRefreshAssets?.();
+      },
+      onExitToTitle: () => {
+        this.#persistSaveState();
+        this.onExitToTitle?.();
+      },
+    });
+    this.#syncInventoryHud();
   }
 
   async restoreSavedSession(savedState) {
@@ -330,6 +364,9 @@ export class Engine {
       },
       onNewGame: () => {
         this.onNewGame?.();
+      },
+      onRefreshAssets: () => {
+        this.onRefreshAssets?.();
       },
       onExitToTitle: () => {
         this.#persistSaveState();
@@ -456,6 +493,9 @@ export class Engine {
       },
       onNewGame: () => {
         this.onNewGame?.();
+      },
+      onRefreshAssets: () => {
+        this.onRefreshAssets?.();
       },
       onExitToTitle: () => {
         this.#persistSaveState();
@@ -925,7 +965,7 @@ export class Engine {
       return;
     }
 
-    if (input.pauseJustPressed && !this.player.isDead && !this.deathSequence && !this.cutscene?.active && !this.inventoryController?.isOpen && !this.hud.isMissionCompleteOpen() && !this.pauseMenu?.confirmDialog?.isOpen) {
+    if (input.pauseJustPressed && !this.player.isDead && !this.deathSequence && !this.cutscene?.active && !this.inventoryController?.isOpen && !this.hud.isMissionCompleteOpen() && !this.pauseMenu?.confirmDialog?.isOpen && !this.pauseMenu?.assetsRefreshDialog?.isOpen) {
       if (this.pauseMenu?.isOpen) this.pauseMenu.close();
       else this.pauseMenu?.open();
       return;

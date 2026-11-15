@@ -9,11 +9,16 @@ import {
   StoryParseError,
 } from './story-parser.js?v=17';
 
-async function fetchText(url, label) {
+async function fetchText(url, label, options = {}) {
+  const { forceReload = false, signal = null } = options;
   let response;
   try {
-    response = await fetch(url, { cache: 'no-cache' });
+    response = await fetch(url, {
+      cache: forceReload ? 'reload' : 'no-cache',
+      ...(signal ? { signal } : {}),
+    });
   } catch (err) {
+    if (err?.name === 'AbortError') throw err;
     throw new Error(`Falha de rede ao carregar "${label}" (${url}): ${err.message}`);
   }
   if (!response.ok) {
@@ -22,12 +27,18 @@ async function fetchText(url, label) {
   return response.text();
 }
 
-async function checkAssetExists(url) {
+async function checkAssetExists(url, options = {}) {
   if (!url) return false;
+  const { forceReload = false, signal = null } = options;
   try {
-    const response = await fetch(url, { method: 'HEAD', cache: 'default' });
+    const response = await fetch(url, {
+      method: 'HEAD',
+      cache: forceReload ? 'reload' : 'default',
+      ...(signal ? { signal } : {}),
+    });
     return response.ok;
-  } catch {
+  } catch (err) {
+    if (err?.name === 'AbortError') throw err;
     return false;
   }
 }
@@ -220,6 +231,8 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     onProgress,
     prefetchedManifest = null,
     prefetchedSplashUrl = undefined,
+    forceReload = false,
+    signal = null,
   } = options;
   const reportProgress = (ratio, message) => {
     if (typeof onProgress === 'function') {
@@ -230,11 +243,12 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
   const cleanBase = basePath.replace(/\/+$/, '');
   const manifestUrl = `${cleanBase}/story.md`;
   const withBust = (url) => url;
+  const readStoryText = (url, label) => fetchText(url, label, { forceReload, signal });
   const existsCache = new Map();
   const cachedExists = (url) => {
     if (!url) return Promise.resolve(false);
     if (!existsCache.has(url)) {
-      existsCache.set(url, checkAssetExists(url));
+      existsCache.set(url, checkAssetExists(url, { forceReload, signal }));
     }
     return existsCache.get(url);
   };
@@ -242,7 +256,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
   let manifest = prefetchedManifest;
   if (!manifest) {
     reportProgress(0.05, 'Lendo manifesto da história...');
-    const manifestRaw = await fetchText(manifestUrl, 'story.md');
+    const manifestRaw = await readStoryText(manifestUrl, 'story.md');
     manifest = parseStoryManifest(manifestRaw, 'story.md');
   } else {
     reportProgress(0.05, 'Manifesto carregado. Lendo mapa...');
@@ -252,7 +266,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
   const mapUrl = `${cleanBase}/map/map.md`;
   const mapPromise = (async () => {
     if (await cachedExists(mapUrl)) {
-      const mapRaw = await fetchText(mapUrl, 'map/map.md');
+      const mapRaw = await readStoryText(mapUrl, 'map/map.md');
       locationNames = parseMapMarkdown(mapRaw, 'map/map.md');
     }
   })();
@@ -267,7 +281,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
   const charsPromise = Promise.all(
     manifest.characters.map(async (charId) => {
       const charFile = `characters/${charId}.md`;
-      const raw = await fetchText(`${cleanBase}/${charFile}`, charFile);
+      const raw = await readStoryText(`${cleanBase}/${charFile}`, charFile);
       const character = parseCharacterMarkdown(raw, charFile);
 
       const resolvedSprites = {};
@@ -313,7 +327,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
   const itemsPromise = Promise.all(
     itemIds.map(async (itemId) => {
       const itemFile = `items/${itemId}.md`;
-      const raw = await fetchText(`${cleanBase}/${itemFile}`, itemFile);
+      const raw = await readStoryText(`${cleanBase}/${itemFile}`, itemFile);
       const item = parseItemMarkdown(raw, itemFile);
       let worldPoint = null;
       if (item.location && cityMap?.resolveItemLocation) {
@@ -359,7 +373,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
   const missions = await Promise.all(
     manifest.missions.map(async (missionId) => {
       const missionFile = `missions/${missionId}.md`;
-      const raw = await fetchText(`${cleanBase}/${missionFile}`, missionFile);
+      const raw = await readStoryText(`${cleanBase}/${missionFile}`, missionFile);
       const mission = parseMissionMarkdown(raw, missionFile, cityMap);
 
       if (mission.giveItem && !items.has(mission.giveItem)) {
@@ -461,11 +475,14 @@ export function collectStoryAssetUrls(storyPackage) {
     }
   }
   for (const mission of storyPackage.missions || []) {
-    if (mission?.introCutscene?.backgroundImage) {
-      urls.add(mission.introCutscene.backgroundImage);
-    }
-    if (mission?.outroCutscene?.backgroundImage) {
-      urls.add(mission.outroCutscene.backgroundImage);
+    for (const cs of [mission?.introCutscene, mission?.outroCutscene]) {
+      if (!cs) continue;
+      if (cs.backgroundImage) urls.add(cs.backgroundImage);
+      if (Array.isArray(cs.backgroundPool)) {
+        for (const bgUrl of cs.backgroundPool) {
+          if (bgUrl) urls.add(bgUrl);
+        }
+      }
     }
   }
   return [...urls];
@@ -603,4 +620,125 @@ export async function preloadMissionAssets(storyPackage, missionIndex = 0, optio
   const { includeSplash = missionIndex === 0, essentialOnly = false, ...rest } = options;
   const urls = collectMissionAssetUrls(storyPackage, missionIndex, { includeSplash, essentialOnly });
   return preloadUrlList(urls, rest);
+}
+
+function throwIfAborted(signal) {
+  if (signal?.aborted) {
+    throw new DOMException('Operação cancelada pelo usuário.', 'AbortError');
+  }
+}
+
+export async function refreshAllStoryAssets({
+  basePath = './story',
+  cityMap = null,
+  preloadedUrls = null,
+  signal = null,
+  assetsCacheName = 'gta-cv-assets-v4',
+  shellCacheName = 'gta-cv-shell-v1',
+  onProgress = null,
+} = {}) {
+  const report = (ratio, text) => {
+    if (typeof onProgress === 'function') {
+      onProgress({
+        ratio: Math.max(0, Math.min(1, ratio)),
+        percent: Math.round(Math.max(0, Math.min(1, ratio)) * 100),
+        text,
+      });
+    }
+  };
+
+  throwIfAborted(signal);
+  report(0.02, 'Recarregando manifesto, mapa, missões e itens...');
+
+  const freshPackage = await loadStoryPackage(basePath, cityMap, {
+    forceReload: true,
+    signal,
+    onProgress: ({ ratio, message }) => {
+      report(0.02 + ratio * 0.33, message || 'Recarregando dados da história...');
+    },
+  });
+
+  throwIfAborted(signal);
+
+  const assetUrls = collectStoryAssetUrls(freshPackage);
+  const assetsCache = typeof caches !== 'undefined' ? await caches.open(assetsCacheName) : null;
+  const shellCache = typeof caches !== 'undefined' ? await caches.open(shellCacheName) : null;
+
+  if (preloadedUrls instanceof Set) {
+    preloadedUrls.clear();
+  }
+
+  const totalAssets = assetUrls.length;
+  const failed = [];
+  let refreshedCount = 0;
+
+  for (let i = 0; i < totalAssets; i += 1) {
+    throwIfAborted(signal);
+    const url = assetUrls[i];
+    const shortName = url.split('/').pop() || url;
+    report(
+      0.35 + (i / Math.max(1, totalAssets)) * 0.58,
+      `Recarregando e salvando imagem (${i + 1}/${totalAssets}): ${shortName}`,
+    );
+
+    try {
+      const response = await fetch(url, {
+        cache: 'reload',
+        ...(signal ? { signal } : {}),
+      });
+      if (!response.ok) {
+        failed.push(url);
+      } else {
+        if (assetsCache) {
+          await assetsCache.put(url, response.clone()).catch(() => {});
+        }
+        const decoded = await preloadImageAsset(url);
+        if (decoded.ok) {
+          preloadedUrls?.add(url);
+          refreshedCount += 1;
+        } else {
+          failed.push(url);
+        }
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err;
+      failed.push(url);
+    }
+
+    report(
+      0.35 + ((i + 1) / Math.max(1, totalAssets)) * 0.58,
+      `Salvo (${i + 1}/${totalAssets}): ${shortName}`,
+    );
+  }
+
+  throwIfAborted(signal);
+
+  const shellUrls = ['./', './index.html', './styles/main.css', './manifest.json'];
+  for (let i = 0; i < shellUrls.length; i += 1) {
+    throwIfAborted(signal);
+    const shellUrl = shellUrls[i];
+    report(
+      0.93 + (i / shellUrls.length) * 0.06,
+      `Atualizando cache do aplicativo (${shellUrl.replace('./', '') || 'index.html'})...`,
+    );
+    try {
+      const res = await fetch(shellUrl, {
+        cache: 'reload',
+        ...(signal ? { signal } : {}),
+      });
+      if (res.ok && shellCache) {
+        await shellCache.put(shellUrl, res.clone()).catch(() => {});
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err;
+    }
+  }
+
+  report(1, `Concluído! ${refreshedCount} imagem(ns) e dados salvos no navegador.`);
+  return {
+    storyPackage: freshPackage,
+    totalAssets,
+    refreshedCount,
+    failed,
+  };
 }

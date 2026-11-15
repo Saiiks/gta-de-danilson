@@ -1,8 +1,9 @@
 import { Engine } from './core/engine.js?v=43';
 import { HudController } from './ui/hud-controller.js?v=30';
 import { CutsceneController } from './ui/cutscene-controller.js?v=14';
-import { PauseMenuController } from './ui/pause-menu.js?v=2';
+import { PauseMenuController } from './ui/pause-menu.js?v=3';
 import { ConfirmDialogController } from './ui/confirm-dialog.js?v=1';
+import { AssetsRefreshDialogController } from './ui/assets-refresh-dialog.js?v=1';
 import { InventoryController } from './ui/inventory-controller.js?v=19';
 import { CityMap } from './world/city-map.js?v=27';
 import {
@@ -14,8 +15,9 @@ import {
   loadStorySplashHeader,
   loadStoryPackage,
   preloadImageAsset,
-  preloadMissionAssets
-} from './story/story-loader.js?v=20';
+  preloadMissionAssets,
+  refreshAllStoryAssets
+} from './story/story-loader.js?v=21';
 
 function waitMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -29,7 +31,8 @@ async function boot() {
   const hud = new HudController();
   const cutscene = new CutsceneController();
   const confirmDialog = new ConfirmDialogController();
-  const pauseMenu = new PauseMenuController(confirmDialog);
+  const assetsRefreshDialog = new AssetsRefreshDialogController();
+  const pauseMenu = new PauseMenuController(confirmDialog, assetsRefreshDialog);
   const inventoryController = new InventoryController();
   const canvas = document.getElementById('game-canvas');
   const minimapCanvas = document.getElementById('minimap-canvas');
@@ -137,6 +140,7 @@ async function boot() {
         inventoryController,
         preloadedUrls,
         onNewGame: () => requestNewGame(() => pauseMenu.close()),
+        onRefreshAssets: () => handleRefreshAssets(),
         onExitToTitle: () => {
           activeEngine?.stop();
           activeEngine = null;
@@ -154,6 +158,42 @@ async function boot() {
     } catch (error) {
       console.error('[Engine] Erro fatal ao iniciar:', error);
       hud.showError(error?.message || 'Erro inesperado ao inicializar o motor do jogo.');
+    }
+  };
+
+  const handleRefreshAssets = async () => {
+    const signal = assetsRefreshDialog.open();
+    try {
+      const result = await refreshAllStoryAssets({
+        basePath: './story',
+        cityMap,
+        preloadedUrls,
+        signal,
+        onProgress: ({ percent, text }) => {
+          assetsRefreshDialog.setProgress(percent, text);
+        },
+      });
+      if (signal.aborted) return;
+      storyPackage = result.storyPackage;
+      hud.setStartStoryHeader({
+        title: storyPackage.title,
+        pageTitle: storyPackage.pageTitle,
+        subtitle: storyPackage.subtitle,
+        splashUrl: storyPackage.splashUrl,
+      });
+      activeEngine?.applyRefreshedStoryPackage(storyPackage);
+      const failNote = result.failed?.length
+        ? ` (${result.failed.length} arquivo(s) não encontrado(s))`
+        : '';
+      assetsRefreshDialog.finish(
+        `Atualização concluída! ${result.refreshedCount} imagem(ns) e dados salvos no navegador${failNote}.`,
+      );
+    } catch (error) {
+      if (error?.name === 'AbortError' || signal.aborted) {
+        return;
+      }
+      console.error('[StoryLoader] Erro ao recarregar assets:', error);
+      assetsRefreshDialog.fail(error?.message || 'Erro ao recarregar assets.');
     }
   };
 

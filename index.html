@@ -208,10 +208,11 @@
       <div class="overlay-card pause-card">
         <h2 class="retro-title">PAUSA</h2>
         <div class="pause-actions">
-          <button id="pause-resume-btn" type="button" class="primary-button">Continuar</button>
+          <button id="pause-resume-btn" type="button" class="primary-button">CONTINUAR</button>
           <button id="pause-restart-btn" type="button" class="secondary-button">REINICIAR MISSÃO</button>
           <button id="pause-choose-btn" type="button" class="secondary-button">ESCOLHER MISSÃO</button>
           <button id="pause-new-game-btn" type="button" class="secondary-button">NOVO JOGO</button>
+          <button id="pause-refresh-assets-btn" type="button" class="secondary-button">RECARREGAR ASSETS</button>
           <button id="pause-exit-btn" type="button" class="danger-button">SAIR</button>
         </div>
       </div>
@@ -281,6 +282,22 @@
         <div class="confirm-actions">
           <button id="confirm-cancel-btn" type="button" class="secondary-button">Cancelar</button>
           <button id="confirm-accept-btn" type="button" class="danger-button">Iniciar Novo Jogo</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="assets-refresh-screen" class="overlay-screen hidden" role="dialog" aria-modal="true" aria-labelledby="assets-refresh-title">
+      <div class="overlay-card assets-refresh-card">
+        <h2 id="assets-refresh-title" class="overlay-heading">RECARREGANDO ASSETS</h2>
+        <div class="progress-track">
+          <div id="assets-refresh-bar" class="progress-fill"></div>
+        </div>
+        <div class="loading-meta">
+          <p id="assets-refresh-text" class="overlay-subtitle">Preparando atualização...</p>
+          <span id="assets-refresh-percent" class="loading-percent">0%</span>
+        </div>
+        <div class="confirm-actions">
+          <button id="assets-refresh-action-btn" type="button" class="secondary-button">Cancelar</button>
         </div>
       </div>
     </section>
