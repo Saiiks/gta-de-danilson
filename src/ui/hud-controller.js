@@ -152,13 +152,71 @@ export class HudController {
     }
   }
 
-  setStoryHeader({ title, pageTitle, subtitle, splashUrl }) {
+  setStoryFavicon(faviconUrl) {
+    if (typeof document === 'undefined') return;
+    const resolved = faviconUrl || './icon.svg';
+    const cleanPath = resolved.split('?')[0].toLowerCase();
+    const mimeType = cleanPath.endsWith('.png')
+      ? 'image/png'
+      : cleanPath.endsWith('.ico')
+        ? 'image/x-icon'
+        : 'image/svg+xml';
+
+    const iconLink = document.querySelector('link[rel="icon"]');
+    if (iconLink) {
+      iconLink.type = mimeType;
+      iconLink.href = resolved;
+    }
+    const shortcutLink = document.querySelector('link[rel="shortcut icon"]');
+    if (shortcutLink) {
+      shortcutLink.href = resolved;
+    }
+
+    const appleLink = document.querySelector('link[rel="apple-touch-icon"]');
+    if (!appleLink) return;
+
+    if (cleanPath.endsWith('.png')) {
+      appleLink.href = resolved;
+      return;
+    }
+    if (cleanPath === './icon.svg' || cleanPath.endsWith('/icon.svg')) {
+      appleLink.href = './icon-180.png';
+      return;
+    }
+    if (cleanPath.endsWith('.svg') && typeof Image !== 'undefined') {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 180;
+          canvas.height = 180;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, 180, 180);
+          ctx.drawImage(img, 0, 0, 180, 180);
+          appleLink.href = canvas.toDataURL('image/png');
+        } catch {
+          appleLink.href = './icon-180.png';
+        }
+      };
+      img.onerror = () => {
+        appleLink.href = './icon-180.png';
+      };
+      img.src = resolved;
+    }
+  }
+
+  setStoryHeader({ title, pageTitle, subtitle, splashUrl, faviconUrl }) {
     if (title) this.startTitleEl.textContent = title;
     const browserTitle = pageTitle || title;
     if (browserTitle && typeof document !== 'undefined') {
       document.title = browserTitle;
     }
     if (subtitle) this.startSubtitleEl.textContent = subtitle;
+    if (faviconUrl !== undefined) {
+      this.setStoryFavicon(faviconUrl);
+    }
     if (splashUrl) {
       this.startSplashEl.src = splashUrl;
       this.startSplashEl.classList.remove('hidden');

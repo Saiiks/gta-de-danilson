@@ -25,7 +25,8 @@ import {
   getSplashPngCandidates,
   preloadMissionAssets,
   preloadStoryAssets,
-  resolveFirstExistingAsset
+  resolveFirstExistingAsset,
+  resolveStoryFaviconUrl
 } from '../src/story/story-loader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -330,4 +331,15 @@ test('lê page_title opcional do story.md para personalizar o título da aba', (
     'story.md'
   );
   assert.equal(fallback.pageTitle, '');
+});
+
+test('prioriza favicon na raiz de story e faz fallback para ícone padrão quando ausente', async () => {
+  const withSvg = await resolveStoryFaviconUrl('./story', async (url) => url === './story/favicon.svg');
+  assert.equal(withSvg, './story/favicon.svg');
+
+  const withPng = await resolveStoryFaviconUrl('./story', async (url) => url === './story/favicon.png');
+  assert.equal(withPng, './story/favicon.png');
+
+  const fallback = await resolveStoryFaviconUrl('./story', async () => false);
+  assert.equal(fallback, './icon.svg');
 });

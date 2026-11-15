@@ -211,17 +211,32 @@ async function resolveSplashAssetUrl(cleanBase, manifest, existsFn) {
   return url;
 }
 
+export async function resolveStoryFaviconUrl(basePath = './story', existsFn = checkAssetExists) {
+  const cleanBase = basePath.replace(/\/+$/, '');
+  const candidates = [
+    `${cleanBase}/favicon.svg`,
+    `${cleanBase}/favicon.png`,
+    `${cleanBase}/favicon.ico`,
+  ];
+  const found = await resolveFirstExistingAsset(candidates, existsFn);
+  return found || './icon.svg';
+}
+
 export async function loadStorySplashHeader(basePath = './story') {
   const cleanBase = basePath.replace(/\/+$/, '');
   const manifestUrl = `${cleanBase}/story.md`;
   const manifestRaw = await fetchText(manifestUrl, 'story.md');
   const manifest = parseStoryManifest(manifestRaw, 'story.md');
-  const splashUrl = await resolveSplashAssetUrl(cleanBase, manifest, checkAssetExists);
+  const [splashUrl, faviconUrl] = await Promise.all([
+    resolveSplashAssetUrl(cleanBase, manifest, checkAssetExists),
+    resolveStoryFaviconUrl(cleanBase, checkAssetExists),
+  ]);
   return {
     title: manifest.title,
     pageTitle: manifest.pageTitle || manifest.title,
     subtitle: manifest.subtitle,
     splashUrl,
+    faviconUrl,
     manifest,
   };
 }
@@ -231,6 +246,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     onProgress,
     prefetchedManifest = null,
     prefetchedSplashUrl = undefined,
+    prefetchedFaviconUrl = undefined,
     forceReload = false,
     signal = null,
   } = options;
@@ -360,9 +376,14 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     }),
   );
 
-  const [, splashUrl] = await Promise.all([
+  const faviconPromise = !forceReload && prefetchedFaviconUrl !== undefined
+    ? Promise.resolve(prefetchedFaviconUrl)
+    : resolveStoryFaviconUrl(cleanBase, cachedExists);
+
+  const [, splashUrl, faviconUrl] = await Promise.all([
     mapPromise,
     splashPromise,
+    faviconPromise,
     charsPromise,
     itemsPromise,
     poolsPromise,
@@ -449,6 +470,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     pageTitle: replaceLocationCodesWithNames(manifest.pageTitle || manifest.title, locationNames),
     subtitle: replaceLocationCodesWithNames(manifest.subtitle, locationNames),
     splashUrl: withBust(splashUrl),
+    faviconUrl: withBust(faviconUrl),
     characters,
     items,
     missions,
@@ -461,6 +483,9 @@ export function collectStoryAssetUrls(storyPackage) {
   const urls = new Set();
   if (storyPackage.splashUrl) {
     urls.add(storyPackage.splashUrl);
+  }
+  if (storyPackage.faviconUrl && storyPackage.faviconUrl !== './icon.svg') {
+    urls.add(storyPackage.faviconUrl);
   }
   if (storyPackage.characters instanceof Map) {
     for (const character of storyPackage.characters.values()) {

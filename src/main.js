@@ -1,5 +1,5 @@
 import { Engine } from './core/engine.js?v=46';
-import { HudController } from './ui/hud-controller.js?v=30';
+import { HudController } from './ui/hud-controller.js?v=31';
 import { CutsceneController } from './ui/cutscene-controller.js?v=14';
 import { PauseMenuController } from './ui/pause-menu.js?v=4';
 import { ConfirmDialogController } from './ui/confirm-dialog.js?v=1';
@@ -17,7 +17,7 @@ import {
   preloadImageAsset,
   preloadMissionAssets,
   refreshAllStoryAssets
-} from './story/story-loader.js?v=21';
+} from './story/story-loader.js?v=22';
 
 function waitMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -67,7 +67,8 @@ async function boot() {
       title: splashHeader.title,
       pageTitle: splashHeader.pageTitle,
       subtitle: splashHeader.subtitle,
-      splashUrl: splashHeader.splashUrl
+      splashUrl: splashHeader.splashUrl,
+      faviconUrl: splashHeader.faviconUrl
     });
 
     hud.showLoading(100, 'Tela inicial pronta!');
@@ -83,6 +84,7 @@ async function boot() {
     storyPackage = await loadStoryPackage('./story', cityMap, {
       prefetchedManifest: splashHeader.manifest,
       prefetchedSplashUrl: splashHeader.splashUrl,
+      prefetchedFaviconUrl: splashHeader.faviconUrl,
       onProgress: ({ ratio, message }) => {
         hud.setStartLoadingProgress(12 + ratio * 53, message, { ready: false });
       }
@@ -92,7 +94,8 @@ async function boot() {
       title: storyPackage.title,
       pageTitle: storyPackage.pageTitle,
       subtitle: storyPackage.subtitle,
-      splashUrl: storyPackage.splashUrl
+      splashUrl: storyPackage.splashUrl,
+      faviconUrl: storyPackage.faviconUrl
     });
 
     refreshStartButtons();
@@ -180,6 +183,7 @@ async function boot() {
         pageTitle: storyPackage.pageTitle,
         subtitle: storyPackage.subtitle,
         splashUrl: storyPackage.splashUrl,
+        faviconUrl: storyPackage.faviconUrl,
       });
       activeEngine?.applyRefreshedStoryPackage(storyPackage);
       const failNote = result.failed?.length
