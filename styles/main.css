@@ -60,10 +60,18 @@ body {
   display: none !important;
 }
 
+#world-collectibles-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
 #hud-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 12;
 }
 
 #top-left-stack {
@@ -75,6 +83,7 @@ body {
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
+  z-index: 12;
 }
 
 #top-bar {
@@ -184,6 +193,7 @@ body {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));
   right: max(12px, env(safe-area-inset-right));
+  z-index: 12;
   background: rgba(14, 16, 21, 0.8);
   border: 2px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;

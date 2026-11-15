@@ -1207,9 +1207,156 @@ export class TrafficManager {
     return { yield: false, atRedLight: false };
   }
 
+  #lerpAngle(current, target, alpha) {
+    const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+    return current + diff * Math.min(1, Math.max(0, alpha));
+  }
+
+  #startNpcCurve(v, intersection, heading, turnInfo, rw) {
+    const targetOffset =
+      turnInfo.targetDx !== 0
+        ? this.cityMap.roadYOffsets[intersection.row]
+        : this.cityMap.roadXOffsets[intersection.col];
+    const targetLaneCoord = this.#getRightHandLaneCoord(targetOffset, turnInfo.targetDx, turnInfo.targetDy);
+    const exitDist = rw * 0.48;
+
+    const p0x = v.x;
+    const p0y = v.y;
+    const p1x = turnInfo.targetDx !== 0
+      ? intersection.cx + turnInfo.targetDx * exitDist
+      : targetLaneCoord;
+    const p1y = turnInfo.targetDy !== 0
+      ? intersection.cy + turnInfo.targetDy * exitDist
+      : targetLaneCoord;
+
+    const isUturn = turnInfo.turn === 'uturn';
+    let c1x;
+    let c1y;
+    let c2x;
+    let c2y;
+    if (isUturn) {
+      const loopReach = rw * 0.56;
+      c1x = p0x + heading.dx * loopReach;
+      c1y = p0y + heading.dy * loopReach;
+      c2x = p1x + heading.dx * loopReach;
+      c2y = p1y + heading.dy * loopReach;
+    } else if (heading.axis === 'h') {
+      c1x = p1x;
+      c1y = p0y;
+      c2x = p1x;
+      c2y = p0y;
+    } else {
+      c1x = p0x;
+      c1y = p1y;
+      c2x = p0x;
+      c2y = p1y;
+    }
+
+    // Estima o comprimento do arco para manter velocidade constante na curva
+    let length = 0;
+    let prevX = p0x;
+    let prevY = p0y;
+    const steps = 8;
+    for (let i = 1; i <= steps; i += 1) {
+      const t = i / steps;
+      const mt = 1 - t;
+      const ptX = isUturn
+        ? mt * mt * mt * p0x + 3 * mt * mt * t * c1x + 3 * mt * t * t * c2x + t * t * t * p1x
+        : mt * mt * p0x + 2 * mt * t * c1x + t * t * p1x;
+      const ptY = isUturn
+        ? mt * mt * mt * p0y + 3 * mt * mt * t * c1y + 3 * mt * t * t * c2y + t * t * t * p1y
+        : mt * mt * p0y + 2 * mt * t * c1y + t * t * p1y;
+      length += Math.hypot(ptX - prevX, ptY - prevY);
+      prevX = ptX;
+      prevY = ptY;
+    }
+
+    v.npcCurve = {
+      isUturn,
+      p0x,
+      p0y,
+      c1x,
+      c1y,
+      c2x,
+      c2y,
+      p1x,
+      p1y,
+      t: 0,
+      length: Math.max(24, length),
+      targetAngle: Math.atan2(turnInfo.targetDy, turnInfo.targetDx)
+    };
+  }
+
+  #evalNpcCurve(curve, t) {
+    const clamped = Math.max(0, Math.min(1, t));
+    const mt = 1 - clamped;
+    if (curve.isUturn) {
+      const x = mt * mt * mt * curve.p0x + 3 * mt * mt * clamped * curve.c1x + 3 * mt * clamped * clamped * curve.c2x + clamped * clamped * clamped * curve.p1x;
+      const y = mt * mt * mt * curve.p0y + 3 * mt * mt * clamped * curve.c1y + 3 * mt * clamped * clamped * curve.c2y + clamped * clamped * clamped * curve.p1y;
+      const dx = 3 * mt * mt * (curve.c1x - curve.p0x) + 6 * mt * clamped * (curve.c2x - curve.c1x) + 3 * clamped * clamped * (curve.p1x - curve.c2x);
+      const dy = 3 * mt * mt * (curve.c1y - curve.p0y) + 6 * mt * clamped * (curve.c2y - curve.c1y) + 3 * clamped * clamped * (curve.p1y - curve.c2y);
+      return { x, y, dx, dy };
+    }
+    const x = mt * mt * curve.p0x + 2 * mt * clamped * curve.c1x + clamped * clamped * curve.p1x;
+    const y = mt * mt * curve.p0y + 2 * mt * clamped * curve.c1y + clamped * clamped * curve.p1y;
+    const dx = 2 * mt * (curve.c1x - curve.p0x) + 2 * clamped * (curve.p1x - curve.c1x);
+    const dy = 2 * mt * (curve.c1y - curve.p0y) + 2 * clamped * (curve.p1y - curve.c1y);
+    return { x, y, dx, dy };
+  }
+
   #updateTrafficVehicle(v, dt, player, vehicles, time) {
-    const heading = this.#getCardinalHeading(v.angle);
     const rw = this.cityMap.roadWidth;
+
+    if (v.npcCurve) {
+      const curve = v.npcCurve;
+      const cos = Math.cos(v.angle);
+      const sin = Math.sin(v.angle);
+      let blocked = false;
+      if (!player.inVehicleId) {
+        const pFwd = (player.x - v.x) * cos + (player.y - v.y) * sin;
+        const pLat = Math.abs(-(player.x - v.x) * sin + (player.y - v.y) * cos);
+        if (pFwd > 0 && pFwd < 52 && pLat < 22) blocked = true;
+      }
+      if (!blocked) {
+        for (const other of vehicles) {
+          if (other.id === v.id) continue;
+          const dx = other.x - v.x;
+          const dy = other.y - v.y;
+          const fwd = dx * cos + dy * sin;
+          const lat = Math.abs(-dx * sin + dy * cos);
+          if (fwd > 0 && fwd < 58 && lat < 22) {
+            blocked = true;
+            break;
+          }
+        }
+      }
+
+      const targetSpeed = blocked ? 0 : (curve.isUturn ? 82 : 96);
+      const currentSpeed = Math.hypot(v.vx, v.vy);
+      const nextSpeed = currentSpeed + (targetSpeed - currentSpeed) * Math.min(1, dt * 5);
+      curve.t = Math.min(1, curve.t + (nextSpeed * dt) / curve.length);
+
+      const sample = this.#evalNpcCurve(curve, curve.t);
+      v.x = sample.x;
+      v.y = sample.y;
+      const tangentAngle = Math.hypot(sample.dx, sample.dy) > 0.001
+        ? Math.atan2(sample.dy, sample.dx)
+        : curve.targetAngle;
+      v.angle = this.#lerpAngle(v.angle, tangentAngle, dt * 14);
+      v.vx = Math.cos(v.angle) * nextSpeed;
+      v.vy = Math.sin(v.angle) * nextSpeed;
+      v.speed = nextSpeed;
+
+      if (curve.t >= 1) {
+        v.x = curve.p1x;
+        v.y = curve.p1y;
+        v.angle = curve.targetAngle;
+        v.npcCurve = null;
+      }
+      return;
+    }
+
+    const heading = this.#getCardinalHeading(v.angle);
     const intersection = this.#findNextIntersection(v, heading);
 
     let activeHeading = heading;
@@ -1223,31 +1370,19 @@ export class TrafficManager {
       atRedLight = yieldRes.atRedLight;
 
       if (!turnInfo.executed && turnInfo.turn !== 'straight' && !yielding) {
-        const targetOffset =
-          turnInfo.targetDx !== 0
-            ? this.cityMap.roadYOffsets[intersection.row]
-            : this.cityMap.roadXOffsets[intersection.col];
-        const targetLaneCoord = this.#getRightHandLaneCoord(targetOffset, turnInfo.targetDx, turnInfo.targetDy);
-
         const triggerCoord = heading.axis === 'h' ? intersection.cx : intersection.cy;
-        const turnAxisTarget =
-          turnInfo.turn === 'uturn'
-            ? triggerCoord
-            : heading.axis === 'h'
-              ? this.#getRightHandLaneCoord(this.cityMap.roadXOffsets[intersection.col], turnInfo.targetDx, turnInfo.targetDy)
-              : this.#getRightHandLaneCoord(this.cityMap.roadYOffsets[intersection.row], turnInfo.targetDx, turnInfo.targetDy);
-
+        const entryLead = turnInfo.turn === 'right'
+          ? rw * 0.44
+          : turnInfo.turn === 'left'
+            ? rw * 0.24
+            : rw * 0.14;
+        const turnStartCoord = triggerCoord - (heading.axis === 'h' ? heading.dx : heading.dy) * entryLead;
         const posAlong = heading.axis === 'h' ? v.x : v.y;
         const dirSign = heading.axis === 'h' ? heading.dx : heading.dy;
-        if ((posAlong - turnAxisTarget) * dirSign >= -6) {
+        if ((posAlong - turnStartCoord) * dirSign >= 0) {
           turnInfo.executed = true;
-          v.angle = Math.atan2(turnInfo.targetDy, turnInfo.targetDx);
-          if (turnInfo.targetDx !== 0) {
-            v.y = targetLaneCoord;
-          } else {
-            v.x = targetLaneCoord;
-          }
-          activeHeading = this.#getCardinalHeading(v.angle);
+          this.#startNpcCurve(v, intersection, heading, turnInfo, rw);
+          return;
         }
       }
     }
@@ -1263,7 +1398,7 @@ export class TrafficManager {
     } else {
       v.x += (desiredLane - v.x) * Math.min(1, dt * 4.5);
     }
-    v.angle = activeHeading.angle;
+    v.angle = this.#lerpAngle(v.angle, activeHeading.angle, dt * 10);
 
     const cos = Math.cos(v.angle);
     const sin = Math.sin(v.angle);
@@ -1392,6 +1527,7 @@ export class TrafficManager {
       }
 
       v.npcTurn = null;
+      v.npcCurve = null;
       v.stuckTimer = 0;
       v.claimedByPedId = null;
       v.emptyTimer = 0;

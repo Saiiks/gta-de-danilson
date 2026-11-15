@@ -574,3 +574,47 @@ test('normalizeTrafficAtMissionStart separa veículos amontoados e garante todos
     }
   }
 });
+
+test('veículos NPC fazem curvas fluidas nas esquinas com ângulos intermediários suaves', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const rw = map.roadWidth;
+  const cx = map.roadXOffsets[3] + rw * 0.5;
+  const cy = map.roadYOffsets[3] + rw * 0.5;
+
+  const v = createVehicleEntity({
+    id: 'VEH-CURVE',
+    kind: 'carro',
+    model: 'Sedan Clássico',
+    color: [0.8, 0.2, 0.2, 1],
+    x: cx - rw * 0.65,
+    y: map.roadYOffsets[3] + rw * 0.72,
+    angle: 0,
+    isParked: false,
+    driver: 'npc',
+  });
+  v.vx = 135;
+  v.speed = 135;
+  v.npcTurn = {
+    col: 3,
+    row: 3,
+    fromDx: 1,
+    fromDy: 0,
+    turn: 'right',
+    targetDx: 0,
+    targetDy: 1,
+    executed: false,
+  };
+
+  const player = { x: cx + 200, y: cy + 200, inVehicleId: null, isDead: false, radius: 11 };
+  const observedAngles = [];
+  for (let step = 0; step < 30; step += 1) {
+    traffic.update(0.05, player, [v], [], 0);
+    observedAngles.push(v.angle);
+  }
+
+  // Deve haver ângulos intermediários entre 0 e PI/2 durante a curva (sem salto seco de 90 graus)
+  const hasIntermediate = observedAngles.some((a) => a > 0.15 && a < Math.PI * 0.5 - 0.15);
+  assert.equal(hasIntermediate, true);
+  assert.ok(Math.abs(v.angle - Math.PI * 0.5) < 0.05);
+});
