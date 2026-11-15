@@ -117,6 +117,32 @@ test('getLocationAt identifica a rua correspondente quando o jogador está na ca
   assert.equal(westSidewalk?.code, map.verticalRoads[1].code);
 });
 
+test('resolveItemLocation posiciona item interno perto da parede oposta à porta da construção', () => {
+  const map = new CityMap();
+  const byDoorSide = new Map();
+  for (const row of map.blocks) {
+    for (const block of row) {
+      for (const b of block.buildings) {
+        if (!byDoorSide.has(b.doorSide)) {
+          byDoorSide.set(b.doorSide, b);
+        }
+      }
+    }
+  }
+
+  for (const side of ['north', 'south', 'east', 'west']) {
+    const b = byDoorSide.get(side);
+    assert.ok(b, `esperado prédio com doorSide=${side}`);
+    const pt = map.resolveItemLocation(b.code);
+    assert.equal(pt.kind, 'interior');
+    const { x, y, w, h } = b.bounds;
+    if (side === 'north') assert.ok(pt.y > y + h * 0.5);
+    if (side === 'south') assert.ok(pt.y < y + h * 0.55);
+    if (side === 'west') assert.ok(pt.x > x + w * 0.5);
+    if (side === 'east') assert.ok(pt.x < x + w * 0.5);
+  }
+});
+
 test('divide a cidade em chunks ativos com cerca de 2 veículos variados por quarteirão dirigidos por NPCs', () => {
   const map = new CityMap();
   assert.equal(map.chunkCols * map.chunkRows, 100);

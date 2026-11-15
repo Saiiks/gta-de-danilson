@@ -1312,10 +1312,15 @@ export class TrafficManager {
       const cos = Math.cos(v.angle);
       const sin = Math.sin(v.angle);
       let blocked = false;
+      let playerAhead = false;
       if (!player.inVehicleId) {
         const pFwd = (player.x - v.x) * cos + (player.y - v.y) * sin;
         const pLat = Math.abs(-(player.x - v.x) * sin + (player.y - v.y) * cos);
-        if (pFwd > 0 && pFwd < 52 && pLat < 22) blocked = true;
+        const latThreshold = (v.width || 24) * 0.5 + (player.radius || 12) + 4;
+        if (pFwd > 0 && pFwd < 72 && pLat < latThreshold) {
+          blocked = true;
+          playerAhead = true;
+        }
       }
       if (!blocked) {
         for (const other of vehicles) {
@@ -1333,7 +1338,8 @@ export class TrafficManager {
 
       const targetSpeed = blocked ? 0 : (curve.isUturn ? 82 : 96);
       const currentSpeed = Math.hypot(v.vx, v.vy);
-      const nextSpeed = currentSpeed + (targetSpeed - currentSpeed) * Math.min(1, dt * 5);
+      const accelRate = playerAhead ? 6.5 : 5;
+      const nextSpeed = currentSpeed + (targetSpeed - currentSpeed) * Math.min(1, dt * accelRate);
       curve.t = Math.min(1, curve.t + (nextSpeed * dt) / curve.length);
 
       const sample = this.#evalNpcCurve(curve, curve.t);
@@ -1404,12 +1410,15 @@ export class TrafficManager {
     const sin = Math.sin(v.angle);
     let blocked = yielding;
     let headOnBlocked = false;
+    let playerAhead = false;
 
     if (!blocked && !player.inVehicleId) {
       const pFwd = (player.x - v.x) * cos + (player.y - v.y) * sin;
       const pLat = Math.abs(-(player.x - v.x) * sin + (player.y - v.y) * cos);
-      if (pFwd > 0 && pFwd < 56 && pLat < 22) {
+      const latThreshold = (v.width || 24) * 0.5 + (player.radius || 12) + 4;
+      if (pFwd > 0 && pFwd < 78 && pLat < latThreshold) {
         blocked = true;
+        playerAhead = true;
       }
     }
 
@@ -1451,7 +1460,8 @@ export class TrafficManager {
 
     const targetSpeed = blocked ? 0 : 135;
     const currentSpeed = Math.hypot(v.vx, v.vy);
-    const nextSpeed = currentSpeed + (targetSpeed - currentSpeed) * Math.min(1, dt * 4.5);
+    const accelRate = playerAhead ? 6.5 : 4.5;
+    const nextSpeed = currentSpeed + (targetSpeed - currentSpeed) * Math.min(1, dt * accelRate);
     v.vx = cos * nextSpeed;
     v.vy = sin * nextSpeed;
     v.speed = nextSpeed;

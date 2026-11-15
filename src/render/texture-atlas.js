@@ -130,10 +130,13 @@ export function createTextureAtlas() {
   });
 
   register('doormat', 7, 0, (c, x, y, s) => {
-    c.fillStyle = 'rgba(40, 44, 52, 0.45)';
-    c.fillRect(x + 10, y + 36, s - 20, s - 72);
-    c.fillStyle = 'rgba(180, 165, 140, 0.55)';
-    c.fillRect(x + 18, y + 46, s - 36, s - 92);
+    c.fillStyle = 'rgba(26, 30, 38, 0.88)';
+    c.fillRect(x + 6, y + 12, s - 12, s - 24);
+    c.fillStyle = 'rgba(198, 174, 132, 0.92)';
+    c.fillRect(x + 14, y + 22, s - 28, s - 44);
+    c.strokeStyle = 'rgba(68, 56, 38, 0.65)';
+    c.lineWidth = 4;
+    c.strokeRect(x + 20, y + 28, s - 40, s - 56);
   });
 
   register('car', 0, 1, (c, x, y, s) => {

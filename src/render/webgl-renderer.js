@@ -399,7 +399,19 @@ export class WebGLRenderer {
         // Indicação discreta da porta de entrada (soleira) e folha da porta animada
         if (building.doormat) {
           const dm = building.doormat;
-          this.#pushQuad(dm.x, dm.y, dm.w, dm.h, 0, 'doormat', [1, 1, 1, 0.75]);
+          const isVertical = building.doorSide === 'west' || building.doorSide === 'east';
+          const matAngle = isVertical ? Math.PI * 0.5 : 0;
+          const matW = isVertical ? Math.max(dm.h, 46) : Math.max(dm.w, 46);
+          const matH = isVertical ? Math.max(dm.w, 18) : Math.max(dm.h, 18);
+          this.#pushQuad(
+            dm.x + dm.w * 0.5 - matW * 0.5,
+            dm.y + dm.h * 0.5 - matH * 0.5,
+            matW,
+            matH,
+            matAngle,
+            'doormat',
+            [1, 1, 1, 0.92],
+          );
         }
 
         const ent = building.entrance;

@@ -618,3 +618,30 @@ test('veículos NPC fazem curvas fluidas nas esquinas com ângulos intermediári
   assert.equal(hasIntermediate, true);
   assert.ok(Math.abs(v.angle - Math.PI * 0.5) < 0.05);
 });
+
+test('veículo NPC freia quando o jogador a pé entra na frente dele', () => {
+  const map = new CityMap();
+  const traffic = new TrafficManager(map);
+  const rw = map.roadWidth;
+  const laneY = map.roadYOffsets[2] + rw * 0.72;
+  const startX = map.roadXOffsets[1] + rw * 1.6;
+
+  const v = createVehicleEntity({
+    id: 'VEH-BRAKE',
+    kind: 'carro',
+    model: 'Sedan Clássico',
+    color: [0.8, 0.2, 0.2, 1],
+    x: startX,
+    y: laneY,
+    angle: 0,
+    isParked: false,
+    driver: 'npc',
+  });
+  v.vx = 140;
+  v.speed = 140;
+  v.npcSpeed = 140;
+
+  const player = { x: startX + 55, y: laneY, inVehicleId: null, isDead: false, radius: 12 };
+  traffic.update(0.1, player, [v], [], 0);
+  assert.ok(v.speed < 100, `veículo deve frear diante do jogador (speed=${v.speed})`);
+});

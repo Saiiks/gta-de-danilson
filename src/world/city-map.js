@@ -669,9 +669,41 @@ export class CityMap {
 
     const loc = this.resolveLocationCode(trimmed);
     if (loc.type === 'house' || loc.type === 'commerce' || loc.type === 'hospital') {
+      const { x: bx, y: by, w: bw, h: bh } = loc.bounds;
+      const wallOffset = 28;
+      let ix = bx + bw * 0.5;
+      let iy = by + bh * 0.5;
+
+      if (loc.doorSide === 'north') {
+        iy = by + bh - wallOffset;
+      } else if (loc.doorSide === 'south') {
+        iy = by + wallOffset;
+      } else if (loc.doorSide === 'west') {
+        ix = bx + bw - wallOffset;
+      } else if (loc.doorSide === 'east') {
+        ix = bx + wallOffset;
+      }
+
+      const props = loc.interior?.props || [];
+      for (const prop of props) {
+        const pad = 12;
+        if (
+          ix >= prop.x - pad &&
+          ix <= prop.x + prop.w + pad &&
+          iy >= prop.y - pad &&
+          iy <= prop.y + prop.h + pad
+        ) {
+          if (loc.doorSide === 'south') {
+            iy = Math.min(by + bh - wallOffset, prop.y + prop.h + pad);
+          } else if (loc.doorSide === 'east') {
+            iy = Math.min(by + bh - wallOffset, prop.y + prop.h + pad);
+          }
+        }
+      }
+
       return {
-        x: loc.bounds.x + loc.bounds.w * 0.5,
-        y: loc.bounds.y + loc.bounds.h * 0.55,
+        x: ix,
+        y: iy,
         kind: 'interior',
         code: loc.code
       };

@@ -1,6 +1,6 @@
-import { CityMap } from '../world/city-map.js?v=28';
+import { CityMap } from '../world/city-map.js?v=29';
 import { RoadPathfinder } from '../world/pathfinding.js';
-import { TrafficManager } from '../world/traffic-manager.js?v=22';
+import { TrafficManager } from '../world/traffic-manager.js?v=23';
 import { BoatManager } from '../world/boat-manager.js?v=17';
 import { InputManager } from '../input/input-manager.js?v=18';
 import { WebGLRenderer } from '../render/webgl-renderer.js?v=27';
@@ -1465,6 +1465,42 @@ export class Engine {
     this.#updateParticles(dt);
     this.#updateExplosions(dt);
     this.#updateTrashBins(dt, nearbyVehicles);
+
+    if ((this.player.vehicleHitCooldown || 0) > 0) {
+      this.player.vehicleHitCooldown = Math.max(0, this.player.vehicleHitCooldown - dt);
+    }
+
+    // Impacto de veículos no jogador a pé
+    if (!activeVehicle && !this.player.isDead && !this.player.sinking.active && (this.player.vehicleHitCooldown || 0) <= 0) {
+      for (const v of nearbyVehicles) {
+        if (v.speed <= 25 || v.destroyed) continue;
+        if (Math.abs(this.player.x - v.x) > 52 || Math.abs(this.player.y - v.y) > 52) continue;
+        if (!isTouchingVehicle(this.player.x, this.player.y, this.player.radius || 12, v, 2)) continue;
+        const movingTowardPlayer = (this.player.x - v.x) * v.vx + (this.player.y - v.y) * v.vy > 0;
+        if (!movingTowardPlayer) continue;
+
+        const dmg = Math.min(75, Math.max(5, Math.round((v.speed - 20) * 0.35)));
+        const mag = Math.hypot(v.vx, v.vy) || 1;
+        const knockDist = Math.min(22, Math.max(6, v.speed * 0.14));
+        const kx = (v.vx / mag) * knockDist;
+        const ky = (v.vy / mag) * knockDist;
+        const playerRadius = this.player.radius || 12;
+        const colliders = this.cityMap.getCollidersAround(this.player.x + kx, this.player.y + ky, 48);
+        const resolved = resolveEntityCollisions(this.player.x + kx, this.player.y + ky, playerRadius, colliders);
+        this.player.x = resolved.x;
+        this.player.y = resolved.y;
+        this.player.vehicleHitCooldown = 0.65;
+        this.bloodMarks.push({
+          x: this.player.x,
+          y: this.player.y,
+          size: 8 + Math.random() * 5,
+          angle: Math.random() * Math.PI * 2,
+          alpha: 0.72,
+        });
+        this.applyDamage(dmg, 'Você foi atropelado por um veículo!');
+        break;
+      }
+    }
 
     // Impacto de veículos em pessoas andando ou fugindo na rua
     const standingPeds = this.trafficManager.pedestrians.filter((p) => p.state !== 'downed');

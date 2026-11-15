@@ -1,11 +1,11 @@
-import { Engine } from './core/engine.js?v=44';
+import { Engine } from './core/engine.js?v=45';
 import { HudController } from './ui/hud-controller.js?v=30';
 import { CutsceneController } from './ui/cutscene-controller.js?v=14';
 import { PauseMenuController } from './ui/pause-menu.js?v=3';
 import { ConfirmDialogController } from './ui/confirm-dialog.js?v=1';
 import { AssetsRefreshDialogController } from './ui/assets-refresh-dialog.js?v=1';
 import { InventoryController } from './ui/inventory-controller.js?v=19';
-import { CityMap } from './world/city-map.js?v=28';
+import { CityMap } from './world/city-map.js?v=29';
 import {
   loadGameState,
   clearGameState,
