@@ -25,6 +25,7 @@ import {
 } from '../physics/vehicle-physics.js?v=17';
 import { Minimap } from '../ui/minimap.js?v=22';
 import { Inventory } from './inventory.js?v=19';
+import { createSaveSnapshot, saveGameState } from './save-state.js?v=1';
 import { getPendingMissionAssetUrls, preloadMissionAssets } from '../story/story-loader.js';
 
 const PEDESTRIAN_CHAT_LINES = [
@@ -172,16 +173,153 @@ export class Engine {
     this.#onResize = () => this.#handleResize();
     window.addEventListener('resize', this.#onResize);
 
+    this.#onPageHide = () => this.#persistSaveState();
+    this.#onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        this.#persistSaveState();
+      }
+    };
+    window.addEventListener('pagehide', this.#onPageHide);
+    document.addEventListener('visibilitychange', this.#onVisibilityChange);
+
     this.hud.showLoading(100, 'Pronto!');
     console.info('[Engine] Cidade-ilha inicializada com', this.cityMap.locationsByCode.size, 'locais codificados.');
   }
 
   #onResize = null;
+  #onPageHide = null;
+  #onVisibilityChange = null;
 
   stop() {
+    this.#persistSaveState();
     this.running = false;
     if (this.#onKeyDown) window.removeEventListener('keydown', this.#onKeyDown);
     if (this.#onResize) window.removeEventListener('resize', this.#onResize);
+    if (this.#onPageHide) window.removeEventListener('pagehide', this.#onPageHide);
+    if (this.#onVisibilityChange) document.removeEventListener('visibilitychange', this.#onVisibilityChange);
+  }
+
+  #persistSaveState() {
+    if (!this.storyPackage || this.player?.isDead || this.deathSequence) return;
+    const snapshot = createSaveSnapshot({
+      storyKey: this.storyPackage.title || 'default',
+      currentMissionIndex: this.currentMissionIndex,
+      freeRoamMode: this.freeRoamMode,
+      itemPickedUp: this.itemPickedUp,
+      inventorySlots: this.inventory.getSlots(),
+      collectedExtraIds: [...this.collectedExtraIds],
+      completedNpcPoints: this.completedNpcPoints,
+      player: {
+        x: this.player.x,
+        y: this.player.y,
+        angle: this.player.angle,
+        health: this.player.health,
+      },
+    });
+    saveGameState(snapshot);
+  }
+
+  async restoreSavedSession(savedState) {
+    if (!savedState || !this.storyPackage || !this.storyPackage.missions?.length) {
+      return this.startMission(0);
+    }
+
+    const clamped = Math.max(
+      0,
+      Math.min(savedState.currentMissionIndex || 0, this.storyPackage.missions.length - 1),
+    );
+    const mission = this.storyPackage.missions[clamped];
+    const pendingUrls = getPendingMissionAssetUrls(this.storyPackage, clamped, this.preloadedUrls, {
+      includeSplash: false,
+    });
+
+    if (pendingUrls.length > 0) {
+      this.paused = true;
+      this.hud.showLoading(10, `Carregando ${mission.title}...`);
+      await preloadMissionAssets(this.storyPackage, clamped, {
+        includeSplash: false,
+        preloadedUrls: this.preloadedUrls,
+        onProgress: ({ loaded, total, ratio }) => {
+          this.hud.showLoading(10 + ratio * 85, `Carregando recursos da missão (${loaded}/${total})...`);
+        },
+      });
+      this.hud.showLoading(100, 'Missão pronta!');
+      this.hud.showGameHud();
+      this.paused = false;
+    }
+
+    this.currentMissionIndex = clamped;
+    this.freeRoamMode = Boolean(savedState.freeRoamMode);
+    this.missionOutTriggered = false;
+    this.awaitingExitTarget = false;
+    const needsPickup = Boolean(mission.pickupLocation && mission.giveItem);
+    this.itemPickedUp = needsPickup ? Boolean(savedState.itemPickedUp) : true;
+    const initialObjective = this.freeRoamMode
+      ? null
+      : (this.itemPickedUp || !needsPickup ? mission.targetLocation : mission.pickupLocation);
+
+    this.resetMatch(mission.startLocation, initialObjective);
+
+    this.inventory.clear();
+    for (const slot of savedState.inventorySlots || []) {
+      if (slot && !this.inventory.hasItem(slot.id)) {
+        this.inventory.addItem(slot);
+      }
+    }
+    this.#syncInventoryHud();
+
+    this.collectedExtraIds = new Set(savedState.collectedExtraIds || []);
+    for (const c of this.worldCollectibles) {
+      if (this.collectedExtraIds.has(c.id) || this.inventory.hasItem(c.id)) {
+        c.collected = true;
+        this.collectedExtraIds.add(c.id);
+      }
+    }
+    this.worldCollectibles = this.worldCollectibles.filter((c) => !c.collected);
+
+    this.completedNpcPoints = Array.isArray(savedState.completedNpcPoints)
+      ? savedState.completedNpcPoints.map((pt) => ({ x: pt.x, y: pt.y }))
+      : [];
+
+    if (savedState.player) {
+      this.player.x = savedState.player.x;
+      this.player.y = savedState.player.y;
+      this.player.angle = savedState.player.angle || 0;
+      this.player.health = savedState.player.health || 100;
+      this.hudDisplayHealth = this.player.health;
+      this.player.inVehicleId = null;
+      this.camera.x = this.player.x;
+      this.camera.y = this.player.y;
+      this.#syncActiveChunks(this.player.x, this.player.y);
+    }
+
+    this.pauseMenu?.configure(this.storyPackage.missions, clamped, {
+      onPauseChange: (isPaused) => {
+        this.paused = isPaused;
+        if (isPaused) this.#persistSaveState();
+      },
+      onRestartMission: () => {
+        this.startMission(this.currentMissionIndex);
+      },
+      onSelectMission: (missionIdx) => {
+        this.missionCheckpoint = null;
+        this.startMission(missionIdx);
+      },
+      onExitToTitle: () => {
+        this.#persistSaveState();
+        this.onExitToTitle?.();
+      },
+    });
+
+    if (!this.freeRoamMode) {
+      const bannerObjective = !this.itemPickedUp && needsPickup
+        ? (mission.pickupObjective || mission.objective)
+        : mission.objective;
+      this.hud?.showMissionBanner?.(clamped + 1, bannerObjective);
+    } else {
+      this.hud?.showToast?.('Modo exploração livre restaurado.');
+    }
+    this.#persistSaveState();
   }
 
   async startMission(index, { skipIntro = false, preserveState = false } = {}) {
@@ -281,6 +419,7 @@ export class Engine {
     this.pauseMenu?.configure(this.storyPackage.missions, clamped, {
       onPauseChange: (isPaused) => {
         this.paused = isPaused;
+        if (isPaused) this.#persistSaveState();
       },
       onRestartMission: () => {
         this.startMission(this.currentMissionIndex);
@@ -290,6 +429,7 @@ export class Engine {
         this.startMission(missionIdx);
       },
       onExitToTitle: () => {
+        this.#persistSaveState();
         this.onExitToTitle?.();
       }
     });
@@ -302,6 +442,7 @@ export class Engine {
         ? (mission.pickupObjective || mission.objective)
         : mission.objective;
       this.hud?.showMissionBanner?.(clamped + 1, bannerObjective);
+      this.#persistSaveState();
     };
 
     if (!skipIntro && mission.introCutscene?.steps?.length > 0 && this.cutscene) {
@@ -329,6 +470,7 @@ export class Engine {
       return;
     }
     this.#syncInventoryHud();
+    this.#persistSaveState();
   }
 
   openInventory() {
@@ -621,6 +763,7 @@ export class Engine {
         } else {
           this.freeRoamMode = true;
           this.setObjective(null);
+          this.#persistSaveState();
         }
       });
     };
@@ -632,6 +775,7 @@ export class Engine {
         wrongItemMessage: mission.wrongItemMessage || 'Não é esse item que o personagem espera. Tente outro!',
         onDeliver: () => {
           this.#syncInventoryHud();
+          this.#persistSaveState();
           onSuccess?.();
         },
         onCancel
@@ -1331,6 +1475,7 @@ export class Engine {
         imageAlt: itemName
       });
       this.setObjective(activeMission.targetLocation);
+      this.#persistSaveState();
     } else {
       const requiresBuildingEntry =
         this.objectiveLocationType === 'commerce' || this.objectiveLocationType === 'house';

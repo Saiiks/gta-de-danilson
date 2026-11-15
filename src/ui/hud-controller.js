@@ -5,6 +5,8 @@ export class HudController {
     this.hudLayer = document.getElementById('hud-layer');
     this.startScreen = document.getElementById('start-screen');
     this.startButton = document.getElementById('start-button');
+    this.newGameButton = document.getElementById('new-game-button');
+    this.startReadyLabel = 'Entrar na Cidade';
     this.loadingScreen = document.getElementById('loading-screen');
     this.loadingBar = document.getElementById('loading-bar');
     this.loadingText = document.getElementById('loading-text');
@@ -188,6 +190,28 @@ export class HudController {
     });
   }
 
+  onNewGameClick(handler) {
+    if (!this.newGameButton) return;
+    this.newGameButton.addEventListener('click', () => {
+      this.hasStarted = true;
+      this.requestAppFullscreen();
+      handler();
+    });
+  }
+
+  setStartButtonState({ label = 'Entrar na Cidade', hasSave = false } = {}) {
+    this.startReadyLabel = label;
+    if (this.startButton && !this.startButton.disabled) {
+      this.startButton.textContent = label;
+    }
+    if (this.newGameButton) {
+      this.newGameButton.classList.toggle('hidden', !hasSave);
+      if (this.startButton) {
+        this.newGameButton.disabled = this.startButton.disabled;
+      }
+    }
+  }
+
   showLoading(percent, message) {
     const clamped = Math.max(0, Math.min(100, Number(percent) || 0));
     this.startScreen.classList.add('hidden');
@@ -213,7 +237,10 @@ export class HudController {
     }
     if (this.startButton) {
       this.startButton.disabled = !ready;
-      this.startButton.textContent = ready ? 'Entrar na Cidade' : 'Carregando...';
+      this.startButton.textContent = ready ? (this.startReadyLabel || 'Entrar na Cidade') : 'Carregando...';
+    }
+    if (this.newGameButton) {
+      this.newGameButton.disabled = !ready;
     }
   }
 

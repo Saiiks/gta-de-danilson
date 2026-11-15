@@ -1,9 +1,14 @@
-import { Engine } from './core/engine.js?v=40';
-import { HudController } from './ui/hud-controller.js?v=27';
+import { Engine } from './core/engine.js?v=41';
+import { HudController } from './ui/hud-controller.js?v=28';
 import { CutsceneController } from './ui/cutscene-controller.js?v=14';
 import { PauseMenuController } from './ui/pause-menu.js';
 import { InventoryController } from './ui/inventory-controller.js?v=18';
 import { CityMap } from './world/city-map.js?v=27';
+import {
+  loadGameState,
+  clearGameState,
+  formatContinueLabel
+} from './core/save-state.js?v=1';
 import {
   loadStorySplashHeader,
   loadStoryPackage,
@@ -17,6 +22,9 @@ function waitMs(ms) {
 
 async function boot() {
   window.__gameBooted = true;
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
   const hud = new HudController();
   const cutscene = new CutsceneController();
   const pauseMenu = new PauseMenuController();
@@ -28,7 +36,17 @@ async function boot() {
   let storyPackage = null;
   let cityMap = null;
   let activeEngine = null;
+  let savedState = null;
   const preloadedUrls = new Set();
+
+  const refreshStartButtons = () => {
+    const storyKey = storyPackage?.title || 'default';
+    savedState = loadGameState(storyKey);
+    hud.setStartButtonState({
+      label: formatContinueLabel(savedState),
+      hasSave: Boolean(savedState)
+    });
+  };
 
   try {
     hud.showLoading(15, 'Lendo abertura da história...');
@@ -72,30 +90,42 @@ async function boot() {
       splashUrl: storyPackage.splashUrl
     });
 
-    hud.setStartLoadingProgress(65, 'Pré-carregando imagens da Missão 1...', { ready: false });
-    await preloadMissionAssets(storyPackage, 0, {
+    refreshStartButtons();
+    const targetMissionIndex = savedState
+      ? Math.max(0, Math.min(savedState.currentMissionIndex || 0, Math.max(0, (storyPackage.missions?.length || 1) - 1)))
+      : 0;
+    const missionLabel = `Missão ${targetMissionIndex + 1}`;
+
+    hud.setStartLoadingProgress(65, `Pré-carregando imagens da ${missionLabel}...`, { ready: false });
+    await preloadMissionAssets(storyPackage, targetMissionIndex, {
       includeSplash: false,
       preloadedUrls,
       onProgress: ({ loaded, total, ratio, url }) => {
         const assetName = url ? url.split('/').pop() : '';
         const label = total > 0 && assetName
-          ? `Missão 1 (${loaded}/${total}): ${assetName}`
-          : 'Recursos da Missão 1 prontos.';
+          ? `${missionLabel} (${loaded}/${total}): ${assetName}`
+          : `Recursos da ${missionLabel} prontos.`;
         hud.setStartLoadingProgress(65 + ratio * 35, label, { ready: false });
       }
     });
 
-    hud.setStartLoadingProgress(100, 'Recursos da Missão 1 carregados!', { ready: true });
+    hud.setStartLoadingProgress(100, `Recursos da ${missionLabel} carregados!`, { ready: true });
   } catch (error) {
     console.error('[StoryLoader] Erro ao carregar história:', error);
     hud.showError(error?.message || 'Erro ao carregar o pacote de história.');
     return;
   }
 
-  hud.onStartClick(() => {
+  const launchGame = ({ useSaved = true } = {}) => {
     try {
       if (activeEngine) {
         activeEngine.stop();
+      }
+      if (!useSaved) {
+        clearGameState();
+        savedState = null;
+      } else {
+        savedState = loadGameState(storyPackage?.title || 'default');
       }
       activeEngine = new Engine(canvas, minimapCanvas, touchControls, hud, {
         cityMap,
@@ -107,17 +137,25 @@ async function boot() {
         onExitToTitle: () => {
           activeEngine?.stop();
           activeEngine = null;
+          refreshStartButtons();
           hud.showStartScreen();
         }
       });
       activeEngine.initWorld();
       activeEngine.start();
-      activeEngine.startMission(0);
+      if (useSaved && savedState) {
+        activeEngine.restoreSavedSession(savedState);
+      } else {
+        activeEngine.startMission(0);
+      }
     } catch (error) {
       console.error('[Engine] Erro fatal ao iniciar:', error);
       hud.showError(error?.message || 'Erro inesperado ao inicializar o motor do jogo.');
     }
-  });
+  };
+
+  hud.onStartClick(() => launchGame({ useSaved: true }));
+  hud.onNewGameClick(() => launchGame({ useSaved: false }));
 
   window.addEventListener('keydown', (e) => {
     if (hud.isStartScreenOpen() && (e.code === 'Enter' || e.code === 'Space')) {
