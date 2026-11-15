@@ -45,6 +45,9 @@ export class HudController {
     this.startTitleEl = document.getElementById('start-title');
     this.startSubtitleEl = document.getElementById('start-subtitle');
     this.startSplashEl = document.getElementById('start-splash');
+    this.startLoadingBar = document.getElementById('start-loading-bar');
+    this.startLoadingText = document.getElementById('start-loading-text');
+    this.startLoadingPercent = document.getElementById('start-loading-percent');
 
     this.missionCompleteScreen = document.getElementById('mission-complete-screen');
     this.missionCompleteTitleEl = document.getElementById('mission-complete-title');
@@ -194,6 +197,23 @@ export class HudController {
     this.loadingText.textContent = message;
     if (this.loadingPercent) {
       this.loadingPercent.textContent = `${Math.round(clamped)}%`;
+    }
+  }
+
+  setStartLoadingProgress(percent, message, { ready = false } = {}) {
+    const clamped = Math.max(0, Math.min(100, Number(percent) || 0));
+    if (this.startLoadingBar) {
+      this.startLoadingBar.style.width = `${clamped}%`;
+    }
+    if (this.startLoadingText && message) {
+      this.startLoadingText.textContent = message;
+    }
+    if (this.startLoadingPercent) {
+      this.startLoadingPercent.textContent = `${Math.round(clamped)}%`;
+    }
+    if (this.startButton) {
+      this.startButton.disabled = !ready;
+      this.startButton.textContent = ready ? 'Entrar na Cidade' : 'Carregando...';
     }
   }
 

@@ -12,7 +12,7 @@ import {
 async function fetchText(url, label) {
   let response;
   try {
-    response = await fetch(url, { cache: 'no-store' });
+    response = await fetch(url, { cache: 'no-cache' });
   } catch (err) {
     throw new Error(`Falha de rede ao carregar "${label}" (${url}): ${err.message}`);
   }
@@ -25,7 +25,7 @@ async function fetchText(url, label) {
 async function checkAssetExists(url) {
   if (!url) return false;
   try {
-    const response = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    const response = await fetch(url, { method: 'HEAD', cache: 'default' });
     return response.ok;
   } catch {
     return false;
@@ -98,10 +98,10 @@ export function getCutsceneBackgroundCandidates(basePath, bgText = '', fallbackC
 }
 
 export async function resolveFirstExistingAsset(candidates, existsFn = checkAssetExists) {
-  for (const url of candidates) {
-    if (await existsFn(url)) return url;
-  }
-  return '';
+  if (!Array.isArray(candidates) || candidates.length === 0) return '';
+  const results = await Promise.all(candidates.map((url) => existsFn(url)));
+  const idx = results.findIndex(Boolean);
+  return idx >= 0 ? candidates[idx] : '';
 }
 
 export function extractCutsceneLocationType(bgText = '', fallbackCode = '') {
@@ -118,26 +118,37 @@ export async function discoverTypeBackgroundPool(basePath, typePrefix, existsFn 
   if (!prefix) return [];
 
   const pool = [];
-  for (let n = 1; n <= maxProbe; n += 1) {
-    const pngUrl = `${cleanBase}/map/${prefix}-${n}.png`;
-    if (await existsFn(pngUrl)) {
-      pool.push(pngUrl);
-      continue;
+  const batchSize = 4;
+  for (let start = 1; start <= maxProbe; start += batchSize) {
+    const end = Math.min(maxProbe, start + batchSize - 1);
+    const nums = [];
+    for (let n = start; n <= end; n += 1) nums.push(n);
+    const checks = await Promise.all(
+      nums.map(async (n) => {
+        const pngUrl = `${cleanBase}/map/${prefix}-${n}.png`;
+        const jpgUrl = `${cleanBase}/map/${prefix}-${n}.jpg`;
+        const [hasPng, hasJpg] = await Promise.all([existsFn(pngUrl), existsFn(jpgUrl)]);
+        return hasPng ? pngUrl : hasJpg ? jpgUrl : '';
+      }),
+    );
+    let stopped = false;
+    for (const url of checks) {
+      if (!url) {
+        stopped = true;
+        break;
+      }
+      pool.push(url);
     }
-    const jpgUrl = `${cleanBase}/map/${prefix}-${n}.jpg`;
-    if (await existsFn(jpgUrl)) {
-      pool.push(jpgUrl);
-      continue;
-    }
-    break;
+    if (stopped) break;
   }
 
   if (pool.length === 0) {
-    for (const fallbackUrl of [`${cleanBase}/map/${prefix}.png`, `${cleanBase}/map/${prefix}.jpg`]) {
-      if (await existsFn(fallbackUrl)) {
-        pool.push(fallbackUrl);
-        break;
-      }
+    const fallbackUrl = await resolveFirstExistingAsset(
+      [`${cleanBase}/map/${prefix}.png`, `${cleanBase}/map/${prefix}.jpg`],
+      existsFn,
+    );
+    if (fallbackUrl) {
+      pool.push(fallbackUrl);
     }
   }
 
@@ -173,8 +184,43 @@ export function pickCutsceneBackground(pool = [], recentList = [], rng = Math.ra
   };
 }
 
+async function resolveSplashAssetUrl(cleanBase, manifest, existsFn) {
+  let url = await resolveFirstExistingAsset(
+    getSplashPngCandidates(cleanBase, manifest.splash),
+    existsFn,
+  );
+  if (!url && manifest.splash) {
+    const candidateSplash = `${cleanBase}/${manifest.splash}`;
+    if (await existsFn(candidateSplash)) {
+      url = candidateSplash;
+    } else {
+      console.warn(`[StoryLoader] Imagem de abertura ausente: ${candidateSplash}. Usando padrão.`);
+    }
+  }
+  return url;
+}
+
+export async function loadStorySplashHeader(basePath = './story') {
+  const cleanBase = basePath.replace(/\/+$/, '');
+  const manifestUrl = `${cleanBase}/story.md`;
+  const manifestRaw = await fetchText(manifestUrl, 'story.md');
+  const manifest = parseStoryManifest(manifestRaw, 'story.md');
+  const splashUrl = await resolveSplashAssetUrl(cleanBase, manifest, checkAssetExists);
+  return {
+    title: manifest.title,
+    pageTitle: manifest.pageTitle || manifest.title,
+    subtitle: manifest.subtitle,
+    splashUrl,
+    manifest,
+  };
+}
+
 export async function loadStoryPackage(basePath = './story', cityMap = null, options = {}) {
-  const { onProgress } = options;
+  const {
+    onProgress,
+    prefetchedManifest = null,
+    prefetchedSplashUrl = undefined,
+  } = options;
   const reportProgress = (ratio, message) => {
     if (typeof onProgress === 'function') {
       onProgress({ ratio: Math.max(0, Math.min(1, ratio)), message });
@@ -183,73 +229,80 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
 
   const cleanBase = basePath.replace(/\/+$/, '');
   const manifestUrl = `${cleanBase}/story.md`;
-  const cacheBust = typeof window !== 'undefined' ? `?v=${Date.now()}` : '';
-  const withBust = (url) => (url && cacheBust ? `${url}${cacheBust}` : url);
+  const withBust = (url) => url;
+  const existsCache = new Map();
+  const cachedExists = (url) => {
+    if (!url) return Promise.resolve(false);
+    if (!existsCache.has(url)) {
+      existsCache.set(url, checkAssetExists(url));
+    }
+    return existsCache.get(url);
+  };
 
-  reportProgress(0.05, 'Lendo manifesto da história...');
-  const manifestRaw = await fetchText(manifestUrl, 'story.md');
-  const manifest = parseStoryManifest(manifestRaw, 'story.md');
+  let manifest = prefetchedManifest;
+  if (!manifest) {
+    reportProgress(0.05, 'Lendo manifesto da história...');
+    const manifestRaw = await fetchText(manifestUrl, 'story.md');
+    manifest = parseStoryManifest(manifestRaw, 'story.md');
+  } else {
+    reportProgress(0.05, 'Manifesto carregado. Lendo mapa...');
+  }
 
   let locationNames = new Map();
   const mapUrl = `${cleanBase}/map/map.md`;
-  if (await checkAssetExists(mapUrl)) {
-    reportProgress(0.15, 'Carregando mapa de locais...');
-    const mapRaw = await fetchText(mapUrl, 'map/map.md');
-    locationNames = parseMapMarkdown(mapRaw, 'map/map.md');
-  }
-
-  reportProgress(0.25, 'Resolvendo imagem de abertura...');
-  let splashUrl = await resolveFirstExistingAsset(
-    getSplashPngCandidates(cleanBase, manifest.splash),
-  );
-  if (!splashUrl && manifest.splash) {
-    const candidateSplash = `${cleanBase}/${manifest.splash}`;
-    if (await checkAssetExists(candidateSplash)) {
-      splashUrl = candidateSplash;
-    } else {
-      console.warn(`[StoryLoader] Imagem de abertura ausente: ${candidateSplash}. Usando padrão.`);
+  const mapPromise = (async () => {
+    if (await cachedExists(mapUrl)) {
+      const mapRaw = await fetchText(mapUrl, 'map/map.md');
+      locationNames = parseMapMarkdown(mapRaw, 'map/map.md');
     }
-  }
+  })();
+
+  const splashPromise = prefetchedSplashUrl !== undefined
+    ? Promise.resolve(prefetchedSplashUrl)
+    : resolveSplashAssetUrl(cleanBase, manifest, cachedExists);
 
   const totalChars = Math.max(1, manifest.characters.length);
   let loadedChars = 0;
   const characters = new Map();
-  await Promise.all(
+  const charsPromise = Promise.all(
     manifest.characters.map(async (charId) => {
       const charFile = `characters/${charId}.md`;
       const raw = await fetchText(`${cleanBase}/${charFile}`, charFile);
       const character = parseCharacterMarkdown(raw, charFile);
 
       const resolvedSprites = {};
-      for (const [view, relPath] of Object.entries(character.sprites)) {
-        if (view === 'left' || view === 'right') {
-          const pngOverride = await resolveFirstExistingAsset(
-            getCharacterSidePngCandidates(cleanBase, charId, view),
-          );
-          if (pngOverride) {
-            resolvedSprites[view] = withBust(pngOverride);
-            continue;
+      await Promise.all(
+        Object.entries(character.sprites).map(async ([view, relPath]) => {
+          if (view === 'left' || view === 'right') {
+            const pngOverride = await resolveFirstExistingAsset(
+              getCharacterSidePngCandidates(cleanBase, charId, view),
+              cachedExists,
+            );
+            if (pngOverride) {
+              resolvedSprites[view] = withBust(pngOverride);
+              return;
+            }
           }
-        }
-        if (!relPath) {
-          resolvedSprites[view] = '';
-          continue;
-        }
-        const fullUrl = `${cleanBase}/${relPath}`;
-        if (await checkAssetExists(fullUrl)) {
-          resolvedSprites[view] = withBust(fullUrl);
-        } else {
-          console.warn(`[StoryLoader] Sprite "${view}" de "${charId}" ausente (${fullUrl}). Aplicando fallback.`);
-          resolvedSprites[view] = '';
-        }
-      }
+          if (!relPath) {
+            resolvedSprites[view] = '';
+            return;
+          }
+          const fullUrl = `${cleanBase}/${relPath}`;
+          if (await cachedExists(fullUrl)) {
+            resolvedSprites[view] = withBust(fullUrl);
+          } else {
+            console.warn(`[StoryLoader] Sprite "${view}" de "${charId}" ausente (${fullUrl}). Aplicando fallback.`);
+            resolvedSprites[view] = '';
+          }
+        }),
+      );
 
       characters.set(character.id, {
         ...character,
         sprites: resolvedSprites,
       });
       loadedChars += 1;
-      reportProgress(0.3 + (loadedChars / totalChars) * 0.25, `Carregando personagens (${loadedChars}/${totalChars})...`);
+      reportProgress(0.2 + (loadedChars / totalChars) * 0.25, `Carregando personagens (${loadedChars}/${totalChars})...`);
     }),
   );
 
@@ -257,7 +310,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
   const itemIds = [...new Set([...(manifest.items || []), ...(manifest.collectibles || [])])];
   const totalItems = Math.max(1, itemIds.length);
   let loadedItems = 0;
-  await Promise.all(
+  const itemsPromise = Promise.all(
     itemIds.map(async (itemId) => {
       const itemFile = `items/${itemId}.md`;
       const raw = await fetchText(`${cleanBase}/${itemFile}`, itemFile);
@@ -269,7 +322,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
       let imageUrl = '';
       if (item.image) {
         const fullUrl = `${cleanBase}/${item.image}`;
-        if (await checkAssetExists(fullUrl)) {
+        if (await cachedExists(fullUrl)) {
           imageUrl = withBust(fullUrl);
         } else {
           console.warn(`[StoryLoader] Imagem do item "${itemId}" ausente (${fullUrl}).`);
@@ -281,84 +334,97 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
         worldPoint,
       });
       loadedItems += 1;
-      reportProgress(0.55 + (loadedItems / totalItems) * 0.1, `Carregando itens (${loadedItems}/${totalItems})...`);
+      reportProgress(0.45 + (loadedItems / totalItems) * 0.15, `Carregando itens (${loadedItems}/${totalItems})...`);
     }),
   );
 
   const typePools = new Map();
-  await Promise.all(
+  const poolsPromise = Promise.all(
     ['casa', 'com', 'praca', 'rua'].map(async (typePrefix) => {
-      const discovered = await discoverTypeBackgroundPool(cleanBase, typePrefix);
+      const discovered = await discoverTypeBackgroundPool(cleanBase, typePrefix, cachedExists);
       typePools.set(typePrefix, discovered.map((url) => withBust(url)));
     }),
   );
 
+  const [, splashUrl] = await Promise.all([
+    mapPromise,
+    splashPromise,
+    charsPromise,
+    itemsPromise,
+    poolsPromise,
+  ]);
+
   const totalMissions = Math.max(1, manifest.missions.length);
-  const missions = [];
-  for (let i = 0; i < manifest.missions.length; i += 1) {
-    const missionId = manifest.missions[i];
-    const missionFile = `missions/${missionId}.md`;
-    const raw = await fetchText(`${cleanBase}/${missionFile}`, missionFile);
-    const mission = parseMissionMarkdown(raw, missionFile, cityMap);
+  let loadedMissions = 0;
+  const missions = await Promise.all(
+    manifest.missions.map(async (missionId) => {
+      const missionFile = `missions/${missionId}.md`;
+      const raw = await fetchText(`${cleanBase}/${missionFile}`, missionFile);
+      const mission = parseMissionMarkdown(raw, missionFile, cityMap);
 
-    if (mission.giveItem && !items.has(mission.giveItem)) {
-      throw new StoryParseError(missionFile, 2, `Item "${mission.giveItem}" (give_item) não declarado em story.md.`);
-    }
-    if (mission.requireItem && !items.has(mission.requireItem)) {
-      throw new StoryParseError(missionFile, 2, `Item "${mission.requireItem}" (require_item) não declarado em story.md.`);
-    }
-
-    const cutsceneConfigs = [
-      { cutscene: mission.introCutscene, fallbackCode: mission.startLocation },
-      { cutscene: mission.outroCutscene, fallbackCode: mission.targetLocation },
-    ];
-
-    for (const { cutscene, fallbackCode } of cutsceneConfigs) {
-      if (cutscene.leftChar && !characters.has(cutscene.leftChar)) {
-        throw new StoryParseError(missionFile, 0, `Personagem "${cutscene.leftChar}" não declarado em story.md.`);
+      if (mission.giveItem && !items.has(mission.giveItem)) {
+        throw new StoryParseError(missionFile, 2, `Item "${mission.giveItem}" (give_item) não declarado em story.md.`);
       }
-      if (cutscene.rightChar && !characters.has(cutscene.rightChar)) {
-        throw new StoryParseError(missionFile, 0, `Personagem "${cutscene.rightChar}" não declarado em story.md.`);
+      if (mission.requireItem && !items.has(mission.requireItem)) {
+        throw new StoryParseError(missionFile, 2, `Item "${mission.requireItem}" (require_item) não declarado em story.md.`);
       }
-      const bgType = extractCutsceneLocationType(cutscene.background, fallbackCode);
-      const pool = typePools.get(bgType) || [];
-      const explicitCandidates = getCutsceneBackgroundCandidates(cleanBase, cutscene.background, fallbackCode)
-        .filter((url) => !/\/map\/(?:casa|com|praca|rua)\.(?:png|jpe?g)$/i.test(url));
-      const explicitBg = withBust(await resolveFirstExistingAsset(explicitCandidates));
 
-      cutscene.backgroundType = bgType;
-      cutscene.backgroundPool = explicitBg ? [explicitBg] : pool;
-      cutscene.backgroundImage = explicitBg || pool[0] || withBust(await resolveFirstExistingAsset(
-        getCutsceneBackgroundCandidates(cleanBase, cutscene.background, fallbackCode),
-      ));
-      cutscene.background = replaceLocationCodesWithNames(cutscene.background, locationNames);
-      for (const step of cutscene.steps) {
-        step.text = replaceLocationCodesWithNames(step.text, locationNames);
-        if (step.choices) {
-          for (const choice of step.choices) {
-            choice.label = replaceLocationCodesWithNames(choice.label, locationNames);
-            choice.reason = replaceLocationCodesWithNames(choice.reason, locationNames);
+      const cutsceneConfigs = [
+        { cutscene: mission.introCutscene, fallbackCode: mission.startLocation },
+        { cutscene: mission.outroCutscene, fallbackCode: mission.targetLocation },
+      ];
+
+      await Promise.all(
+        cutsceneConfigs.map(async ({ cutscene, fallbackCode }) => {
+          if (cutscene.leftChar && !characters.has(cutscene.leftChar)) {
+            throw new StoryParseError(missionFile, 0, `Personagem "${cutscene.leftChar}" não declarado em story.md.`);
           }
-        }
-      }
-    }
+          if (cutscene.rightChar && !characters.has(cutscene.rightChar)) {
+            throw new StoryParseError(missionFile, 0, `Personagem "${cutscene.rightChar}" não declarado em story.md.`);
+          }
+          const bgType = extractCutsceneLocationType(cutscene.background, fallbackCode);
+          const pool = typePools.get(bgType) || [];
+          const explicitCandidates = getCutsceneBackgroundCandidates(cleanBase, cutscene.background, fallbackCode)
+            .filter((url) => !/\/map\/(?:casa|com|praca|rua)\.(?:png|jpe?g)$/i.test(url));
+          const explicitBg = withBust(await resolveFirstExistingAsset(explicitCandidates, cachedExists));
 
-    mission.objective = replaceLocationCodesWithNames(mission.objective, locationNames);
-    if (mission.pickupObjective) {
-      mission.pickupObjective = replaceLocationCodesWithNames(mission.pickupObjective, locationNames);
-    }
-    if (mission.deliveryPrompt) {
-      mission.deliveryPrompt = replaceLocationCodesWithNames(mission.deliveryPrompt, locationNames);
-    }
-    if (mission.wrongItemMessage) {
-      mission.wrongItemMessage = replaceLocationCodesWithNames(mission.wrongItemMessage, locationNames);
-    }
-    missions.push(mission);
-    reportProgress(
-      0.65 + ((i + 1) / totalMissions) * 0.35,
-      `Carregando missões (${i + 1}/${totalMissions})...`,
-    );
-  }
+          cutscene.backgroundType = bgType;
+          cutscene.backgroundPool = explicitBg ? [explicitBg] : pool;
+          cutscene.backgroundImage = explicitBg || pool[0] || withBust(await resolveFirstExistingAsset(
+            getCutsceneBackgroundCandidates(cleanBase, cutscene.background, fallbackCode),
+            cachedExists,
+          ));
+          cutscene.background = replaceLocationCodesWithNames(cutscene.background, locationNames);
+          for (const step of cutscene.steps) {
+            step.text = replaceLocationCodesWithNames(step.text, locationNames);
+            if (step.choices) {
+              for (const choice of step.choices) {
+                choice.label = replaceLocationCodesWithNames(choice.label, locationNames);
+                choice.reason = replaceLocationCodesWithNames(choice.reason, locationNames);
+              }
+            }
+          }
+        }),
+      );
+
+      mission.objective = replaceLocationCodesWithNames(mission.objective, locationNames);
+      if (mission.pickupObjective) {
+        mission.pickupObjective = replaceLocationCodesWithNames(mission.pickupObjective, locationNames);
+      }
+      if (mission.deliveryPrompt) {
+        mission.deliveryPrompt = replaceLocationCodesWithNames(mission.deliveryPrompt, locationNames);
+      }
+      if (mission.wrongItemMessage) {
+        mission.wrongItemMessage = replaceLocationCodesWithNames(mission.wrongItemMessage, locationNames);
+      }
+      loadedMissions += 1;
+      reportProgress(
+        0.6 + (loadedMissions / totalMissions) * 0.4,
+        `Carregando missões (${loadedMissions}/${totalMissions})...`,
+      );
+      return mission;
+    }),
+  );
 
   console.info(
     `[StoryLoader] História "${manifest.title}" carregada (${characters.size} personagens, ${items.size} itens, ${missions.length} missões, ${locationNames.size} locais nomeados).`,

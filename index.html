@@ -12,7 +12,7 @@
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <link rel="apple-touch-icon" href="./icon.svg">
   <title>Cidade Aberta Retrô</title>
-  <link rel="stylesheet" href="./styles/main.css?v=21">
+  <link rel="stylesheet" href="./styles/main.css?v=22">
 </head>
 <body>
   <div id="game-shell">
@@ -129,7 +129,16 @@
         <img id="start-splash" class="start-splash hidden" alt="Capa da história">
         <h1 id="start-title" class="retro-title">CIDADE ABERTA</h1>
         <p id="start-subtitle" class="overlay-subtitle">Explore a cidade, entre em estabelecimentos térreos e dirija carros, motos e vans.</p>
-        <button id="start-button" type="button" class="primary-button">Entrar na Cidade</button>
+        <div id="start-loading-box" class="start-loading-box">
+          <div class="progress-track start-progress-track">
+            <div id="start-loading-bar" class="progress-fill"></div>
+          </div>
+          <div class="start-loading-meta">
+            <span id="start-loading-text" class="start-loading-text">Preparando recursos da primeira missão...</span>
+            <span id="start-loading-percent" class="start-loading-percent">0%</span>
+          </div>
+        </div>
+        <button id="start-button" type="button" class="primary-button" disabled>Carregando...</button>
         <p id="ios-install-hint" class="ios-install-hint hidden">No iPhone, para tela cheia sem barra: Compartilhar → Adicionar à Tela de Início.</p>
       </div>
     </section>
@@ -258,6 +267,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/main.js?v=45"></script>
+  <script type="module" src="./src/main.js?v=47"></script>
 </body>
 </html>

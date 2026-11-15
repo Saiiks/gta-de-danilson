@@ -451,8 +451,48 @@ body {
   letter-spacing: 0.04em;
 }
 
-.primary-button:hover {
+.primary-button:hover:not(:disabled) {
   background: #f59e0b;
+}
+
+.primary-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.start-loading-box {
+  width: 100%;
+  margin: 0 0 18px;
+}
+
+.start-progress-track {
+  height: 8px;
+  margin: 0 0 6px;
+}
+
+.start-loading-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.start-loading-text {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #94a3b8;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start-loading-percent {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 .ios-install-hint {
