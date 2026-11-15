@@ -211,6 +211,7 @@
           <button id="pause-resume-btn" type="button" class="primary-button">Continuar</button>
           <button id="pause-restart-btn" type="button" class="secondary-button">REINICIAR MISSÃO</button>
           <button id="pause-choose-btn" type="button" class="secondary-button">ESCOLHER MISSÃO</button>
+          <button id="pause-new-game-btn" type="button" class="secondary-button">NOVO JOGO</button>
           <button id="pause-exit-btn" type="button" class="danger-button">SAIR</button>
         </div>
       </div>
@@ -269,6 +270,17 @@
         <div class="inventory-actions">
           <button id="inventory-deliver-btn" type="button" class="primary-button hidden">Entregar Item</button>
           <button id="inventory-close-btn" type="button" class="secondary-button">Fechar</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="confirm-screen" class="overlay-screen hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div class="overlay-card confirm-card">
+        <h2 id="confirm-title" class="overlay-heading">INICIAR NOVO JOGO?</h2>
+        <p id="confirm-message" class="overlay-subtitle">Ao iniciar um novo jogo, todo o progresso atual será perdido. Deseja continuar?</p>
+        <div class="confirm-actions">
+          <button id="confirm-cancel-btn" type="button" class="secondary-button">Cancelar</button>
+          <button id="confirm-accept-btn" type="button" class="danger-button">Iniciar Novo Jogo</button>
         </div>
       </div>
     </section>

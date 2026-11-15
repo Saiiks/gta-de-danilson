@@ -57,6 +57,7 @@ export class Engine {
     this.inventoryController = options.inventoryController || null;
     this.preloadedUrls = options.preloadedUrls || new Set();
     this.onExitToTitle = options.onExitToTitle || null;
+    this.onNewGame = options.onNewGame || null;
 
     this.inventory = new Inventory();
     this.awaitingExitTarget = false;
@@ -171,7 +172,7 @@ export class Engine {
         return;
       }
       if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
-        if (this.inventoryController?.isOpen || this.hud.isExpandedMapOpen()) return;
+        if (this.inventoryController?.isOpen || this.hud.isExpandedMapOpen() || this.pauseMenu?.confirmDialog?.isOpen) return;
         if (this.pauseMenu?.isOpen) this.pauseMenu.close();
         else this.pauseMenu?.open();
       }
@@ -327,6 +328,9 @@ export class Engine {
         this.missionCheckpoint = null;
         this.startMission(missionIdx);
       },
+      onNewGame: () => {
+        this.onNewGame?.();
+      },
       onExitToTitle: () => {
         this.#persistSaveState();
         this.onExitToTitle?.();
@@ -449,6 +453,9 @@ export class Engine {
       onSelectMission: (missionIdx) => {
         this.missionCheckpoint = null;
         this.startMission(missionIdx);
+      },
+      onNewGame: () => {
+        this.onNewGame?.();
       },
       onExitToTitle: () => {
         this.#persistSaveState();
@@ -918,7 +925,7 @@ export class Engine {
       return;
     }
 
-    if (input.pauseJustPressed && !this.player.isDead && !this.deathSequence && !this.cutscene?.active && !this.inventoryController?.isOpen && !this.hud.isMissionCompleteOpen()) {
+    if (input.pauseJustPressed && !this.player.isDead && !this.deathSequence && !this.cutscene?.active && !this.inventoryController?.isOpen && !this.hud.isMissionCompleteOpen() && !this.pauseMenu?.confirmDialog?.isOpen) {
       if (this.pauseMenu?.isOpen) this.pauseMenu.close();
       else this.pauseMenu?.open();
       return;

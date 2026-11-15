@@ -1,7 +1,8 @@
 import { Engine } from './core/engine.js?v=43';
 import { HudController } from './ui/hud-controller.js?v=30';
 import { CutsceneController } from './ui/cutscene-controller.js?v=14';
-import { PauseMenuController } from './ui/pause-menu.js';
+import { PauseMenuController } from './ui/pause-menu.js?v=2';
+import { ConfirmDialogController } from './ui/confirm-dialog.js?v=1';
 import { InventoryController } from './ui/inventory-controller.js?v=19';
 import { CityMap } from './world/city-map.js?v=27';
 import {
@@ -27,7 +28,8 @@ async function boot() {
   }
   const hud = new HudController();
   const cutscene = new CutsceneController();
-  const pauseMenu = new PauseMenuController();
+  const confirmDialog = new ConfirmDialogController();
+  const pauseMenu = new PauseMenuController(confirmDialog);
   const inventoryController = new InventoryController();
   const canvas = document.getElementById('game-canvas');
   const minimapCanvas = document.getElementById('minimap-canvas');
@@ -134,6 +136,7 @@ async function boot() {
         pauseMenu,
         inventoryController,
         preloadedUrls,
+        onNewGame: () => requestNewGame(() => pauseMenu.close()),
         onExitToTitle: () => {
           activeEngine?.stop();
           activeEngine = null;
@@ -154,11 +157,24 @@ async function boot() {
     }
   };
 
+  const requestNewGame = (onConfirmed = null) => {
+    confirmDialog.open({
+      title: 'INICIAR NOVO JOGO?',
+      message: 'Ao iniciar um novo jogo, todo o progresso atual será perdido. Deseja continuar?',
+      cancelLabel: 'Cancelar',
+      confirmLabel: 'Iniciar Novo Jogo',
+      onConfirm: () => {
+        onConfirmed?.();
+        launchGame({ useSaved: false });
+      }
+    });
+  };
+
   hud.onStartClick(() => launchGame({ useSaved: true }));
-  hud.onNewGameClick(() => launchGame({ useSaved: false }));
+  hud.onNewGameClick(() => requestNewGame());
 
   window.addEventListener('keydown', (e) => {
-    if (!hud.isStartScreenOpen()) return;
+    if (!hud.isStartScreenOpen() || confirmDialog.isOpen) return;
     if (e.code === 'ArrowLeft' || e.code === 'ArrowUp' || e.code === 'KeyA' || e.code === 'KeyW') {
       e.preventDefault();
       hud.moveStartSelection(-1);
@@ -172,30 +188,44 @@ async function boot() {
   });
 
   let prevGpAction = false;
+  let prevGpSecondary = false;
   let prevGpPrev = false;
   let prevGpNext = false;
   const pollStartGamepad = () => {
-    if (hud.isStartScreenOpen() && navigator.getGamepads) {
+    if ((hud.isStartScreenOpen() || confirmDialog.isOpen) && !activeEngine && navigator.getGamepads) {
       const gps = navigator.getGamepads();
       let gpAction = false;
+      let gpSecondary = false;
       let gpPrev = false;
       let gpNext = false;
       for (const gp of gps) {
         if (!gp?.connected) continue;
         if (gp.buttons[0]?.pressed) gpAction = true;
+        if (gp.buttons[1]?.pressed) gpSecondary = true;
         const ax0 = gp.axes[0] ?? 0;
         const ax1 = gp.axes[1] ?? 0;
         if (gp.buttons[14]?.pressed || gp.buttons[12]?.pressed || ax0 < -0.5 || ax1 < -0.5) gpPrev = true;
         if (gp.buttons[15]?.pressed || gp.buttons[13]?.pressed || ax0 > 0.5 || ax1 > 0.5) gpNext = true;
       }
-      if (gpPrev && !prevGpPrev) hud.moveStartSelection(-1);
-      if (gpNext && !prevGpNext) hud.moveStartSelection(1);
-      if (gpAction && !prevGpAction) hud.triggerStart();
+      if (confirmDialog.isOpen) {
+        confirmDialog.updateInput({
+          moveX: gpPrev ? -1 : gpNext ? 1 : 0,
+          moveY: 0,
+          actionJustPressed: gpAction && !prevGpAction,
+          secondaryJustPressed: gpSecondary && !prevGpSecondary,
+        });
+      } else {
+        if (gpPrev && !prevGpPrev) hud.moveStartSelection(-1);
+        if (gpNext && !prevGpNext) hud.moveStartSelection(1);
+        if (gpAction && !prevGpAction) hud.triggerStart();
+      }
       prevGpAction = gpAction;
+      prevGpSecondary = gpSecondary;
       prevGpPrev = gpPrev;
       prevGpNext = gpNext;
     } else {
       prevGpAction = true;
+      prevGpSecondary = true;
       prevGpPrev = true;
       prevGpNext = true;
     }

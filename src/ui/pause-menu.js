@@ -1,5 +1,6 @@
 export class PauseMenuController {
-  constructor() {
+  constructor(confirmDialog = null) {
+    this.confirmDialog = confirmDialog;
     this.pauseButton = document.getElementById('pause-button');
     this.screen = document.getElementById('pause-screen');
     this.missionSelectScreen = document.getElementById('mission-select-screen');
@@ -8,6 +9,7 @@ export class PauseMenuController {
     this.chooseMissionBtn = document.getElementById('pause-choose-btn');
     this.missionListEl = document.getElementById('pause-mission-list');
     this.missionSelectBackBtn = document.getElementById('mission-select-back-btn');
+    this.newGameBtn = document.getElementById('pause-new-game-btn');
     this.exitBtn = document.getElementById('pause-exit-btn');
 
     this.isOpen = false;
@@ -33,6 +35,10 @@ export class PauseMenuController {
 
     this.missionSelectBackBtn.addEventListener('click', () => this.closeMissionSelect());
 
+    this.newGameBtn?.addEventListener('click', () => {
+      this.callbacks.onNewGame?.();
+    });
+
     this.exitBtn.addEventListener('click', () => {
       this.close();
       this.callbacks.onExitToTitle?.();
@@ -43,7 +49,7 @@ export class PauseMenuController {
     if (this.inMissionSelect) {
       return [...this.missionListEl.querySelectorAll('button'), this.missionSelectBackBtn];
     }
-    return [this.resumeBtn, this.restartMissionBtn, this.chooseMissionBtn, this.exitBtn];
+    return [this.resumeBtn, this.restartMissionBtn, this.chooseMissionBtn, this.newGameBtn, this.exitBtn].filter(Boolean);
   }
 
   highlightSelection() {
@@ -51,10 +57,11 @@ export class PauseMenuController {
       this.resumeBtn,
       this.restartMissionBtn,
       this.chooseMissionBtn,
+      this.newGameBtn,
       this.exitBtn,
       this.missionSelectBackBtn,
       ...this.missionListEl.querySelectorAll('button')
-    ];
+    ].filter(Boolean);
     allButtons.forEach((b) => b.classList.remove('menu-selected'));
 
     const active = this.getActiveButtons();
@@ -83,6 +90,10 @@ export class PauseMenuController {
 
   updateInput(input) {
     if (!this.isOpen) return;
+    if (this.confirmDialog?.isOpen) {
+      this.confirmDialog.updateInput(input);
+      return;
+    }
     const active = this.getActiveButtons();
     if (active.length === 0) return;
 
