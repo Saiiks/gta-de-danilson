@@ -40,11 +40,42 @@ const PANTS_COLORS = [
 const SIDEWALK_MID = SIDEWALK_WIDTH * 0.5;
 
 export class TrafficManager {
-  constructor(cityMap) {
+  constructor(cityMap, { chunkManaged = false } = {}) {
     this.cityMap = cityMap;
+    this.chunkManaged = chunkManaged;
     this.pedestrians = [];
     this.nextPedId = 1;
-    this.#spawnInitialPedestrians();
+    if (!chunkManaged) {
+      this.#spawnInitialPedestrians();
+    }
+  }
+
+  syncPedestrianChunks(activeChunks, nextKeys, player, previousKeys = new Set()) {
+    if (this.pedestrians.length > 0) {
+      this.pedestrians = this.pedestrians.filter((ped) => {
+        if (nextKeys.has(ped.chunkKey)) return true;
+        if (typeof this.cityMap.getChunkCoordsAt === 'function') {
+          const posChunk = this.cityMap.getChunkCoordsAt(ped.x, ped.y);
+          if (nextKeys.has(posChunk.key)) return true;
+        }
+        return player ? Math.hypot(ped.x - player.x, ped.y - player.y) < 1100 : false;
+      });
+    }
+
+    const sides = ['south', 'east', 'north', 'west'];
+    for (const chunk of activeChunks) {
+      if (previousKeys.has(chunk.key)) continue;
+      for (const block of chunk.blocks) {
+        const sw = this.#getSidewalkBounds(block);
+        const idx = block.bx * 3 + block.by * 5;
+        const primarySide = sides[(block.bx + block.by) % sides.length];
+        const prevLen = this.pedestrians.length;
+        this.#spawnSidewalkPedestrian(block.bx, block.by, sw, primarySide, idx);
+        for (let i = prevLen; i < this.pedestrians.length; i += 1) {
+          this.pedestrians[i].chunkKey = chunk.key;
+        }
+      }
+    }
   }
 
   #nextRand(ped) {

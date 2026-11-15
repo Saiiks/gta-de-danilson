@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CityMap } from '../src/world/city-map.js';
+import { TrafficManager } from '../src/world/traffic-manager.js';
 
 test('gera cidade-base 30x30 com códigos únicos de ruas, casas, comércios e praças', () => {
   const map = new CityMap();
@@ -115,7 +116,27 @@ test('divide a cidade em chunks ativos com cerca de 2 veículos variados por qua
   assert.ok(localChunks.length >= 4 && localChunks.length <= 9);
   for (const chunk of localChunks) {
     assert.equal(chunk.vehicleSpawns.length, chunk.blocks.length * 2);
+    assert.ok(chunk.trashBinSpawns.length > 0);
     const kinds = new Set(chunk.vehicleSpawns.map((v) => v.kind));
     assert.ok(kinds.size >= 2);
   }
+
+  const traffic = new TrafficManager(map, { chunkManaged: true });
+  assert.equal(traffic.pedestrians.length, 0);
+  const nextKeys = new Set(localChunks.map((c) => c.key));
+  traffic.syncPedestrianChunks(localChunks, nextKeys, { x: casa1.spawnPoint.x, y: casa1.spawnPoint.y });
+  assert.ok(traffic.pedestrians.length > 0);
+
+  // Ao mover para um chunk distante, os pedestres antigos fora da vizinhança são removidos
+  const farCorner = map.resolveLocationCode('CASA-656');
+  const farChunks = map.getActiveChunks(
+    farCorner.spawnPoint.x - 10,
+    farCorner.spawnPoint.y - 10,
+    farCorner.spawnPoint.x + 10,
+    farCorner.spawnPoint.y + 10,
+    1,
+  );
+  const farKeys = new Set(farChunks.map((c) => c.key));
+  traffic.syncPedestrianChunks(farChunks, farKeys, { x: farCorner.spawnPoint.x, y: farCorner.spawnPoint.y }, nextKeys);
+  assert.ok(traffic.pedestrians.every((p) => farKeys.has(p.chunkKey)));
 });

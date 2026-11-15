@@ -109,9 +109,10 @@ export class CityMap {
           plaza: null,
           obstacles: []
         };
+        const binChunkKey = `${Math.floor(bx / this.chunkBlockSize)},${Math.floor(by / this.chunkBlockSize)}`;
         this.trashBinSpawns.push(
-          { id: `bin-${bx}-${by}-nw`, x: blockX + 13, y: blockY + 13 },
-          { id: `bin-${bx}-${by}-se`, x: blockX + bw - 13, y: blockY + bh - 13 }
+          { id: `bin-${bx}-${by}-nw`, x: blockX + 13, y: blockY + 13, chunkKey: binChunkKey },
+          { id: `bin-${bx}-${by}-se`, x: blockX + bw - 13, y: blockY + bh - 13, chunkKey: binChunkKey }
         );
 
         if (isPlaza) {
@@ -490,6 +491,14 @@ export class CityMap {
       spawnsByChunk.get(spawn.chunkKey).push(spawn);
     }
 
+    const trashBinsByChunk = new Map();
+    for (const bin of this.trashBinSpawns) {
+      if (!trashBinsByChunk.has(bin.chunkKey)) {
+        trashBinsByChunk.set(bin.chunkKey, []);
+      }
+      trashBinsByChunk.get(bin.chunkKey).push(bin);
+    }
+
     for (let cy = 0; cy < this.chunkRows; cy += 1) {
       const row = [];
       for (let cx = 0; cx < this.chunkCols; cx += 1) {
@@ -542,7 +551,8 @@ export class CityMap {
           roadXIndices,
           roadYIndices,
           crosswalks,
-          vehicleSpawns: spawnsByChunk.get(key) || []
+          vehicleSpawns: spawnsByChunk.get(key) || [],
+          trashBinSpawns: trashBinsByChunk.get(key) || []
         };
         row.push(chunk);
         this.chunksByKey.set(key, chunk);

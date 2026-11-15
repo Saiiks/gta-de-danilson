@@ -81,7 +81,7 @@ body {
   position: static;
   display: flex;
   gap: 6px;
-  align-items: center;
+  align-items: stretch;
   flex-wrap: wrap;
 }
 
@@ -106,12 +106,33 @@ body {
   color: #fbbf24;
 }
 
+#health-badge,
 #vehicle-badge {
-  width: 122px;
+  width: 126px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+#vehicle-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
+}
+
+.hud-speed-value {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.hud-speed-unit {
+  font-size: 10px;
+  font-weight: 600;
+  color: #9ca3af;
+  letter-spacing: 0.02em;
 }
 
 .hud-health-stack {
@@ -1308,6 +1329,7 @@ body {
     font-size: 11px;
   }
 
+  #health-badge,
   #vehicle-badge {
     width: 102px;
   }

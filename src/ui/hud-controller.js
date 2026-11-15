@@ -408,7 +408,13 @@ export class HudController {
     if (vehicle) {
       const kmh = Math.round(vehicle.speed * 0.25);
       const driftTag = isDrifting ? ' · DRIFT!' : '';
-      this.vehicleStatusEl.textContent = `${kmh} km/h${driftTag}`;
+      const valueEl = document.createElement('span');
+      valueEl.className = 'hud-speed-value';
+      valueEl.textContent = String(kmh);
+      const unitEl = document.createElement('span');
+      unitEl.className = 'hud-speed-unit';
+      unitEl.textContent = ` km/h${driftTag}`;
+      this.vehicleStatusEl.replaceChildren(valueEl, unitEl);
     } else {
       this.vehicleStatusEl.textContent = 'A pé';
     }
