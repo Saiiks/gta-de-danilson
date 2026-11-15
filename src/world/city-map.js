@@ -750,6 +750,23 @@ export class CityMap {
         return road;
       }
     }
+
+    if (block) {
+      const rx = this.blockXOffsets[block.bx];
+      const ry = this.blockYOffsets[block.by];
+      const rw = this.colWidths[block.bx];
+      const rh = this.rowHeights[block.by];
+      const candidates = [
+        { dist: Math.abs(y - ry), road: this.horizontalRoads[block.by] },
+        { dist: Math.abs(ry + rh - y), road: this.horizontalRoads[block.by + 1] },
+        { dist: Math.abs(x - rx), road: this.verticalRoads[block.bx] },
+        { dist: Math.abs(rx + rw - x), road: this.verticalRoads[block.bx + 1] },
+      ].filter((c) => Boolean(c.road));
+      candidates.sort((a, b) => a.dist - b.dist);
+      if (candidates[0]?.road) {
+        return candidates[0].road;
+      }
+    }
     return null;
   }
 

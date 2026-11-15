@@ -96,7 +96,25 @@ test('resolveItemLocation posiciona itens em praças, interiores e esquinas entr
 
   const cornerPt = map.resolveItemLocation('RUA-04 x RUA-36 NE');
   assert.equal(cornerPt.kind, 'corner');
-  assert.equal(map.getLocationAt(cornerPt.x, cornerPt.y), null);
+  const cornerLoc = map.getLocationAt(cornerPt.x, cornerPt.y);
+  assert.equal(cornerLoc?.type, 'road');
+  assert.ok(['RUA-04', 'RUA-36'].includes(cornerLoc?.code));
+});
+
+test('getLocationAt identifica a rua correspondente quando o jogador está na calçada', () => {
+  const map = new CityMap();
+  const block = map.blocks[1][1];
+  const rx = map.blockXOffsets[1];
+  const ry = map.blockYOffsets[1];
+  const rw = map.colWidths[1];
+  const rh = map.rowHeights[1];
+  const northSidewalk = map.getLocationAt(rx + rw * 0.5, ry + 4);
+  assert.equal(northSidewalk?.type, 'road');
+  assert.equal(northSidewalk?.code, map.horizontalRoads[1].code);
+
+  const westSidewalk = map.getLocationAt(rx + 4, ry + rh * 0.5);
+  assert.equal(westSidewalk?.type, 'road');
+  assert.equal(westSidewalk?.code, map.verticalRoads[1].code);
 });
 
 test('divide a cidade em chunks ativos com cerca de 2 veículos variados por quarteirão dirigidos por NPCs', () => {

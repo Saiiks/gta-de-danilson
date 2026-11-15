@@ -61,15 +61,24 @@ export class HudController {
     this.expandedMapCanvas = document.getElementById('expanded-map-canvas');
     this.expandedMapObjectiveEl = document.getElementById('expanded-map-objective');
     this.expandedMapCloseBtn = document.getElementById('expanded-map-close-btn');
+    this.expandedMapZoomInBtn = document.getElementById('expanded-map-zoom-in-btn');
+    this.expandedMapZoomOutBtn = document.getElementById('expanded-map-zoom-out-btn');
+    this.expandedMapZoomResetBtn = document.getElementById('expanded-map-zoom-reset-btn');
     this.minimapClickHandler = null;
     this.expandedMapCloseHandler = null;
+    this.expandedMapTransformHandler = null;
+    this.expandedMapPointers = new Map();
     this.minimapContainerEl?.addEventListener('click', () => this.minimapClickHandler?.());
     this.expandedMapCloseBtn?.addEventListener('click', () => this.expandedMapCloseHandler?.());
+    this.expandedMapZoomInBtn?.addEventListener('click', () => this.expandedMapTransformHandler?.({ type: 'zoom', factor: 1.35 }));
+    this.expandedMapZoomOutBtn?.addEventListener('click', () => this.expandedMapTransformHandler?.({ type: 'zoom', factor: 1 / 1.35 }));
+    this.expandedMapZoomResetBtn?.addEventListener('click', () => this.expandedMapTransformHandler?.({ type: 'reset' }));
     this.expandedMapScreen?.addEventListener('click', (e) => {
       if (e.target === this.expandedMapScreen) {
         this.expandedMapCloseHandler?.();
       }
     });
+    this.#bindExpandedMapGestures();
     this.iosInstallHint = document.getElementById('ios-install-hint');
     this.hasStarted = false;
     this.missionCompleteHandler = null;
@@ -311,6 +320,107 @@ export class HudController {
     this.expandedMapCloseHandler = handler;
   }
 
+  onExpandedMapTransform(handler) {
+    this.expandedMapTransformHandler = handler;
+  }
+
+  setExpandedMapZoomLabel(zoom = 1) {
+    if (!this.expandedMapZoomResetBtn) return;
+    const rounded = Math.abs(zoom - Math.round(zoom)) < 0.05 ? Math.round(zoom) : zoom.toFixed(1);
+    this.expandedMapZoomResetBtn.textContent = `${rounded}×`;
+  }
+
+  #toExpandedCanvasPoint(clientX, clientY) {
+    const canvas = this.expandedMapCanvas;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width > 0 ? canvas.width / rect.width : 1;
+    const scaleY = rect.height > 0 ? canvas.height / rect.height : 1;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  }
+
+  #bindExpandedMapGestures() {
+    const canvas = this.expandedMapCanvas;
+    if (!canvas) return;
+
+    canvas.addEventListener('wheel', (e) => {
+      if (!this.isExpandedMapOpen()) return;
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.18 : 1 / 1.18;
+      const pt = this.#toExpandedCanvasPoint(e.clientX, e.clientY);
+      this.expandedMapTransformHandler?.({ type: 'zoom', factor, canvasX: pt.x, canvasY: pt.y });
+    }, { passive: false });
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (this.isExpandedMapOpen()) e.preventDefault();
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (this.isExpandedMapOpen()) e.preventDefault();
+    }, { passive: false });
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (!this.isExpandedMapOpen()) return;
+      canvas.setPointerCapture?.(e.pointerId);
+      const pt = this.#toExpandedCanvasPoint(e.clientX, e.clientY);
+      this.expandedMapPointers.set(e.pointerId, pt);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!this.isExpandedMapOpen() || !this.expandedMapPointers.has(e.pointerId)) return;
+      const nextPt = this.#toExpandedCanvasPoint(e.clientX, e.clientY);
+      if (this.expandedMapPointers.size === 1) {
+        const prevPt = this.expandedMapPointers.get(e.pointerId);
+        const dx = nextPt.x - prevPt.x;
+        const dy = nextPt.y - prevPt.y;
+        this.expandedMapPointers.set(e.pointerId, nextPt);
+        if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) {
+          this.expandedMapTransformHandler?.({ type: 'pan', dx, dy });
+        }
+        return;
+      }
+
+      if (this.expandedMapPointers.size >= 2) {
+        const entries = [...this.expandedMapPointers.entries()];
+        const [idA, ptA] = entries[0];
+        const [idB, ptB] = entries[1];
+        if (e.pointerId !== idA && e.pointerId !== idB) return;
+
+        const prevDist = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
+        const prevMidX = (ptA.x + ptB.x) * 0.5;
+        const prevMidY = (ptA.y + ptB.y) * 0.5;
+
+        this.expandedMapPointers.set(e.pointerId, nextPt);
+        const curA = this.expandedMapPointers.get(idA);
+        const curB = this.expandedMapPointers.get(idB);
+        const curDist = Math.hypot(curB.x - curA.x, curB.y - curA.y);
+        const curMidX = (curA.x + curB.x) * 0.5;
+        const curMidY = (curA.y + curB.y) * 0.5;
+
+        const midDx = curMidX - prevMidX;
+        const midDy = curMidY - prevMidY;
+        if (Math.abs(midDx) > 0.1 || Math.abs(midDy) > 0.1) {
+          this.expandedMapTransformHandler?.({ type: 'pan', dx: midDx, dy: midDy });
+        }
+        if (prevDist > 4 && curDist > 4) {
+          const factor = curDist / prevDist;
+          if (Math.abs(factor - 1) > 0.002) {
+            this.expandedMapTransformHandler?.({ type: 'zoom', factor, canvasX: curMidX, canvasY: curMidY });
+          }
+        }
+      }
+    });
+
+    const releasePointer = (e) => {
+      this.expandedMapPointers.delete(e.pointerId);
+    };
+    canvas.addEventListener('pointerup', releasePointer);
+    canvas.addEventListener('pointercancel', releasePointer);
+  }
+
   isExpandedMapOpen() {
     return Boolean(this.expandedMapScreen && !this.expandedMapScreen.classList.contains('hidden'));
   }
@@ -325,6 +435,7 @@ export class HudController {
 
   closeExpandedMap() {
     if (!this.expandedMapScreen) return;
+    this.expandedMapPointers.clear();
     this.expandedMapScreen.classList.add('hidden');
   }
 

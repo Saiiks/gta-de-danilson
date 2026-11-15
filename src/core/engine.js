@@ -1,4 +1,4 @@
-import { CityMap } from '../world/city-map.js?v=27';
+import { CityMap } from '../world/city-map.js?v=28';
 import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js?v=22';
 import { BoatManager } from '../world/boat-manager.js?v=17';
@@ -141,6 +141,8 @@ export class Engine {
       this.openExpandedMap();
     });
     this.hud.onExpandedMapClose(() => this.closeExpandedMap());
+    this.hud.onExpandedMapTransform((action) => this.#applyExpandedMapTransform(action));
+    this.expandedMapView = { zoom: 1, centerX: 0, centerY: 0 };
 
     this.#onKeyDown = (e) => {
       if (!this.running || this.player.isDead || this.deathSequence || this.hud.isMissionCompleteOpen()) return;
@@ -892,14 +894,77 @@ export class Engine {
     }
   }
 
-  openExpandedMap() {
-    if (this.hud.isExpandedMapOpen()) return;
-    this.paused = true;
-    const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
-    const objectiveText = this.freeRoamMode
-      ? 'Exploração livre'
-      : (activeMission?.objective || '');
-    this.hud.openExpandedMap(objectiveText);
+  #resetExpandedMapView() {
+    if (!this.cityMap) return;
+    this.expandedMapView = {
+      zoom: 1,
+      centerX: this.cityMap.worldWidth * 0.5,
+      centerY: this.cityMap.worldHeight * 0.5,
+    };
+    this.hud.setExpandedMapZoomLabel(1);
+    this.#renderExpandedMap();
+  }
+
+  #clampExpandedMapView() {
+    if (!this.cityMap) return;
+    const zoom = Math.max(1, Math.min(6, this.expandedMapView.zoom || 1));
+    this.expandedMapView.zoom = zoom;
+    if (zoom <= 1.001) {
+      this.expandedMapView.zoom = 1;
+      this.expandedMapView.centerX = this.cityMap.worldWidth * 0.5;
+      this.expandedMapView.centerY = this.cityMap.worldHeight * 0.5;
+    } else {
+      this.expandedMapView.centerX = Math.max(0, Math.min(this.cityMap.worldWidth, this.expandedMapView.centerX));
+      this.expandedMapView.centerY = Math.max(0, Math.min(this.cityMap.worldHeight, this.expandedMapView.centerY));
+    }
+    this.hud.setExpandedMapZoomLabel(this.expandedMapView.zoom);
+  }
+
+  #applyExpandedMapTransform(action) {
+    if (!this.hud.isExpandedMapOpen() || !this.cityMap || !action) return;
+    const canvas = this.hud.expandedMapCanvas;
+    const baseScale = this.minimap.getExpandedBaseScale(canvas, this.cityMap);
+    const curZoom = Math.max(1, Math.min(6, this.expandedMapView.zoom || 1));
+
+    if (action.type === 'reset') {
+      this.#resetExpandedMapView();
+      return;
+    }
+
+    if (action.type === 'pan') {
+      const scale = baseScale * curZoom;
+      if (scale > 0) {
+        this.expandedMapView.centerX -= (action.dx || 0) / scale;
+        this.expandedMapView.centerY -= (action.dy || 0) / scale;
+        this.#clampExpandedMapView();
+        this.#renderExpandedMap();
+      }
+      return;
+    }
+
+    if (action.type === 'zoom') {
+      const nextZoom = Math.max(1, Math.min(6, curZoom * (action.factor || 1)));
+      if (Math.abs(nextZoom - curZoom) < 0.001 && nextZoom === curZoom) return;
+      if (canvas && Number.isFinite(action.canvasX) && Number.isFinite(action.canvasY)) {
+        const oldScale = baseScale * curZoom;
+        const newScale = baseScale * nextZoom;
+        const dx = action.canvasX - canvas.width * 0.5;
+        const dy = action.canvasY - canvas.height * 0.5;
+        const worldX = this.expandedMapView.centerX + dx / oldScale;
+        const worldY = this.expandedMapView.centerY + dy / oldScale;
+        this.expandedMapView.centerX = worldX - dx / newScale;
+        this.expandedMapView.centerY = worldY - dy / newScale;
+      } else if (curZoom === 1 && nextZoom > 1 && this.player) {
+        this.expandedMapView.centerX = this.player.x;
+        this.expandedMapView.centerY = this.player.y;
+      }
+      this.expandedMapView.zoom = nextZoom;
+      this.#clampExpandedMapView();
+      this.#renderExpandedMap();
+    }
+  }
+
+  #renderExpandedMap() {
     this.minimap.renderExpanded(
       this.hud.expandedMapCanvas,
       this.cityMap,
@@ -909,7 +974,19 @@ export class Engine {
       this.worldCollectibles,
       window.innerWidth,
       window.innerHeight,
+      this.expandedMapView,
     );
+  }
+
+  openExpandedMap() {
+    if (this.hud.isExpandedMapOpen()) return;
+    this.paused = true;
+    const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
+    const objectiveText = this.freeRoamMode
+      ? 'Exploração livre'
+      : (activeMission?.objective || '');
+    this.hud.openExpandedMap(objectiveText);
+    this.#resetExpandedMapView();
   }
 
   closeExpandedMap() {
@@ -921,16 +998,7 @@ export class Engine {
   #handleResize() {
     this.renderer.resize(window.innerWidth, window.innerHeight);
     if (this.hud.isExpandedMapOpen()) {
-      this.minimap.renderExpanded(
-        this.hud.expandedMapCanvas,
-        this.cityMap,
-        this.player,
-        this.routePoints,
-        this.objectivePoint,
-        this.worldCollectibles,
-        window.innerWidth,
-        window.innerHeight,
-      );
+      this.#renderExpandedMap();
     }
   }
 
@@ -956,6 +1024,25 @@ export class Engine {
     if (this.hud.isExpandedMapOpen()) {
       if (input.mapToggleJustPressed || input.secondaryJustPressed || input.pauseJustPressed) {
         this.closeExpandedMap();
+        return;
+      }
+      if (input.resetZoomJustPressed) {
+        this.#resetExpandedMapView();
+        return;
+      }
+      let changed = false;
+      const zoomDir = (input.zoomInPressed ? 1 : 0) - (input.zoomOutPressed ? 1 : 0);
+      if (zoomDir !== 0) {
+        this.#applyExpandedMapTransform({ type: 'zoom', factor: Math.exp(zoomDir * 1.8 * dt) });
+        changed = true;
+      }
+      if (Math.abs(input.moveX) > 0.05 || Math.abs(input.moveY) > 0.05) {
+        const zoom = Math.max(1, this.expandedMapView.zoom || 1);
+        const panWorldSpeed = (this.cityMap.worldWidth * 0.42) / zoom;
+        this.expandedMapView.centerX += input.moveX * panWorldSpeed * dt;
+        this.expandedMapView.centerY += input.moveY * panWorldSpeed * dt;
+        this.#clampExpandedMapView();
+        if (!changed) this.#renderExpandedMap();
       }
       return;
     }
@@ -1894,16 +1981,7 @@ export class Engine {
     }
     this.minimap.render(this.cityMap, this.player, this.routePoints, this.objectivePoint, this.worldCollectibles);
     if (this.hud.isExpandedMapOpen()) {
-      this.minimap.renderExpanded(
-        this.hud.expandedMapCanvas,
-        this.cityMap,
-        this.player,
-        this.routePoints,
-        this.objectivePoint,
-        this.worldCollectibles,
-        window.innerWidth,
-        window.innerHeight,
-      );
+      this.#renderExpandedMap();
     }
   }
 

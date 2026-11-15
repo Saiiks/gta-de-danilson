@@ -189,6 +189,11 @@ export class Minimap {
     });
   }
 
+  getExpandedBaseScale(expandedCanvas, cityMap) {
+    if (!expandedCanvas || !cityMap) return 1;
+    return Math.min(expandedCanvas.width / cityMap.worldWidth, expandedCanvas.height / cityMap.worldHeight) * 0.94;
+  }
+
   renderExpanded(
     expandedCanvas,
     cityMap,
@@ -198,6 +203,7 @@ export class Minimap {
     worldCollectibles = [],
     viewportWidth = 800,
     viewportHeight = 600,
+    viewState = null,
   ) {
     if (!expandedCanvas || !cityMap) return;
     const maxW = Math.max(240, Math.floor(viewportWidth * 0.88));
@@ -215,7 +221,14 @@ export class Minimap {
     }
 
     const ctx = expandedCanvas.getContext('2d');
-    const scale = Math.min(targetW / cityMap.worldWidth, targetH / cityMap.worldHeight) * 0.94;
+    const baseScale = this.getExpandedBaseScale(expandedCanvas, cityMap);
+    const zoom = Math.max(1, Math.min(6, Number(viewState?.zoom) || 1));
+    const scale = baseScale * zoom;
+    const centerX = Number.isFinite(viewState?.centerX) ? viewState.centerX : cityMap.worldWidth * 0.5;
+    const centerY = Number.isFinite(viewState?.centerY) ? viewState.centerY : cityMap.worldHeight * 0.5;
+    const halfVisibleW = (targetW * 0.5) / scale;
+    const halfVisibleH = (targetH * 0.5) / scale;
+
     this.#drawMapScene(ctx, targetW, targetH, {
       cityMap,
       player,
@@ -223,12 +236,12 @@ export class Minimap {
       objectivePoint,
       worldCollectibles,
       scale,
-      centerX: cityMap.worldWidth * 0.5,
-      centerY: cityMap.worldHeight * 0.5,
-      visibleMinX: 0,
-      visibleMaxX: cityMap.worldWidth,
-      visibleMinY: 0,
-      visibleMaxY: cityMap.worldHeight,
+      centerX,
+      centerY,
+      visibleMinX: Math.max(0, centerX - halfVisibleW),
+      visibleMaxX: Math.min(cityMap.worldWidth, centerX + halfVisibleW),
+      visibleMinY: Math.max(0, centerY - halfVisibleH),
+      visibleMaxY: Math.min(cityMap.worldHeight, centerY + halfVisibleH),
       expanded: true,
     });
   }

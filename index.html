@@ -24,6 +24,9 @@
     <div id="hud-layer" class="hidden" aria-live="polite">
       <div id="top-left-stack">
         <div id="top-bar">
+          <div id="vehicle-badge" class="hud-pill">
+            <span id="vehicle-status">A pé</span>
+          </div>
           <div id="health-badge" class="hud-pill hud-health-stack">
             <div class="hud-health-row" title="Vida do personagem">
               <div class="health-track"><div id="health-fill" class="health-fill"></div></div>
@@ -34,13 +37,6 @@
               <span id="vehicle-health-value">--</span>
             </div>
           </div>
-          <div id="vehicle-badge" class="hud-pill">
-            <span id="vehicle-status">A pé</span>
-          </div>
-        </div>
-        <div id="location-badge" class="hud-pill">
-          <span class="hud-label">LOCAL</span>
-          <span id="location-code">---</span>
         </div>
         <div class="hud-quick-actions">
           <button id="pause-button" type="button" class="hud-pill pause-button hud-action-btn" aria-label="Abrir menu" title="Menu">
@@ -59,6 +55,13 @@
             </svg>
             <span id="inventory-badge" class="hud-action-badge">0/5</span>
           </button>
+        </div>
+        <div id="location-badge" class="hud-pill" aria-label="Localização atual">
+          <svg class="hud-location-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 1 1 13 0c0 5.4-6.5 11-6.5 11Z"></path>
+            <circle cx="12" cy="10" r="2.3"></circle>
+          </svg>
+          <span id="location-code">---</span>
         </div>
       </div>
 
@@ -237,6 +240,11 @@
         </div>
         <div class="expanded-map-stage">
           <canvas id="expanded-map-canvas"></canvas>
+          <div class="expanded-map-zoom-controls" aria-label="Controles de zoom do mapa">
+            <button id="expanded-map-zoom-in-btn" type="button" class="secondary-button expanded-map-zoom-btn" aria-label="Aproximar">+</button>
+            <button id="expanded-map-zoom-reset-btn" type="button" class="secondary-button expanded-map-zoom-btn expanded-map-zoom-level" aria-label="Resetar zoom">1×</button>
+            <button id="expanded-map-zoom-out-btn" type="button" class="secondary-button expanded-map-zoom-btn" aria-label="Afastar">−</button>
+          </div>
         </div>
         <div class="expanded-map-legend">
           <span class="legend-chip"><i class="legend-dot legend-player"></i> Você</span>
@@ -326,6 +334,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/main.js?v=52"></script>
+  <script type="module" src="./src/main.js?v=53"></script>
 </body>
 </html>

@@ -259,9 +259,26 @@ export class InputManager {
       const mapToggle = Boolean(gp.buttons[8]?.pressed);
       const prevPage = Boolean(gp.buttons[4]?.pressed);
       const nextPage = Boolean(gp.buttons[5]?.pressed);
-      return { moveX, moveY, action, secondary, exit, pause, mapToggle, prevPage, nextPage };
+      const rightStickY = Math.abs(gp.axes[3] ?? 0) > 0.25 ? gp.axes[3] : 0;
+      const zoomIn = Boolean(gp.buttons[5]?.pressed || gp.buttons[7]?.pressed || rightStickY < -0.25);
+      const zoomOut = Boolean(gp.buttons[4]?.pressed || gp.buttons[6]?.pressed || rightStickY > 0.25);
+      const resetZoom = Boolean(gp.buttons[3]?.pressed || gp.buttons[11]?.pressed);
+      return { moveX, moveY, action, secondary, exit, pause, mapToggle, prevPage, nextPage, zoomIn, zoomOut, resetZoom };
     }
-    return { moveX: 0, moveY: 0, action: false, secondary: false, exit: false, pause: false, mapToggle: false, prevPage: false, nextPage: false };
+    return {
+      moveX: 0,
+      moveY: 0,
+      action: false,
+      secondary: false,
+      exit: false,
+      pause: false,
+      mapToggle: false,
+      prevPage: false,
+      nextPage: false,
+      zoomIn: false,
+      zoomOut: false,
+      resetZoom: false,
+    };
   }
 
   update(dt) {
@@ -344,6 +361,23 @@ export class InputManager {
       this.keys.has('BracketRight') ||
       gp.nextPage
     );
+    const zoomInPressed = Boolean(
+      this.keys.has('Equal') ||
+      this.keys.has('NumpadAdd') ||
+      gp.zoomIn
+    );
+    const zoomOutPressed = Boolean(
+      this.keys.has('Minus') ||
+      this.keys.has('NumpadSubtract') ||
+      gp.zoomOut
+    );
+    const resetZoomPressed = Boolean(
+      this.keys.has('Digit0') ||
+      this.keys.has('Numpad0') ||
+      gp.resetZoom
+    );
+    const resetZoomJustPressed = resetZoomPressed && !this.prevResetZoom;
+    this.prevResetZoom = resetZoomPressed;
 
     return {
       moveX,
@@ -354,6 +388,9 @@ export class InputManager {
       secondaryJustPressed,
       prevPagePressed,
       nextPagePressed,
+      zoomInPressed,
+      zoomOutPressed,
+      resetZoomJustPressed,
       exitJustPressed,
       pauseJustPressed,
       mapToggleJustPressed,

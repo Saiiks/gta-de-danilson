@@ -88,10 +88,12 @@ body {
 
 #top-bar {
   position: static;
+  width: 136px;
   display: flex;
+  flex-direction: column;
   gap: 6px;
   align-items: stretch;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .hud-pill {
@@ -110,6 +112,22 @@ body {
   font-weight: 600;
 }
 
+#location-badge {
+  width: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-location-pin {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: #9ca3af;
+}
+
 #location-code {
   font-weight: 700;
   color: #fbbf24;
@@ -117,7 +135,7 @@ body {
 
 #health-badge,
 #vehicle-badge {
-  width: 126px;
+  width: 100%;
   box-sizing: border-box;
   flex-shrink: 0;
 }
@@ -166,7 +184,8 @@ body {
 }
 
 .health-track {
-  width: 72px;
+  flex: 1 1 auto;
+  min-width: 0;
   height: 7px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
@@ -813,9 +832,11 @@ body {
 }
 
 .hud-quick-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+  width: 136px;
   pointer-events: auto;
 }
 
@@ -825,7 +846,6 @@ body {
   cursor: pointer;
   color: #f8fafc;
   font-weight: 700;
-  align-self: flex-start;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition: border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
@@ -836,10 +856,12 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: clamp(54px, 8vw, 64px);
-  height: clamp(54px, 8vw, 64px);
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
   padding: 0;
   border-radius: 14px;
+  box-sizing: border-box;
 }
 
 .hud-action-icon {
@@ -1182,6 +1204,7 @@ body {
 }
 
 .expanded-map-stage {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1196,7 +1219,42 @@ body {
   background: #1d4e6b;
   max-width: 100%;
   max-height: 70dvh;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#expanded-map-canvas:active {
+  cursor: grabbing;
+}
+
+.expanded-map-zoom-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+
+.expanded-map-zoom-btn {
+  width: 40px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 800;
+  background: rgba(15, 23, 42, 0.88);
   touch-action: manipulation;
+}
+
+.expanded-map-zoom-level {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 .expanded-map-legend {
@@ -1660,11 +1718,17 @@ body {
 
   #top-left-stack {
     max-width: calc(100vw - 166px);
-    gap: 6px;
+    gap: 5px;
   }
 
   #top-bar {
+    width: 112px;
     gap: 5px;
+  }
+
+  .hud-quick-actions {
+    width: 112px;
+    gap: 6px;
   }
 
   .hud-pill {
@@ -1674,11 +1738,11 @@ body {
 
   #health-badge,
   #vehicle-badge {
-    width: 102px;
+    width: 100%;
   }
 
   .health-track {
-    width: 48px;
+    width: auto;
   }
 
   #minimap-container {
