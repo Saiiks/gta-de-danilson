@@ -175,7 +175,7 @@ async function boot() {
       });
       if (signal.aborted) return;
       storyPackage = result.storyPackage;
-      hud.setStartStoryHeader({
+      hud.setStoryHeader({
         title: storyPackage.title,
         pageTitle: storyPackage.pageTitle,
         subtitle: storyPackage.subtitle,
