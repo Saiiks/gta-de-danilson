@@ -597,8 +597,47 @@ export class WebGLRenderer {
       if (v.kind === 'moto' && v.driver === 'npc') {
         const riderScale = sinkScale;
         const riderAlpha = v.sinkAlpha ?? 1;
-        this.#pushQuad(v.x - 10 * riderScale, v.y - 10 * riderScale, 20 * riderScale, 20 * riderScale, v.angle, 'solid', [0.22, 0.45, 0.72, riderAlpha]);
-        this.#pushQuad(v.x + Math.cos(v.angle) * 3 * riderScale - 5 * riderScale, v.y + Math.sin(v.angle) * 3 * riderScale - 5 * riderScale, 10 * riderScale, 10 * riderScale, v.angle, 'solid', [0.92, 0.72, 0.52, riderAlpha]);
+        const cos = Math.cos(v.angle);
+        const sin = Math.sin(v.angle);
+        const seed = (v.id?.charCodeAt(v.id.length - 1) || 0) + (v.id?.charCodeAt(v.id.length - 2) || 0);
+        const jacketPalette = [
+          [0.14, 0.16, 0.2, riderAlpha],
+          [0.52, 0.14, 0.16, riderAlpha],
+          [0.18, 0.34, 0.56, riderAlpha],
+          [0.24, 0.32, 0.22, riderAlpha],
+          [0.42, 0.26, 0.14, riderAlpha]
+        ];
+        const helmetPalette = [
+          [0.92, 0.94, 0.97, riderAlpha],
+          [0.12, 0.13, 0.16, riderAlpha],
+          [0.88, 0.2, 0.18, riderAlpha],
+          [0.95, 0.74, 0.16, riderAlpha],
+          [0.2, 0.56, 0.88, riderAlpha]
+        ];
+        const jacketColor = jacketPalette[seed % jacketPalette.length];
+        const helmetColor = helmetPalette[(seed * 3) % helmetPalette.length];
+        const drawRiderPart = (fwd, side, w, h, tex, col) => {
+          const px = v.x + (cos * fwd - sin * side) * riderScale;
+          const py = v.y + (sin * fwd + cos * side) * riderScale;
+          this.#pushQuad(px - w * 0.5 * riderScale, py - h * 0.5 * riderScale, w * riderScale, h * riderScale, v.angle, tex, col);
+        };
+
+        // Farol dianteiro sutil
+        drawRiderPart(v.length * 0.52, 0, 12, 10, 'circle', [1, 0.94, 0.72, 0.28 * riderAlpha]);
+        // Pernas apoiadas nas laterais da moto
+        drawRiderPart(1, -6.5, 9, 4.5, 'solid', [0.12, 0.15, 0.22, riderAlpha]);
+        drawRiderPart(1, 6.5, 9, 4.5, 'solid', [0.12, 0.15, 0.22, riderAlpha]);
+        // Braços estendidos até o guidão
+        drawRiderPart(6.5, -6, 9, 3.8, 'solid', jacketColor);
+        drawRiderPart(6.5, 6, 9, 3.8, 'solid', jacketColor);
+        // Luvas no guidão
+        drawRiderPart(10.5, -6.2, 4, 3.8, 'disc', [0.1, 0.1, 0.12, riderAlpha]);
+        drawRiderPart(10.5, 6.2, 4, 3.8, 'disc', [0.1, 0.1, 0.12, riderAlpha]);
+        // Tronco e ombros arredondados (jaqueta)
+        drawRiderPart(-1.5, 0, 14, 17, 'disc', jacketColor);
+        // Capacete e viseira frontal escura
+        drawRiderPart(1.5, 0, 11.5, 11.5, 'disc', helmetColor);
+        drawRiderPart(5.2, 0, 4.5, 8.2, 'disc', [0.08, 0.11, 0.16, riderAlpha]);
       }
     }
 
