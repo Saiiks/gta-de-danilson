@@ -25,7 +25,7 @@ import {
 } from '../physics/vehicle-physics.js?v=17';
 import { Minimap } from '../ui/minimap.js?v=25';
 import { Inventory } from './inventory.js?v=20';
-import { createSaveSnapshot, saveGameState } from './save-state.js?v=1';
+import { createSaveSnapshot, saveGameState } from './save-state.js?v=2';
 import { getPendingMissionAssetUrls, preloadMissionAssets } from '../story/story-loader.js';
 
 const PEDESTRIAN_CHAT_LINES = [
@@ -72,6 +72,7 @@ export class Engine {
     this.collectibleFullToastCooldown = 0;
     this.worldCollectibles = [];
     this.collectedExtraIds = new Set();
+    this.unlockedMissionIndices = new Set([0]);
 
     this.pathfinder = null;
     this.trafficManager = null;
@@ -230,6 +231,7 @@ export class Engine {
     const snapshot = createSaveSnapshot({
       storyKey: this.storyPackage.title || 'default',
       currentMissionIndex: this.currentMissionIndex,
+      unlockedMissionIndices: [...this.unlockedMissionIndices],
       freeRoamMode: this.freeRoamMode,
       itemPickedUp: this.itemPickedUp,
       inventorySlots: this.inventory.getSlots(),
@@ -253,6 +255,7 @@ export class Engine {
     const clamped = Math.max(0, Math.min(this.currentMissionIndex, freshPackage.missions.length - 1));
     this.currentMissionIndex = clamped;
     this.pauseMenu?.configure(freshPackage.missions, clamped, {
+      unlockedMissionIndices: [...this.unlockedMissionIndices],
       onPauseChange: (isPaused) => {
         this.paused = isPaused;
         if (isPaused) this.#persistSaveState();
@@ -261,6 +264,7 @@ export class Engine {
         this.startMission(this.currentMissionIndex);
       },
       onSelectMission: (missionIdx) => {
+        if (!this.unlockedMissionIndices.has(missionIdx)) return;
         this.missionCheckpoint = null;
         this.startMission(missionIdx);
       },
@@ -287,6 +291,10 @@ export class Engine {
       0,
       Math.min(savedState.currentMissionIndex || 0, this.storyPackage.missions.length - 1),
     );
+    this.unlockedMissionIndices = new Set([0, ...(savedState.unlockedMissionIndices || [])]);
+    if (!savedState.freeRoamMode) {
+      this.unlockedMissionIndices.add(clamped);
+    }
     const mission = this.storyPackage.missions[clamped];
     const pendingUrls = getPendingMissionAssetUrls(this.storyPackage, clamped, this.preloadedUrls, {
       includeSplash: false,
@@ -353,6 +361,7 @@ export class Engine {
     }
 
     this.pauseMenu?.configure(this.storyPackage.missions, clamped, {
+      unlockedMissionIndices: [...this.unlockedMissionIndices],
       onPauseChange: (isPaused) => {
         this.paused = isPaused;
         if (isPaused) this.#persistSaveState();
@@ -361,6 +370,7 @@ export class Engine {
         this.startMission(this.currentMissionIndex);
       },
       onSelectMission: (missionIdx) => {
+        if (!this.unlockedMissionIndices.has(missionIdx)) return;
         this.missionCheckpoint = null;
         this.startMission(missionIdx);
       },
@@ -395,6 +405,8 @@ export class Engine {
     }
 
     const clamped = Math.max(0, Math.min(index, this.storyPackage.missions.length - 1));
+    this.unlockedMissionIndices.add(0);
+    this.unlockedMissionIndices.add(clamped);
     const mission = this.storyPackage.missions[clamped];
     const pendingUrls = getPendingMissionAssetUrls(this.storyPackage, clamped, this.preloadedUrls, {
       includeSplash: false
@@ -482,6 +494,7 @@ export class Engine {
     }
 
     this.pauseMenu?.configure(this.storyPackage.missions, clamped, {
+      unlockedMissionIndices: [...this.unlockedMissionIndices],
       onPauseChange: (isPaused) => {
         this.paused = isPaused;
         if (isPaused) this.#persistSaveState();
@@ -490,6 +503,7 @@ export class Engine {
         this.startMission(this.currentMissionIndex);
       },
       onSelectMission: (missionIdx) => {
+        if (!this.unlockedMissionIndices.has(missionIdx)) return;
         this.missionCheckpoint = null;
         this.startMission(missionIdx);
       },

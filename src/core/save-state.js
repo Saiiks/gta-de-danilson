@@ -22,9 +22,25 @@ function sanitizeSlot(slot) {
   };
 }
 
+function normalizeUnlockedMissionIndices(indices, fallbackMaxIndex = 0) {
+  const set = new Set([0]);
+  if (Array.isArray(indices)) {
+    for (const rawIdx of indices) {
+      const n = Math.floor(Number(rawIdx));
+      if (Number.isFinite(n) && n >= 0) set.add(n);
+    }
+  } else if (Number.isFinite(fallbackMaxIndex) && fallbackMaxIndex > 0) {
+    for (let i = 0; i <= fallbackMaxIndex; i += 1) {
+      set.add(i);
+    }
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
 export function createSaveSnapshot({
   storyKey = 'default',
   currentMissionIndex = 0,
+  unlockedMissionIndices = [0],
   freeRoamMode = false,
   itemPickedUp = false,
   inventorySlots = [],
@@ -33,10 +49,19 @@ export function createSaveSnapshot({
   player = {},
 } = {}) {
   const health = Number.isFinite(player.health) ? Math.max(1, Math.min(100, player.health)) : 100;
+  const missionIdx = Math.max(0, Math.floor(Number(currentMissionIndex) || 0));
+  const unlocked = normalizeUnlockedMissionIndices(unlockedMissionIndices);
+  if (!freeRoamMode) {
+    if (!unlocked.includes(missionIdx)) {
+      unlocked.push(missionIdx);
+      unlocked.sort((a, b) => a - b);
+    }
+  }
   return {
     version: 1,
     storyKey: String(storyKey || 'default'),
-    currentMissionIndex: Math.max(0, Math.floor(Number(currentMissionIndex) || 0)),
+    currentMissionIndex: missionIdx,
+    unlockedMissionIndices: unlocked,
     freeRoamMode: Boolean(freeRoamMode),
     itemPickedUp: Boolean(itemPickedUp),
     inventorySlots: Array.isArray(inventorySlots) ? inventorySlots.map(sanitizeSlot) : [],
@@ -81,10 +106,21 @@ export function loadGameState(storyKey = 'default', storage = getDefaultStorage(
     if (!parsed.player || !Number.isFinite(parsed.player.x) || !Number.isFinite(parsed.player.y)) {
       return null;
     }
+    const currentMissionIndex = Math.max(0, Math.floor(Number(parsed.currentMissionIndex) || 0));
+    const freeRoamMode = Boolean(parsed.freeRoamMode);
+    const unlockedMissionIndices = normalizeUnlockedMissionIndices(
+      parsed.unlockedMissionIndices,
+      currentMissionIndex,
+    );
+    if (!freeRoamMode && !unlockedMissionIndices.includes(currentMissionIndex)) {
+      unlockedMissionIndices.push(currentMissionIndex);
+      unlockedMissionIndices.sort((a, b) => a - b);
+    }
     return {
       ...parsed,
-      currentMissionIndex: Math.max(0, Math.floor(Number(parsed.currentMissionIndex) || 0)),
-      freeRoamMode: Boolean(parsed.freeRoamMode),
+      currentMissionIndex,
+      unlockedMissionIndices,
+      freeRoamMode,
       itemPickedUp: Boolean(parsed.itemPickedUp),
       inventorySlots: Array.isArray(parsed.inventorySlots) ? parsed.inventorySlots.map(sanitizeSlot) : [],
       collectedExtraIds: Array.isArray(parsed.collectedExtraIds)

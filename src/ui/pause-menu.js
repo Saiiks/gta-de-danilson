@@ -53,7 +53,7 @@ export class PauseMenuController {
 
   getActiveButtons() {
     if (this.inMissionSelect) {
-      return [...this.missionListEl.querySelectorAll('button'), this.missionSelectBackBtn];
+      return [...this.missionListEl.querySelectorAll('button:not(:disabled)'), this.missionSelectBackBtn];
     }
     return [
       this.resumeBtn,
@@ -141,17 +141,33 @@ export class PauseMenuController {
   configure(missions, currentMissionIndex, callbacks) {
     this.callbacks = callbacks || {};
     this.missionListEl.replaceChildren();
+    const unlockedSet = new Set([0]);
+    if (Array.isArray(this.callbacks.unlockedMissionIndices)) {
+      for (const idx of this.callbacks.unlockedMissionIndices) {
+        const n = Math.floor(Number(idx));
+        if (Number.isFinite(n) && n >= 0) unlockedSet.add(n);
+      }
+    }
 
     (missions || []).forEach((mission, idx) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'pause-mission-item';
+      const isUnlocked = unlockedSet.has(idx);
       if (idx === currentMissionIndex) btn.classList.add('current');
-      btn.textContent = mission.title;
-      btn.addEventListener('click', () => {
-        this.close();
-        this.callbacks.onSelectMission?.(idx);
-      });
+      if (!isUnlocked) {
+        btn.disabled = true;
+        btn.classList.add('locked');
+        btn.setAttribute('aria-disabled', 'true');
+        btn.title = 'Jogue esta missão primeiro para desbloqueá-la';
+        btn.textContent = `🔒 ${mission.title}`;
+      } else {
+        btn.textContent = mission.title;
+        btn.addEventListener('click', () => {
+          this.close();
+          this.callbacks.onSelectMission?.(idx);
+        });
+      }
       this.missionListEl.appendChild(btn);
     });
   }

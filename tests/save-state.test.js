@@ -57,3 +57,36 @@ test('formatContinueLabel exibe missão atual ou modo livre', () => {
   assert.equal(formatContinueLabel({ currentMissionIndex: 1, freeRoamMode: false }), 'Continuar (Missão 2)');
   assert.equal(formatContinueLabel({ currentMissionIndex: 4, freeRoamMode: true }), 'Continuar (Modo Livre)');
 });
+
+test('persiste missões desbloqueadas e mantém apenas a primeira missão no novo jogo', () => {
+  const storage = createMemoryStorage();
+  const initial = createSaveSnapshot({
+    storyKey: 'Missão Vibe Coding',
+    currentMissionIndex: 0,
+    player: { x: 10, y: 20, angle: 0, health: 100 },
+  });
+  saveGameState(initial, storage);
+  const loadedInitial = loadGameState('Missão Vibe Coding', storage);
+  assert.deepEqual(loadedInitial.unlockedMissionIndices, [0]);
+
+  const progressed = createSaveSnapshot({
+    storyKey: 'Missão Vibe Coding',
+    currentMissionIndex: 1,
+    unlockedMissionIndices: [0, 1],
+    player: { x: 30, y: 40, angle: 0, health: 95 },
+  });
+  saveGameState(progressed, storage);
+  const loadedProgressed = loadGameState('Missão Vibe Coding', storage);
+  assert.deepEqual(loadedProgressed.unlockedMissionIndices, [0, 1]);
+
+  // Save antigo sem campo unlockedMissionIndices mantém missões até currentMissionIndex
+  storage.setItem(SAVE_STORAGE_KEY, JSON.stringify({
+    version: 1,
+    storyKey: 'Missão Vibe Coding',
+    currentMissionIndex: 2,
+    freeRoamMode: false,
+    player: { x: 50, y: 60, angle: 0, health: 100 },
+  }));
+  const loadedLegacy = loadGameState('Missão Vibe Coding', storage);
+  assert.deepEqual(loadedLegacy.unlockedMissionIndices, [0, 1, 2]);
+});

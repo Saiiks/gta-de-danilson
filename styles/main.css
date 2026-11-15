@@ -1098,9 +1098,17 @@ body {
 }
 
 .pause-mission-item.current,
-.pause-mission-item:hover {
+.pause-mission-item:hover:not(:disabled) {
   border-color: #fbbf24;
   color: #fbbf24;
+}
+
+.pause-mission-item.locked,
+.pause-mission-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
 }
 
 .menu-selected {
