@@ -127,8 +127,12 @@ export function updateVehicle(vehicle, input, dt, cityMap) {
     const speedFactor = rawSpeed > 4 ? Math.min(1, Math.max(0.32, rawSpeed / 65)) : 0;
     const directionSign = prevForward >= -5 ? 1 : -1;
     const rawSteer = input.moveX;
-    const steer = Math.sign(rawSteer) * Math.pow(Math.abs(rawSteer), 1.15);
-    vehicle.angle += steer * profile.turnRate * speedFactor * directionSign * dt;
+    const targetSteer = Math.sign(rawSteer) * Math.pow(Math.abs(rawSteer), 1.15);
+    const prevSteer = Number.isFinite(vehicle.steerInput) ? vehicle.steerInput : 0;
+    const steer = prevSteer + (targetSteer - prevSteer) * Math.min(1, 10 * dt);
+    vehicle.steerInput = steer;
+    const highSpeedDamp = 1 - 0.22 * Math.min(1, rawSpeed / profile.maxSpeed);
+    vehicle.angle += steer * profile.turnRate * speedFactor * highSpeedDamp * directionSign * dt;
 
     const cos = Math.cos(vehicle.angle);
     const sin = Math.sin(vehicle.angle);
@@ -136,14 +140,19 @@ export function updateVehicle(vehicle, input, dt, cityMap) {
     let lateralSpeed = -vehicle.vx * sin + vehicle.vy * cos;
 
     if (input.actionPressed && !input.secondaryPressed) {
-      forwardSpeed += profile.accel * dt;
+      vehicle.accelHoldTime = (vehicle.accelHoldTime || 0) + dt;
+      const ramp = Math.min(1, vehicle.accelHoldTime / 1.4);
+      const accelFactor = 0.25 + 0.75 * Math.pow(ramp, 1.15);
+      forwardSpeed += profile.accel * accelFactor * dt;
     } else if (input.secondaryPressed && !input.actionPressed) {
+      vehicle.accelHoldTime = 0;
       if (forwardSpeed > 25) {
         forwardSpeed -= profile.brake * dt;
       } else {
         forwardSpeed -= profile.accel * 0.65 * dt;
       }
     } else {
+      vehicle.accelHoldTime = Math.max(0, (vehicle.accelHoldTime || 0) - dt * 2.5);
       const drag = Math.exp(-2.8 * dt);
       forwardSpeed *= drag;
     }

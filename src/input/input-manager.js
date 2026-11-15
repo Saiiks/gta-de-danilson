@@ -56,6 +56,7 @@ export class InputManager {
 
   #resetAnalog() {
     this.analogPointerId = null;
+    this.analogOriginX = null;
     this.touchMoveX = 0;
     this.touchMoveY = 0;
     this.analogEl?.classList.remove('active');
@@ -107,14 +108,16 @@ export class InputManager {
     const dy = e.clientY - cy;
 
     if (this.drivingMode) {
-      const raw = Math.max(-1, Math.min(1, dx / maxRadius));
-      const deadzone = 0.1;
+      const originX = Number.isFinite(this.analogOriginX) ? this.analogOriginX : cx;
+      const steerDx = e.clientX - originX;
+      const raw = Math.max(-1, Math.min(1, steerDx / maxRadius));
+      const deadzone = 0.12;
       if (Math.abs(raw) < deadzone) {
         this.touchMoveX = 0;
         this.touchMoveY = 0;
       } else {
         const scaled = (Math.abs(raw) - deadzone) / (1 - deadzone);
-        this.touchMoveX = Math.sign(raw) * scaled;
+        this.touchMoveX = Math.sign(raw) * Math.pow(scaled, 1.45);
         this.touchMoveY = 0;
       }
       if (this.steeringWheelEl) {
@@ -175,6 +178,7 @@ export class InputManager {
         if (this.analogPointerId !== null) return;
         this.touchContainer.classList.remove('hidden');
         this.analogPointerId = e.pointerId;
+        this.analogOriginX = e.clientX;
         this.analogEl.classList.add('active');
         try {
           this.analogEl.setPointerCapture?.(e.pointerId);

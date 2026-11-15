@@ -195,3 +195,35 @@ test('colisão com personagem de missão bloqueia o jogador sem empurrar o NPC',
   assert.equal(npc.x, 400);
   assert.equal(npc.y, 300);
 });
+
+test('aceleração do veículo cresce progressivamente conforme o tempo segurando o acelerador', () => {
+  const map = new CityMap();
+  const road = map.resolveLocationCode('RUA-01');
+  const car = createVehicleEntity({
+    id: 'CAR-ACCEL',
+    kind: 'car',
+    model: 'Sedan',
+    color: '#f00',
+    x: 500,
+    y: road.bounds.y + 64,
+    angle: 0,
+    driver: 'player',
+  });
+  const accelInput = { moveX: 0, moveY: 0, actionPressed: true, secondaryPressed: false };
+
+  for (let i = 0; i < 10; i += 1) {
+    updateVehicle(car, accelInput, 0.02, map);
+  }
+  const earlyGain = car.speed;
+  assert.ok(earlyGain < 45, `arrancada inicial deve ser suave (earlyGain=${earlyGain})`);
+
+  for (let i = 0; i < 35; i += 1) {
+    updateVehicle(car, accelInput, 0.02, map);
+  }
+  const speedBeforeLate = car.speed;
+  for (let i = 0; i < 10; i += 1) {
+    updateVehicle(car, accelInput, 0.02, map);
+  }
+  const lateGain = car.speed - speedBeforeLate;
+  assert.ok(lateGain > earlyGain * 1.8, `ganho contínuo deve ser maior após manter pressionado (early=${earlyGain}, late=${lateGain})`);
+});

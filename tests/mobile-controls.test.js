@@ -268,9 +268,14 @@ test('modo dirigir transforma analógico em volante horizontal e alterna botões
   assert.equal(handIcon.classList.contains('hidden'), true);
   assert.equal(accelIcon.classList.contains('hidden'), false);
 
-  // Movimento diagonal no volante: moveY permanece 0 e só esterça horizontalmente
-  analog.dispatchEvent('pointerdown', { pointerId: 10, clientX: 125, clientY: 250 });
+  // Toque inicial no volante ancora no ponto do dedo (sem guinada brusca) e arraste diagonal esterça só na horizontal
+  analog.dispatchEvent('pointerdown', { pointerId: 10, clientX: 95, clientY: 250 });
   let snap = input.update(0.016);
+  assert.equal(snap.moveX, 0);
+  assert.equal(snap.moveY, 0);
+
+  window.dispatchEvent('pointermove', { pointerId: 10, clientX: 140, clientY: 220 });
+  snap = input.update(0.016);
   assert.ok(snap.moveX > 0.9, `esperado moveX > 0.9, recebido ${snap.moveX}`);
   assert.equal(snap.moveY, 0);
   assert.ok(wheel.style.transform.includes('rotate('));

@@ -2,7 +2,7 @@ import { CityMap } from '../world/city-map.js?v=29';
 import { RoadPathfinder } from '../world/pathfinding.js';
 import { TrafficManager } from '../world/traffic-manager.js?v=23';
 import { BoatManager } from '../world/boat-manager.js?v=17';
-import { InputManager } from '../input/input-manager.js?v=18';
+import { InputManager } from '../input/input-manager.js?v=20';
 import { WebGLRenderer } from '../render/webgl-renderer.js?v=27';
 import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=11';
 import {
@@ -22,7 +22,7 @@ import {
   updateTrashBin,
   updateVehicle,
   updateVehicleCriticalState
-} from '../physics/vehicle-physics.js?v=17';
+} from '../physics/vehicle-physics.js?v=18';
 import { Minimap } from '../ui/minimap.js?v=26';
 import { Inventory } from './inventory.js?v=20';
 import { createSaveSnapshot, saveGameState } from './save-state.js?v=2';
