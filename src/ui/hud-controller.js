@@ -61,6 +61,7 @@ export class HudController {
     this.startTitleEl = document.getElementById('start-title');
     this.startSubtitleEl = document.getElementById('start-subtitle');
     this.startSplashEl = document.getElementById('start-splash');
+    this.startSplashBgEl = document.getElementById('start-splash-bg');
     this.startLoadingBar = document.getElementById('start-loading-bar');
     this.startLoadingText = document.getElementById('start-loading-text');
     this.startLoadingPercent = document.getElementById('start-loading-percent');
@@ -252,6 +253,10 @@ export class HudController {
     if (splashUrl) {
       this.startSplashEl.src = splashUrl;
       this.startSplashEl.classList.remove('hidden');
+      if (this.startSplashBgEl) {
+        this.startSplashBgEl.src = splashUrl;
+        this.startSplashBgEl.classList.remove('hidden');
+      }
       const absSplash = typeof window !== 'undefined'
         ? new URL(splashUrl, window.location.href).href
         : splashUrl;
@@ -259,6 +264,7 @@ export class HudController {
       this.#setMetaContent('meta[name="twitter:image"]', absSplash);
     } else {
       this.startSplashEl.classList.add('hidden');
+      this.startSplashBgEl?.classList.add('hidden');
     }
   }
 

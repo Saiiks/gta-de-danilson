@@ -531,17 +531,153 @@ body {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
 }
 
-.start-card {
-  max-width: 540px;
+.start-screen {
+  background: #07090e;
+  padding: 0;
+  overflow: hidden;
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+
+.start-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #07090e;
+}
+
+.start-splash-bg {
+  display: none;
 }
 
 .start-splash {
   width: 100%;
-  max-height: 200px;
+  height: 100%;
   object-fit: cover;
-  border-radius: 10px;
+  object-position: center 28%;
+  animation: splashKenBurns 24s ease-in-out infinite alternate;
+}
+
+@keyframes splashKenBurns {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.045);
+  }
+}
+
+.start-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(7, 9, 14, 0.42) 0%, rgba(7, 9, 14, 0.14) 36%, transparent 65%),
+    linear-gradient(180deg, transparent 0%, transparent 62%, rgba(7, 9, 14, 0.45) 88%, rgba(7, 9, 14, 0.72) 100%);
+}
+
+.start-card {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 92vw);
+  margin: 0 0 max(28px, calc(env(safe-area-inset-bottom) + 22px)) max(32px, calc(env(safe-area-inset-left) + 28px));
+  padding: 22px 26px;
+  border-radius: 16px;
+  background: rgba(10, 13, 20, 0.72);
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+  text-align: left;
+}
+
+.start-card .retro-title {
+  font-size: clamp(26px, 4.2vw, 44px);
+  line-height: 1.05;
+  margin-bottom: 10px;
+  text-shadow: 0 4px 0 #78350f, 0 10px 26px rgba(0, 0, 0, 0.75);
+}
+
+.start-card .overlay-subtitle {
+  font-size: clamp(13px, 1.5vw, 15px);
   margin-bottom: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+}
+
+.start-card .start-actions {
+  justify-content: flex-start;
+}
+
+@media (orientation: portrait), (max-aspect-ratio: 1 / 1) {
+  .start-screen {
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: max(12px, env(safe-area-inset-top)) 0 max(16px, env(safe-area-inset-bottom));
+  }
+
+  .start-backdrop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(12px, env(safe-area-inset-top)) 0 38dvh;
+  }
+
+  .start-splash-bg {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(20px) brightness(0.62) saturate(1.15);
+    transform: scale(1.14);
+  }
+
+  .start-splash {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: auto;
+    max-height: 52dvh;
+    object-fit: contain;
+    animation: none;
+    filter: drop-shadow(0 16px 32px rgba(0, 0, 0, 0.65));
+  }
+
+  .start-scrim {
+    z-index: 2;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      transparent 54%,
+      rgba(7, 9, 14, 0.55) 74%,
+      rgba(7, 9, 14, 0.9) 100%
+    );
+  }
+
+  .start-card {
+    margin: auto 0 0;
+    width: min(94vw, 520px);
+    padding: 18px 18px 16px;
+    text-align: center;
+    background: rgba(10, 13, 20, 0.8);
+  }
+
+  .start-card .retro-title {
+    font-size: clamp(24px, 6.8vw, 34px);
+    margin-bottom: 8px;
+  }
+
+  .start-card .overlay-subtitle {
+    font-size: 13.5px;
+    margin-bottom: 14px;
+  }
+
+  .start-card .start-actions {
+    justify-content: center;
+  }
 }
 
 .retro-title {
@@ -2078,8 +2214,23 @@ body {
     padding: 18px 22px;
   }
 
-  .start-splash {
-    max-height: 108px;
+  .start-card {
+    width: min(460px, 64vw);
+    margin: 0 0 max(12px, calc(env(safe-area-inset-bottom) + 10px)) max(16px, calc(env(safe-area-inset-left) + 14px));
+    padding: 14px 18px;
+  }
+
+  .start-card .retro-title {
+    font-size: clamp(20px, 3.6vw, 28px);
+    margin-bottom: 6px;
+  }
+
+  .start-card .overlay-subtitle {
+    font-size: 12.5px;
+    margin-bottom: 10px;
+  }
+
+  .start-card .start-loading-box {
     margin-bottom: 10px;
   }
 
