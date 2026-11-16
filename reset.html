@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0e1015">
+  <title>Resetar Sessão — GTA</title>
+  <link rel="icon" type="image/svg+xml" href="./story/favicon.svg">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: radial-gradient(circle at top, #1b2438 0%, #0e1015 70%);
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .card {
+      width: min(92vw, 460px);
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 14px;
+      padding: 26px 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 22px;
+      letter-spacing: 0.04em;
+      color: #fbbf24;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      line-height: 1.45;
+      color: #cbd5e1;
+      margin-bottom: 18px;
+    }
+
+    .log {
+      list-style: none;
+      text-align: left;
+      background: rgba(2, 6, 23, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: #e2e8f0;
+    }
+
+    .log li + li {
+      margin-top: 4px;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: #fbbf24;
+      color: #0f172a;
+    }
+
+    .btn-secondary {
+      background: rgba(30, 41, 59, 0.9);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>RESETAR SESSÃO</h1>
+    <p id="status-text" class="subtitle">Limpando progresso, inventário, cache de assets e registros locais...</p>
+    <ul id="reset-log" class="log"></ul>
+    <div class="actions">
+      <a id="launch-link" href="./index.html" class="btn btn-primary">Abrir Jogo do Zero</a>
+      <button id="rerun-btn" type="button" class="btn btn-secondary">Executar Limpeza Novamente</button>
+    </div>
+  </main>
+
+  <script>
+    const statusText = document.getElementById('status-text');
+    const resetLog = document.getElementById('reset-log');
+    const launchLink = document.getElementById('launch-link');
+    const rerunBtn = document.getElementById('rerun-btn');
+
+    function addLog(text) {
+      const li = document.createElement('li');
+      li.textContent = text;
+      resetLog.appendChild(li);
+    }
+
+    async function resetAllSessionData() {
+      resetLog.replaceChildren();
+      statusText.textContent = 'Limpando dados locais e caches...';
+
+      try {
+        const localCount = window.localStorage.length;
+        window.localStorage.clear();
+        addLog(`✓ localStorage limpo (${localCount} registro(s) removido(s)).`);
+      } catch {
+        addLog('• localStorage indisponível neste navegador.');
+      }
+
+      try {
+        const sessionCount = window.sessionStorage.length;
+        window.sessionStorage.clear();
+        addLog(`✓ sessionStorage limpo (${sessionCount} registro(s) removido(s)).`);
+      } catch {
+        addLog('• sessionStorage indisponível neste navegador.');
+      }
+
+      if ('caches' in window) {
+        try {
+          const keys = await window.caches.keys();
+          await Promise.all(keys.map((key) => window.caches.delete(key)));
+          addLog(`✓ Cache de assets e shell removido (${keys.length} cache(s) apagado(s)).`);
+        } catch {
+          addLog('• Não foi possível limpar o Cache Storage.');
+        }
+      } else {
+        addLog('• Cache Storage não suportado neste ambiente.');
+      }
+
+      if ('serviceWorker' in navigator) {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((reg) => reg.unregister()));
+          addLog(`✓ Service Workers removidos (${regs.length} registro(s)).`);
+        } catch {
+          addLog('• Não foi possível remover Service Workers.');
+        }
+      }
+
+      if (window.indexedDB && typeof window.indexedDB.databases === 'function') {
+        try {
+          const dbs = await window.indexedDB.databases();
+          let deleted = 0;
+          await Promise.all(
+            (dbs || []).map((db) => {
+              if (!db?.name) return Promise.resolve();
+              deleted += 1;
+              return new Promise((resolve) => {
+                const req = window.indexedDB.deleteDatabase(db.name);
+                req.onsuccess = () => resolve();
+                req.onerror = () => resolve();
+                req.onblocked = () => resolve();
+              });
+            })
+          );
+          if (deleted > 0) {
+            addLog(`✓ IndexedDB limpo (${deleted} banco(s) removido(s)).`);
+          }
+        } catch {
+          // Ignora restrição de listagem de IndexedDB
+        }
+      }
+
+      launchLink.href = `./index.html?fresh=${Date.now()}`;
+      statusText.textContent = 'Tudo limpo! O jogo iniciará como se fosse o primeiro acesso.';
+    }
+
+    rerunBtn.addEventListener('click', () => {
+      resetAllSessionData();
+    });
+
+    resetAllSessionData();
+  </script>
+</body>
+</html>

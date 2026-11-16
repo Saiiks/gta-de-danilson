@@ -190,9 +190,9 @@ export class Minimap {
   }
 
   getExpandedCanvasSize(viewportWidth = 800, viewportHeight = 600) {
-    const maxW = Math.max(240, Math.floor(viewportWidth * 0.88));
-    const maxH = Math.max(180, Math.floor(viewportHeight * 0.68));
-    const aspect = Math.max(0.4, Math.min(2.5, viewportWidth / Math.max(1, viewportHeight)));
+    const maxW = Math.max(240, Math.min(1380, Math.floor(viewportWidth * 0.88)));
+    const maxH = Math.max(180, Math.floor(viewportHeight * 0.76));
+    const aspect = Math.max(0.45, Math.min(2.0, viewportWidth / Math.max(1, viewportHeight)));
     let width = maxW;
     let height = Math.round(width / aspect);
     if (height > maxH) {
