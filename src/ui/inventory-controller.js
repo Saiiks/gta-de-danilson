@@ -1,4 +1,5 @@
 import { INVENTORY_PAGE_SIZE, INVENTORY_COLUMNS } from '../core/inventory.js?v=20';
+import { destroySpeechBubble, spawnTypewriterSpeechBubble } from './speech-bubble.js?v=1';
 
 export class InventoryController {
   constructor() {
@@ -15,6 +16,8 @@ export class InventoryController {
     this.feedbackEl = document.getElementById('inventory-feedback');
     this.deliverBtn = document.getElementById('inventory-deliver-btn');
     this.closeBtn = document.getElementById('inventory-close-btn');
+    this.speechLayer = document.getElementById('inventory-speech-layer');
+    this.activeSpeechBubble = null;
 
     this.isOpen = false;
     this.mode = 'browse';
@@ -23,6 +26,8 @@ export class InventoryController {
     this.selectedIndex = 0;
     this.expectedItemId = '';
     this.wrongItemMessage = '';
+    this.wrongItemMessages = [];
+    this.lastWrongItemMessage = '';
     this.onDeliver = null;
     this.onClose = null;
 
@@ -46,6 +51,8 @@ export class InventoryController {
     this.mode = 'browse';
     this.expectedItemId = '';
     this.wrongItemMessage = '';
+    this.wrongItemMessages = [];
+    this.lastWrongItemMessage = '';
     this.onDeliver = null;
     this.onClose = onClose;
 
@@ -62,7 +69,8 @@ export class InventoryController {
     const {
       prompt = 'Selecione o item correto para entregar:',
       expectedItemId = '',
-      wrongItemMessage = 'Não é esse item que o personagem procura. Tente outro!',
+      wrongItemMessage = 'Não é esse item que eu procuro!',
+      wrongItemMessages = [],
       onDeliver = null,
       onCancel = null,
     } = options;
@@ -71,6 +79,8 @@ export class InventoryController {
     this.mode = 'delivery';
     this.expectedItemId = expectedItemId;
     this.wrongItemMessage = wrongItemMessage;
+    this.wrongItemMessages = Array.isArray(wrongItemMessages) ? wrongItemMessages : [];
+    this.lastWrongItemMessage = '';
     this.onDeliver = onDeliver;
     this.onClose = onCancel;
 
@@ -124,6 +134,60 @@ export class InventoryController {
     this.feedbackEl.classList.add('hidden');
   }
 
+  #clearSpeechBubble() {
+    if (!this.activeSpeechBubble) return;
+    destroySpeechBubble(this.activeSpeechBubble);
+    this.activeSpeechBubble = null;
+  }
+
+  #pickWrongItemMessage() {
+    const validLines = this.wrongItemMessages.filter((msg) => {
+      const s = String(msg || '').trim();
+      return s.length > 0 && s.length <= 60;
+    });
+    const missionMsg = String(this.wrongItemMessage || '').trim();
+    const pool = [...validLines];
+    if (missionMsg && missionMsg.length <= 60 && !pool.includes(missionMsg)) {
+      pool.push(missionMsg);
+    }
+    if (pool.length === 0) {
+      return 'Não é esse item que eu procuro!';
+    }
+    const candidates = pool.length > 1
+      ? pool.filter((m) => m !== this.lastWrongItemMessage)
+      : pool;
+    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    this.lastWrongItemMessage = chosen;
+    return chosen;
+  }
+
+  #showSlotSpeechBubble(slotIndex, message) {
+    this.#clearSpeechBubble();
+    const normalizedText = String(message || '').trim();
+    if (!normalizedText || normalizedText.length > 60) return;
+    const pageSize = this.#getPageSize();
+    const localIdx = slotIndex - this.currentPage * pageSize;
+    const slotBtn = this.gridEl?.children?.[localIdx];
+    const rect = slotBtn?.getBoundingClientRect?.();
+    if (!this.speechLayer || !rect || rect.width <= 0) {
+      this.#showFeedback(message);
+      return;
+    }
+
+    this.activeSpeechBubble = spawnTypewriterSpeechBubble({
+      layer: this.speechLayer,
+      text: normalizedText,
+      x: rect.left + rect.width * 0.5,
+      y: rect.top,
+      holdMs: 5000,
+      onRemove: (removed) => {
+        if (this.activeSpeechBubble === removed) {
+          this.activeSpeechBubble = null;
+        }
+      },
+    });
+  }
+
   goToPage(pageIndex) {
     if (!this.inventory) return;
     const totalPages = this.#getTotalPages();
@@ -134,6 +198,7 @@ export class InventoryController {
     const localOffset = ((this.selectedIndex % pageSize) + pageSize) % pageSize;
     this.currentPage = targetPage;
     this.selectedIndex = targetPage * pageSize + localOffset;
+    this.#clearSpeechBubble();
     this.#hideFeedback();
     this.render();
   }
@@ -162,10 +227,12 @@ export class InventoryController {
       return;
     }
     if (this.expectedItemId && item.id !== this.expectedItemId) {
-      this.#showFeedback(this.wrongItemMessage || 'Não é esse item que o personagem procura.');
+      this.#hideFeedback();
+      this.#showSlotSpeechBubble(this.selectedIndex, this.#pickWrongItemMessage());
       return;
     }
 
+    this.#clearSpeechBubble();
     const removed = this.inventory.removeItemAt(this.selectedIndex);
     const deliverCb = this.onDeliver;
     this.isOpen = false;
@@ -177,6 +244,7 @@ export class InventoryController {
 
   close() {
     if (!this.isOpen) return;
+    this.#clearSpeechBubble();
     this.isOpen = false;
     this.screen.classList.add('hidden');
     const cb = this.onClose;

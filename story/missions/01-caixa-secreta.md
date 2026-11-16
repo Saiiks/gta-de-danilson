@@ -9,7 +9,7 @@ objective: Leve a Caixa Secreta para Lucia em COM-320
 give_item: caixa-secreta
 require_item: caixa-secreta
 delivery_prompt: Lucia quer guardar a Caixa Secreta em segurança em COM-320. Selecione o item:
-wrong_item_message: Lucia estranhou: "Isso não é a Caixa Secreta! Olha direito no inventário!"
+wrong_item_message: Isso não é a Caixa Secreta! Olha direito!
 ---
 
 ## CUTSCENE_INICIO

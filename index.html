@@ -22,13 +22,14 @@
   <link rel="shortcut icon" href="./story/favicon.svg">
   <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
   <title>Missão Vibe Coding — Curso em Vídeo</title>
-  <link rel="stylesheet" href="./styles/main.css?v=34">
+  <link rel="stylesheet" href="./styles/main.css?v=36">
 </head>
 <body>
   <div id="game-shell">
     <canvas id="game-canvas" aria-label="Área do jogo"></canvas>
     <img id="world-pickup-item" class="world-pickup-item hidden" alt="">
     <div id="world-collectibles-layer" aria-hidden="true"></div>
+    <div id="npc-speech-layer" aria-hidden="true"></div>
     <div id="damage-flash" aria-hidden="true"></div>
 
     <div id="hud-layer" class="hidden" aria-live="polite">
@@ -272,6 +273,7 @@
     </section>
 
     <section id="inventory-screen" class="overlay-screen hidden" role="dialog" aria-label="Inventário">
+      <div id="inventory-speech-layer" class="inventory-speech-layer" aria-hidden="true"></div>
       <div class="overlay-card inventory-card">
         <div class="inventory-header">
           <div>
@@ -349,6 +351,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/main.js?v=67"></script>
+  <script type="module" src="./src/main.js?v=72"></script>
 </body>
 </html>

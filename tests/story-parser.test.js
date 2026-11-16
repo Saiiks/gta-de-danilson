@@ -28,7 +28,8 @@ import {
   resolveFirstExistingAsset,
   resolveStoryFaviconUrl,
   isAssetLoaded,
-  clearLoadedAssets
+  clearLoadedAssets,
+  parseNpcLinesMarkdown
 } from '../src/story/story-loader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -407,4 +408,20 @@ test('registra arquivos já carregados em memória e evita recarregamento desnec
   assert.equal(second.total, 0);
   assert.equal(fetchCount, 2);
   clearLoadedAssets();
+});
+
+test('parseNpcLinesMarkdown lê falas de NPCs de story/npc-lines.md ignorando cabeçalhos e marcadores', () => {
+  const sampleDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../story');
+  const raw = fs.readFileSync(path.join(sampleDir, 'npc-lines.md'), 'utf-8');
+  const lines = parseNpcLinesMarkdown(raw);
+  assert.ok(lines.length >= 200, `esperado >= 200 falas, obtido ${lines.length}`);
+  assert.ok(lines.every((l) => l.length > 0 && l.length <= 60 && !l.startsWith('#') && !l.startsWith('- ')));
+
+  const filtered = parseNpcLinesMarkdown(`- Mensagem curta\n- ${'a'.repeat(61)}\n`);
+  assert.deepEqual(filtered, ['Mensagem curta']);
+
+  const wrongRaw = fs.readFileSync(path.join(sampleDir, 'wrong-item-lines.md'), 'utf-8');
+  const wrongLines = parseNpcLinesMarkdown(wrongRaw);
+  assert.ok(wrongLines.length >= 40, `esperado >= 40 falas de item errado, obtido ${wrongLines.length}`);
+  assert.ok(wrongLines.every((l) => l.length > 0 && l.length <= 60));
 });

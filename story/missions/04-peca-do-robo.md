@@ -9,7 +9,7 @@ objective: Entregue a Peça de Robô para Sam Maltmon em CASA-656
 give_item: peca-robo
 require_item: peca-robo
 delivery_prompt: Sam Maltmon precisa da Peça de Robô em CASA-656. Selecione o item correto:
-wrong_item_message: Sam Maltmon suspirou: "Meus tokens não dão conta disso... preciso da Peça de Robô!"
+wrong_item_message: Meus tokens não dão conta disso... cadê a Peça de Robô?
 ---
 
 ## CUTSCENE_INICIO

@@ -4,6 +4,10 @@ import {
   onUiInputModeChange,
   setUiInputMode,
 } from './input-mode.js?v=1';
+import {
+  destroySpeechBubble,
+  spawnTypewriterSpeechBubble,
+} from './speech-bubble.js?v=1';
 
 export class HudController {
   constructor() {
@@ -23,6 +27,8 @@ export class HudController {
     this.inventoryBadge = document.getElementById('inventory-badge');
     this.worldPickupItemEl = document.getElementById('world-pickup-item');
     this.worldCollectiblesLayer = document.getElementById('world-collectibles-layer');
+    this.npcSpeechLayer = document.getElementById('npc-speech-layer');
+    this.activeNpcBubbles = [];
     this.collectibleNodePool = [];
     this.hudToastEl = document.getElementById('hud-toast');
     this.hudToastImgEl = document.getElementById('hud-toast-img');
@@ -703,6 +709,52 @@ export class HudController {
   hideGameOver() {
     this.gameoverScreen.classList.add('hidden');
     this.setDeathDesaturation(0);
+  }
+
+  #removeNpcBubble(entry) {
+    if (!entry) return;
+    destroySpeechBubble(entry);
+    const idx = this.activeNpcBubbles.indexOf(entry);
+    if (idx >= 0) this.activeNpcBubbles.splice(idx, 1);
+  }
+
+  clearNpcSpeechBubbles() {
+    for (const entry of [...this.activeNpcBubbles]) {
+      this.#removeNpcBubble(entry);
+    }
+  }
+
+  showNpcSpeechBubble(ped, fullText, initialPos = null) {
+    const normalizedText = String(fullText || '').trim();
+    if (!this.npcSpeechLayer || !ped || !normalizedText || normalizedText.length > 60) return;
+    if (this.activeNpcBubbles.some((b) => b.ped === ped)) {
+      return;
+    }
+
+    const entry = spawnTypewriterSpeechBubble({
+      layer: this.npcSpeechLayer,
+      text: normalizedText,
+      x: initialPos?.x,
+      y: initialPos?.y,
+      holdMs: 5000,
+      onRemove: (removed) => {
+        const idx = this.activeNpcBubbles.indexOf(removed);
+        if (idx >= 0) this.activeNpcBubbles.splice(idx, 1);
+      },
+    });
+    if (!entry) return;
+    entry.ped = ped;
+    this.activeNpcBubbles.push(entry);
+  }
+
+  updateNpcSpeechBubbles(projectFn) {
+    if (!this.npcSpeechLayer || this.activeNpcBubbles.length === 0 || typeof projectFn !== 'function') return;
+    for (const entry of this.activeNpcBubbles) {
+      const pos = projectFn(entry.ped);
+      if (!pos) continue;
+      entry.el.style.left = `${pos.x.toFixed(1)}px`;
+      entry.el.style.top = `${pos.y.toFixed(1)}px`;
+    }
   }
 
   triggerDamageFlash() {

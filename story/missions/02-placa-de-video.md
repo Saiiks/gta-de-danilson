@@ -9,7 +9,7 @@ objective: Entregue a Placa de Vídeo para Jason em COM-24
 give_item: placa-video
 require_item: placa-video
 delivery_prompt: Jason precisa da Placa de Vídeo Turbo em COM-24 para rodar os modelos de IA:
-wrong_item_message: Jason riu: "Com isso aí não roda nem campo minado! Me passa a Placa de Vídeo Turbo!"
+wrong_item_message: Isso não roda nem campo minado! Cadê a Placa de Vídeo?
 ---
 
 ## CUTSCENE_INICIO

@@ -9,7 +9,7 @@ objective: Leve a Chave Mestra até Lucia em CASA-353
 give_item: chave-secreta
 require_item: chave-secreta
 delivery_prompt: Lucia está com a Caixa Secreta em CASA-353. Entregue a Chave Mestra para abri-la:
-wrong_item_message: Lucia balançou a cabeça: "Essa chave não gira nem parafuso! Use a Chave Mestra!"
+wrong_item_message: Essa chave não gira nem parafuso! Cadê a Chave Mestra?
 ---
 
 ## CUTSCENE_INICIO

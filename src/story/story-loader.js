@@ -166,6 +166,24 @@ export async function discoverTypeBackgroundPool(basePath, typePrefix, existsFn 
   return pool;
 }
 
+export const MAX_NPC_LINE_LENGTH = 60;
+
+export function parseNpcLinesMarkdown(rawText = '') {
+  if (!rawText || typeof rawText !== 'string') return [];
+  const seen = new Set();
+  const lines = [];
+  for (const rawLine of rawText.split(/\r?\n/)) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('#') || trimmed.startsWith('<!--') || trimmed.startsWith('---')) continue;
+    const cleaned = trimmed.replace(/^[-*]\s+/, '').trim();
+    if (!cleaned || cleaned.length > MAX_NPC_LINE_LENGTH || seen.has(cleaned)) continue;
+    seen.add(cleaned);
+    lines.push(cleaned);
+  }
+  return lines;
+}
+
 export function pickCutsceneBackground(pool = [], recentList = [], rng = Math.random) {
   if (!Array.isArray(pool) || pool.length === 0) {
     return { url: '', nextRecent: [] };
@@ -380,10 +398,30 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     ? Promise.resolve(prefetchedFaviconUrl)
     : resolveStoryFaviconUrl(cleanBase, cachedExists);
 
-  const [, splashUrl, faviconUrl] = await Promise.all([
+  const npcLinesPromise = (async () => {
+    try {
+      const raw = await readStoryText(`${cleanBase}/npc-lines.md`, 'npc-lines.md');
+      return parseNpcLinesMarkdown(raw);
+    } catch {
+      return [];
+    }
+  })();
+
+  const wrongItemLinesPromise = (async () => {
+    try {
+      const raw = await readStoryText(`${cleanBase}/wrong-item-lines.md`, 'wrong-item-lines.md');
+      return parseNpcLinesMarkdown(raw);
+    } catch {
+      return [];
+    }
+  })();
+
+  const [, splashUrl, faviconUrl, npcLines, wrongItemLines] = await Promise.all([
     mapPromise,
     splashPromise,
     faviconPromise,
+    npcLinesPromise,
+    wrongItemLinesPromise,
     charsPromise,
     itemsPromise,
     poolsPromise,
@@ -471,6 +509,8 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     subtitle: replaceLocationCodesWithNames(manifest.subtitle, locationNames),
     splashUrl: withBust(splashUrl),
     faviconUrl: withBust(faviconUrl),
+    npcLines,
+    wrongItemLines,
     characters,
     items,
     missions,

@@ -1,10 +1,10 @@
-import { Engine } from './core/engine.js?v=50';
-import { HudController } from './ui/hud-controller.js?v=34';
+import { Engine } from './core/engine.js?v=52';
+import { HudController } from './ui/hud-controller.js?v=38';
 import { CutsceneController } from './ui/cutscene-controller.js?v=15';
 import { PauseMenuController } from './ui/pause-menu.js?v=5';
 import { ConfirmDialogController } from './ui/confirm-dialog.js?v=2';
 import { AssetsRefreshDialogController } from './ui/assets-refresh-dialog.js?v=2';
-import { InventoryController } from './ui/inventory-controller.js?v=19';
+import { InventoryController } from './ui/inventory-controller.js?v=21';
 import { CityMap } from './world/city-map.js?v=29';
 import {
   loadGameState,
@@ -19,7 +19,7 @@ import {
   preloadMissionAssets,
   preloadStoryAssets,
   refreshAllStoryAssets
-} from './story/story-loader.js?v=24';
+} from './story/story-loader.js?v=27';
 
 function waitMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

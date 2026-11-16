@@ -219,6 +219,7 @@ export class Engine {
 
   stop() {
     this.#persistSaveState();
+    this.hud.clearNpcSpeechBubbles?.();
     this.running = false;
     if (this.#onKeyDown) window.removeEventListener('keydown', this.#onKeyDown);
     if (this.#onResize) window.removeEventListener('resize', this.#onResize);
@@ -857,7 +858,8 @@ export class Engine {
       this.inventoryController.openDelivery(this.inventory, {
         prompt: mission.deliveryPrompt || 'Escolha o item correto do seu inventário para entregar:',
         expectedItemId: expectedId || mission.requireItem,
-        wrongItemMessage: mission.wrongItemMessage || 'Não é esse item que o personagem espera. Tente outro!',
+        wrongItemMessage: mission.wrongItemMessage || 'Não é esse item que eu procuro!',
+        wrongItemMessages: this.storyPackage?.wrongItemLines || [],
         onDeliver: () => {
           this.#syncInventoryHud();
           this.#persistSaveState();
@@ -1288,8 +1290,10 @@ export class Engine {
             const ped = this.#findNearestTalkablePedestrian(this.player.x, this.player.y);
             if (ped) {
               ped.angle = Math.atan2(this.player.y - ped.y, this.player.x - ped.x);
-              const line = PEDESTRIAN_CHAT_LINES[Math.floor(Math.random() * PEDESTRIAN_CHAT_LINES.length)];
-              this.hud.showToast(`Morador: "${line}"`, { durationMs: 3000 });
+              const pool = this.storyPackage?.npcLines?.length ? this.storyPackage.npcLines : PEDESTRIAN_CHAT_LINES;
+              const line = pool[Math.floor(Math.random() * pool.length)];
+              const initPos = this.#worldToScreen(ped.x, ped.y - 22);
+              this.hud.showNpcSpeechBubble(ped, line, initPos);
             }
           }
         }
@@ -2058,6 +2062,17 @@ export class Engine {
     } else {
       this.hud.updateWorldCollectibles([]);
     }
+    this.hud.updateNpcSpeechBubbles?.((bubblePed) => {
+      const closeBelowPlayer =
+        !this.player.inVehicleId &&
+        bubblePed.y > this.player.y &&
+        bubblePed.y - this.player.y < 52 &&
+        Math.abs(bubblePed.x - this.player.x) < 58;
+      const avoidX = closeBelowPlayer
+        ? (bubblePed.x >= this.player.x ? 34 : -34)
+        : 0;
+      return this.#worldToScreen(bubblePed.x + avoidX, bubblePed.y - 22);
+    });
     this.minimap.render(this.cityMap, this.player, this.routePoints, this.objectivePoint, this.worldCollectibles);
     if (this.hud.isExpandedMapOpen()) {
       this.#renderExpandedMap();

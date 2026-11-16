@@ -9,7 +9,7 @@ objective: Leve o Servidor para Pundar Sichai em COM-554
 give_item: servidor
 require_item: servidor
 delivery_prompt: Pundar Sichai aguarda o Servidor em Nuvem em COM-554. Escolha o item:
-wrong_item_message: Pundar Sichai ajustou os óculos: "Pesquisei aqui e esse não é o Servidor em Nuvem!"
+wrong_item_message: Pesquisei aqui e esse não é o Servidor em Nuvem!
 ---
 
 ## CUTSCENE_INICIO
