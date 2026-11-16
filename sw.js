@@ -112,6 +112,16 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET') return;
 
+  if (
+    isStoryRequest(url) &&
+    url.pathname.toLowerCase().endsWith('.md') &&
+    (request.mode === 'navigate' || request.destination === 'document' || request.destination === 'iframe')
+  ) {
+    const appEntryUrl = new URL('./index.html', self.location.href).href;
+    event.respondWith(Response.redirect(appEntryUrl, 302));
+    return;
+  }
+
   const forceNetwork = request.cache === 'reload' || request.cache === 'no-store';
 
   if (isStoryRequest(url)) {
