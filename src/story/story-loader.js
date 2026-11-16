@@ -513,13 +513,29 @@ export function collectStoryAssetUrls(storyPackage) {
   return [...urls];
 }
 
+export function collectExtraItemAssetUrls(storyPackage) {
+  if (!storyPackage || !(storyPackage.items instanceof Map)) return [];
+  const urls = new Set();
+  for (const item of storyPackage.items.values()) {
+    if (item?.category === 'extra' && item?.imageUrl) {
+      urls.add(item.imageUrl);
+    }
+  }
+  return [...urls];
+}
+
 export function collectMissionAssetUrls(storyPackage, missionIndex = 0, options = {}) {
-  const { includeSplash = missionIndex === 0, essentialOnly = false } = options;
+  const { includeSplash = missionIndex === 0, essentialOnly = false, includeExtras = false } = options;
   if (!storyPackage) return [];
   const urls = new Set();
 
   if (includeSplash && storyPackage.splashUrl) {
     urls.add(storyPackage.splashUrl);
+  }
+  if (includeExtras) {
+    for (const extraUrl of collectExtraItemAssetUrls(storyPackage)) {
+      urls.add(extraUrl);
+    }
   }
 
   const mission = storyPackage.missions?.[missionIndex];
@@ -566,10 +582,32 @@ export function collectMissionAssetUrls(storyPackage, missionIndex = 0, options 
   return [...urls];
 }
 
+const loadedAssetRegistry = new Set();
+
+export function markAssetLoaded(url) {
+  if (url) loadedAssetRegistry.add(url);
+}
+
+export function isAssetLoaded(url) {
+  return Boolean(url && loadedAssetRegistry.has(url));
+}
+
+export function getLoadedAssetUrls() {
+  return [...loadedAssetRegistry];
+}
+
+export function clearLoadedAssets() {
+  loadedAssetRegistry.clear();
+}
+
 export function getPendingMissionAssetUrls(storyPackage, missionIndex = 0, preloadedUrls = null, options = {}) {
   const urls = collectMissionAssetUrls(storyPackage, missionIndex, options);
-  if (!(preloadedUrls instanceof Set)) return urls;
-  return urls.filter((url) => !preloadedUrls.has(url));
+  const { forceReload = false } = options;
+  return urls.filter((url) => {
+    if (!forceReload && isAssetLoaded(url)) return false;
+    if (preloadedUrls instanceof Set && preloadedUrls.has(url)) return false;
+    return true;
+  });
 }
 
 export function preloadImageAsset(url, loadImageFn = null) {
@@ -598,10 +636,17 @@ export function preloadImageAsset(url, loadImageFn = null) {
 }
 
 async function preloadUrlList(urls, options = {}) {
-  const { onProgress, loadImageFn = null, preloadedUrls = null } = options;
-  const pending = preloadedUrls instanceof Set
-    ? urls.filter((url) => !preloadedUrls.has(url))
-    : urls;
+  const { onProgress, loadImageFn = null, preloadedUrls = null, forceReload = false } = options;
+  const pending = urls.filter((url) => {
+    if (!forceReload && isAssetLoaded(url)) {
+      preloadedUrls?.add(url);
+      return false;
+    }
+    if (preloadedUrls instanceof Set && preloadedUrls.has(url)) {
+      return false;
+    }
+    return true;
+  });
   const total = pending.length;
   if (total === 0) {
     if (typeof onProgress === 'function') {
@@ -616,6 +661,7 @@ async function preloadUrlList(urls, options = {}) {
     pending.map(async (url) => {
       const result = await preloadImageAsset(url, loadImageFn);
       if (result.ok) {
+        markAssetLoaded(url);
         preloadedUrls?.add(url);
       } else {
         failed.push(url);
@@ -642,8 +688,8 @@ export async function preloadStoryAssets(storyPackage, options = {}) {
 }
 
 export async function preloadMissionAssets(storyPackage, missionIndex = 0, options = {}) {
-  const { includeSplash = missionIndex === 0, essentialOnly = false, ...rest } = options;
-  const urls = collectMissionAssetUrls(storyPackage, missionIndex, { includeSplash, essentialOnly });
+  const { includeSplash = missionIndex === 0, essentialOnly = false, includeExtras = false, ...rest } = options;
+  const urls = collectMissionAssetUrls(storyPackage, missionIndex, { includeSplash, essentialOnly, includeExtras });
   return preloadUrlList(urls, rest);
 }
 
@@ -692,6 +738,7 @@ export async function refreshAllStoryAssets({
   if (preloadedUrls instanceof Set) {
     preloadedUrls.clear();
   }
+  clearLoadedAssets();
 
   const totalAssets = assetUrls.length;
   const failed = [];
@@ -719,6 +766,7 @@ export async function refreshAllStoryAssets({
         }
         const decoded = await preloadImageAsset(url);
         if (decoded.ok) {
+          markAssetLoaded(url);
           preloadedUrls?.add(url);
           refreshedCount += 1;
         } else {

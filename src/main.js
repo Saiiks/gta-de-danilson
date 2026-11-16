@@ -1,5 +1,5 @@
 import { Engine } from './core/engine.js?v=50';
-import { HudController } from './ui/hud-controller.js?v=33';
+import { HudController } from './ui/hud-controller.js?v=34';
 import { CutsceneController } from './ui/cutscene-controller.js?v=15';
 import { PauseMenuController } from './ui/pause-menu.js?v=5';
 import { ConfirmDialogController } from './ui/confirm-dialog.js?v=2';
@@ -14,10 +14,12 @@ import {
 import {
   loadStorySplashHeader,
   loadStoryPackage,
+  markAssetLoaded,
   preloadImageAsset,
   preloadMissionAssets,
+  preloadStoryAssets,
   refreshAllStoryAssets
-} from './story/story-loader.js?v=22';
+} from './story/story-loader.js?v=24';
 
 function waitMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -59,8 +61,11 @@ async function boot() {
 
     if (splashHeader.splashUrl) {
       hud.showLoading(60, 'Carregando tela inicial...');
-      await preloadImageAsset(splashHeader.splashUrl);
-      preloadedUrls.add(splashHeader.splashUrl);
+      const splashRes = await preloadImageAsset(splashHeader.splashUrl);
+      if (splashRes?.ok) {
+        markAssetLoaded(splashHeader.splashUrl);
+        preloadedUrls.add(splashHeader.splashUrl);
+      }
     }
 
     hud.setStoryHeader({
@@ -104,9 +109,10 @@ async function boot() {
       : 0;
     const missionLabel = `Missão ${targetMissionIndex + 1}`;
 
-    hud.setStartLoadingProgress(65, `Pré-carregando imagens da ${missionLabel}...`, { ready: false });
+    hud.setStartLoadingProgress(65, `Pré-carregando imagens da ${missionLabel} e itens extras...`, { ready: false });
     await preloadMissionAssets(storyPackage, targetMissionIndex, {
       includeSplash: false,
+      includeExtras: true,
       preloadedUrls,
       onProgress: ({ loaded, total, ratio, url }) => {
         const assetName = url ? url.split('/').pop() : '';
@@ -124,8 +130,64 @@ async function boot() {
     return;
   }
 
+  let idlePreloadTimer = null;
+  let backgroundPreloadPromise = null;
+  let backgroundPreloadDone = false;
+  let backgroundPreloadPercent = 0;
+
+  const startBackgroundStoryPreload = () => {
+    if (backgroundPreloadPromise || backgroundPreloadDone || !storyPackage) return;
+    backgroundPreloadPercent = 0;
+    if (hud.isStartScreenOpen()) {
+      hud.setStartLoadingProgress(0, 'Carregando demais recursos da história...', { ready: true });
+    } else {
+      hud.setBackgroundLoadingProgress(0);
+    }
+
+    backgroundPreloadPromise = preloadStoryAssets(storyPackage, {
+      preloadedUrls,
+      onProgress: ({ loaded, total, ratio, url }) => {
+        backgroundPreloadPercent = Math.round(ratio * 100);
+        const assetName = url ? url.split('/').pop() : '';
+        if (hud.isStartScreenOpen()) {
+          const text = total > 0 && assetName
+            ? `História (${loaded}/${total}): ${assetName}`
+            : 'Todos os recursos da história carregados!';
+          hud.setStartLoadingProgress(backgroundPreloadPercent, text, { ready: true });
+        } else {
+          hud.setBackgroundLoadingProgress(backgroundPreloadPercent);
+        }
+      },
+    }).then(() => {
+      backgroundPreloadDone = true;
+      backgroundPreloadPromise = null;
+      hud.hideBackgroundLoadingProgress();
+      if (hud.isStartScreenOpen()) {
+        hud.setStartLoadingProgress(100, 'Todos os recursos da história carregados!', { ready: true });
+      }
+    }).catch(() => {
+      backgroundPreloadPromise = null;
+      hud.hideBackgroundLoadingProgress();
+    });
+  };
+
+  const scheduleIdleStoryPreload = () => {
+    if (idlePreloadTimer || backgroundPreloadPromise || backgroundPreloadDone) return;
+    idlePreloadTimer = setTimeout(() => {
+      idlePreloadTimer = null;
+      if (hud.isStartScreenOpen() && !activeEngine) {
+        startBackgroundStoryPreload();
+      }
+    }, 10000);
+  };
+  scheduleIdleStoryPreload();
+
   const launchGame = ({ useSaved = true } = {}) => {
     try {
+      if (idlePreloadTimer) {
+        clearTimeout(idlePreloadTimer);
+        idlePreloadTimer = null;
+      }
       if (activeEngine) {
         activeEngine.stop();
       }
@@ -147,12 +209,19 @@ async function boot() {
         onExitToTitle: () => {
           activeEngine?.stop();
           activeEngine = null;
+          hud.hideBackgroundLoadingProgress();
           refreshStartButtons();
           hud.showStartScreen();
+          scheduleIdleStoryPreload();
         }
       });
       activeEngine.initWorld();
       activeEngine.start();
+      if (backgroundPreloadPromise && !backgroundPreloadDone) {
+        hud.setBackgroundLoadingProgress(backgroundPreloadPercent);
+      } else {
+        hud.hideBackgroundLoadingProgress();
+      }
       if (useSaved && savedState) {
         activeEngine.restoreSavedSession(savedState);
       } else {

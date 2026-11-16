@@ -96,6 +96,19 @@ body {
   flex-wrap: nowrap;
 }
 
+.hud-bg-progress {
+  width: 136px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.hud-bg-progress-track {
+  height: 8px;
+  margin: 0;
+}
+
 .hud-pill {
   background: rgba(14, 16, 21, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.16);

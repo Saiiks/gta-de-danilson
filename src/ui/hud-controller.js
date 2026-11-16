@@ -58,6 +58,8 @@ export class HudController {
     this.startLoadingBar = document.getElementById('start-loading-bar');
     this.startLoadingText = document.getElementById('start-loading-text');
     this.startLoadingPercent = document.getElementById('start-loading-percent');
+    this.bgProgressEl = document.getElementById('hud-bg-progress');
+    this.bgProgressFillEl = document.getElementById('hud-bg-progress-fill');
 
     this.missionCompleteScreen = document.getElementById('mission-complete-screen');
     this.missionCompleteTitleEl = document.getElementById('mission-complete-title');
@@ -352,6 +354,18 @@ export class HudController {
       }
     }
     this.setStartSelection(0);
+  }
+
+  setBackgroundLoadingProgress(percent) {
+    if (!this.bgProgressEl || !this.bgProgressFillEl) return;
+    const clamped = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    this.bgProgressEl.classList.remove('hidden');
+    this.bgProgressFillEl.style.width = `${clamped}%`;
+  }
+
+  hideBackgroundLoadingProgress() {
+    if (!this.bgProgressEl) return;
+    this.bgProgressEl.classList.add('hidden');
   }
 
   showLoading(percent, message) {

@@ -26,7 +26,9 @@ import {
   preloadMissionAssets,
   preloadStoryAssets,
   resolveFirstExistingAsset,
-  resolveStoryFaviconUrl
+  resolveStoryFaviconUrl,
+  isAssetLoaded,
+  clearLoadedAssets
 } from '../src/story/story-loader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -235,6 +237,7 @@ test('coleta URLs únicas e pré-carrega assets da história reportando progress
 });
 
 test('pré-carrega apenas splash e recursos da missão 0 na abertura e carrega delta nas missões seguintes', async () => {
+  clearLoadedAssets();
   const story = {
     splashUrl: './story/splash.png',
     characters: new Map([
@@ -342,4 +345,66 @@ test('prioriza favicon na raiz de story e faz fallback para ícone padrão quand
 
   const fallback = await resolveStoryFaviconUrl('./story', async () => false);
   assert.equal(fallback, './icon.svg');
+});
+
+test('pré-carrega itens extras na abertura quando includeExtras está ativo', async () => {
+  const story = {
+    splashUrl: './story/splash.png',
+    characters: new Map(),
+    items: new Map([
+      ['caixa', { id: 'caixa', category: 'missao', imageUrl: './story/items/caixa.png' }],
+      ['disquete', { id: 'disquete', category: 'extra', imageUrl: './story/items/disquete.png' }],
+      ['caneca', { id: 'caneca', category: 'extra', imageUrl: './story/items/caneca.png' }],
+    ]),
+    missions: [
+      { id: 'm1', giveItem: 'caixa', requireItem: null, introCutscene: null, outroCutscene: null },
+    ],
+  };
+
+  const preloadedUrls = new Set();
+  const summary = await preloadMissionAssets(story, 0, {
+    includeSplash: false,
+    includeExtras: true,
+    preloadedUrls,
+    loadImageFn: async () => true,
+  });
+
+  assert.equal(summary.total, 3);
+  assert.equal(preloadedUrls.has('./story/items/disquete.png'), true);
+  assert.equal(preloadedUrls.has('./story/items/caneca.png'), true);
+});
+
+test('registra arquivos já carregados em memória e evita recarregamento desnecessário', async () => {
+  clearLoadedAssets();
+  const story = {
+    splashUrl: './story/splash.png',
+    characters: new Map([
+      ['guanabara', { id: 'guanabara', sprites: { right: './story/characters/guanabara.png' } }],
+    ]),
+    items: new Map(),
+    missions: [],
+  };
+
+  let fetchCount = 0;
+  const first = await preloadStoryAssets(story, {
+    loadImageFn: async () => {
+      fetchCount += 1;
+      return true;
+    },
+  });
+  assert.equal(first.total, 2);
+  assert.equal(fetchCount, 2);
+  assert.equal(isAssetLoaded('./story/splash.png'), true);
+  assert.equal(isAssetLoaded('./story/characters/guanabara.png'), true);
+
+  // Segunda chamada sem Set explícito ainda evita recarregar os já registrados em memória
+  const second = await preloadStoryAssets(story, {
+    loadImageFn: async () => {
+      fetchCount += 1;
+      return true;
+    },
+  });
+  assert.equal(second.total, 0);
+  assert.equal(fetchCount, 2);
+  clearLoadedAssets();
 });

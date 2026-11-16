@@ -22,7 +22,7 @@
   <link rel="shortcut icon" href="./story/favicon.svg">
   <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
   <title>Missão Vibe Coding — Curso em Vídeo</title>
-  <link rel="stylesheet" href="./styles/main.css?v=32">
+  <link rel="stylesheet" href="./styles/main.css?v=34">
 </head>
 <body>
   <div id="game-shell">
@@ -65,6 +65,11 @@
             </svg>
             <span id="inventory-badge" class="hud-action-badge">0/5</span>
           </button>
+        </div>
+        <div id="hud-bg-progress" class="hud-pill hud-bg-progress hidden" aria-hidden="true">
+          <div class="progress-track hud-bg-progress-track">
+            <div id="hud-bg-progress-fill" class="progress-fill"></div>
+          </div>
         </div>
         <div id="location-badge" class="hud-pill" aria-label="Localização atual">
           <svg class="hud-location-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -344,6 +349,6 @@
       });
     })();
   </script>
-  <script type="module" src="./src/main.js?v=65"></script>
+  <script type="module" src="./src/main.js?v=67"></script>
 </body>
 </html>
