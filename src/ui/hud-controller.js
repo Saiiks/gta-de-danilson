@@ -73,7 +73,11 @@ export class HudController {
     this.missionCompleteBtn = document.getElementById('mission-complete-btn');
     this.minimapContainerEl = document.getElementById('minimap-container');
     this.expandedMapScreen = document.getElementById('expanded-map-screen');
+    this.expandedMapCard = this.expandedMapScreen?.querySelector('.expanded-map-card') || null;
     this.expandedMapCanvas = document.getElementById('expanded-map-canvas');
+    this.expandedMapAnimations = [];
+    this.expandedMapClosing = false;
+    this.activePickupShowcase = null;
     this.expandedMapObjectiveEl = document.getElementById('expanded-map-objective');
     this.expandedMapCloseBtn = document.getElementById('expanded-map-close-btn');
     this.expandedMapZoomInBtn = document.getElementById('expanded-map-zoom-in-btn');
@@ -532,22 +536,163 @@ export class HudController {
     canvas.addEventListener('pointercancel', releasePointer);
   }
 
+  #prefersReducedMotion() {
+    return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  #cancelExpandedMapAnimations() {
+    for (const anim of this.expandedMapAnimations) {
+      try {
+        anim.cancel();
+      } catch {
+        // Ignora caso a animação já tenha sido encerrada
+      }
+    }
+    this.expandedMapAnimations = [];
+    this.expandedMapCard?.classList.remove('is-animating');
+    this.expandedMapScreen?.classList.remove('is-closing');
+  }
+
+  #getExpandedMapFlipTransform() {
+    if (!this.minimapContainerEl || !this.expandedMapCard) return null;
+    const minimapRect = this.minimapContainerEl.getBoundingClientRect();
+    const cardRect = this.expandedMapCard.getBoundingClientRect();
+    if (
+      minimapRect.width <= 0
+      || minimapRect.height <= 0
+      || cardRect.width <= 0
+      || cardRect.height <= 0
+    ) {
+      return null;
+    }
+    const dx = (minimapRect.left + minimapRect.width * 0.5) - (cardRect.left + cardRect.width * 0.5);
+    const dy = (minimapRect.top + minimapRect.height * 0.5) - (cardRect.top + cardRect.height * 0.5);
+    const scale = Math.max(
+      0.08,
+      Math.min(minimapRect.width / cardRect.width, minimapRect.height / cardRect.height),
+    );
+    return { dx, dy, scale };
+  }
+
   isExpandedMapOpen() {
-    return Boolean(this.expandedMapScreen && !this.expandedMapScreen.classList.contains('hidden'));
+    return Boolean(
+      this.expandedMapScreen
+      && !this.expandedMapScreen.classList.contains('hidden')
+      && !this.expandedMapClosing,
+    );
   }
 
   openExpandedMap(objectiveText = '') {
     if (!this.expandedMapScreen) return;
+    this.#cancelExpandedMapAnimations();
+    this.expandedMapClosing = false;
     if (this.expandedMapObjectiveEl) {
       this.expandedMapObjectiveEl.textContent = objectiveText || this.objectiveHintEl?.textContent || 'Exploração livre';
     }
     this.expandedMapScreen.classList.remove('hidden');
   }
 
+  animateExpandedMapOpen() {
+    if (!this.expandedMapScreen || !this.expandedMapCard) return;
+    if (
+      this.#prefersReducedMotion()
+      || typeof this.expandedMapCard.animate !== 'function'
+      || typeof this.expandedMapScreen.animate !== 'function'
+    ) {
+      return;
+    }
+    const flip = this.#getExpandedMapFlipTransform();
+    if (!flip) return;
+
+    this.#cancelExpandedMapAnimations();
+    this.expandedMapCard.classList.add('is-animating');
+
+    const duration = 220;
+    const screenAnim = this.expandedMapScreen.animate(
+      [{ opacity: 0 }, { opacity: 1 }],
+      { duration, easing: 'ease-out' },
+    );
+    const cardAnim = this.expandedMapCard.animate(
+      [
+        {
+          transform: `translate3d(${flip.dx}px, ${flip.dy}px, 0) scale(${flip.scale})`,
+          opacity: 0.35,
+        },
+        {
+          transform: 'translate3d(0px, 0px, 0) scale(1)',
+          opacity: 1,
+        },
+      ],
+      { duration, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+    this.expandedMapAnimations = [screenAnim, cardAnim];
+
+    cardAnim.finished
+      .then(() => {
+        if (!this.expandedMapClosing && this.expandedMapAnimations.includes(cardAnim)) {
+          this.#cancelExpandedMapAnimations();
+        }
+      })
+      .catch(() => {
+        // Cancelada antes de concluir
+      });
+  }
+
   closeExpandedMap() {
-    if (!this.expandedMapScreen) return;
+    if (
+      !this.expandedMapScreen
+      || this.expandedMapScreen.classList.contains('hidden')
+      || this.expandedMapClosing
+    ) {
+      return;
+    }
     this.expandedMapPointers.clear();
-    this.expandedMapScreen.classList.add('hidden');
+    this.#cancelExpandedMapAnimations();
+
+    const canAnimate = !this.#prefersReducedMotion()
+      && typeof this.expandedMapCard?.animate === 'function'
+      && typeof this.expandedMapScreen.animate === 'function';
+    const flip = canAnimate ? this.#getExpandedMapFlipTransform() : null;
+
+    if (!flip) {
+      this.expandedMapScreen.classList.add('hidden');
+      return;
+    }
+
+    this.expandedMapClosing = true;
+    this.expandedMapScreen.classList.add('is-closing');
+    this.expandedMapCard.classList.add('is-animating');
+
+    const duration = 190;
+    const screenAnim = this.expandedMapScreen.animate(
+      [{ opacity: 1 }, { opacity: 0 }],
+      { duration, easing: 'ease-in', fill: 'forwards' },
+    );
+    const cardAnim = this.expandedMapCard.animate(
+      [
+        {
+          transform: 'translate3d(0px, 0px, 0) scale(1)',
+          opacity: 1,
+        },
+        {
+          transform: `translate3d(${flip.dx}px, ${flip.dy}px, 0) scale(${flip.scale})`,
+          opacity: 0.2,
+        },
+      ],
+      { duration, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' },
+    );
+    this.expandedMapAnimations = [screenAnim, cardAnim];
+
+    cardAnim.finished
+      .then(() => {
+        if (!this.expandedMapClosing) return;
+        this.expandedMapClosing = false;
+        this.expandedMapScreen.classList.add('hidden');
+        this.#cancelExpandedMapAnimations();
+      })
+      .catch(() => {
+        // Cancelada (ex.: reabertura rápida)
+      });
   }
 
   setInventoryCount(count, capacity = 5) {
@@ -601,48 +746,183 @@ export class HudController {
     }
   }
 
-  animatePickupToInventory(startX, startY, imageUrl, alt = '') {
-    if (typeof document === 'undefined' || !imageUrl || !this.inventoryButton) return;
-    const targetRect = this.inventoryButton.getBoundingClientRect();
-    if (!targetRect || targetRect.width === 0) return;
+  #pulseInventoryButton() {
+    if (!this.inventoryButton) return;
+    this.inventoryButton.classList.remove('inventory-btn-pulse');
+    void this.inventoryButton.offsetWidth;
+    this.inventoryButton.classList.add('inventory-btn-pulse');
+  }
 
+  #clearPickupShowcase() {
+    const current = this.activePickupShowcase;
+    if (!current) return;
+    this.activePickupShowcase = null;
+    clearTimeout(current.fallbackTimer);
+    for (const anim of current.animations) {
+      try {
+        anim.cancel();
+      } catch {
+        // Ignora caso a animação já tenha terminado
+      }
+    }
+    current.root.remove();
+  }
+
+  #flyPickupShowcaseToInventory() {
+    const current = this.activePickupShowcase;
+    if (!current || current.exiting) return;
+    current.exiting = true;
+    clearTimeout(current.fallbackTimer);
+
+    const { root, stage, itemWrap, itemImg } = current;
+    itemImg.style.animation = 'none';
+
+    if (!this.inventoryButton || typeof itemWrap.animate !== 'function') {
+      this.#clearPickupShowcase();
+      this.#pulseInventoryButton();
+      return;
+    }
+
+    const targetRect = this.inventoryButton.getBoundingClientRect();
+    if (!targetRect || targetRect.width <= 0) {
+      this.#clearPickupShowcase();
+      this.#pulseInventoryButton();
+      return;
+    }
+
+    const centerX = window.innerWidth * 0.5;
+    const centerY = window.innerHeight * 0.5;
     const targetX = targetRect.left + targetRect.width * 0.5;
     const targetY = targetRect.top + targetRect.height * 0.5;
+    const dx = targetX - centerX;
+    const dy = targetY - centerY;
 
-    const clone = document.createElement('img');
-    clone.className = 'flying-item-clone';
-    clone.src = imageUrl;
-    clone.alt = alt || '';
-    clone.style.left = `${startX}px`;
-    clone.style.top = `${startY}px`;
-    this.shell?.appendChild(clone);
+    const stageAnim = stage.animate(
+      [
+        { transform: 'translate3d(-50%, -50%, 0) scale(1)', opacity: 1 },
+        { transform: 'translate3d(-50%, -50%, 0) scale(0.45)', opacity: 0 },
+      ],
+      { duration: 200, easing: 'ease-in', fill: 'forwards' },
+    );
 
-    const dx = targetX - startX;
-    const dy = targetY - startY;
+    const itemAnim = itemWrap.animate(
+      [
+        { transform: 'translate3d(-50%, -50%, 0) scale(1)', opacity: 1 },
+        { transform: `translate3d(calc(-50% + ${dx}px), calc(-50% + ${dy}px), 0) scale(0.16)`, opacity: 0.85 },
+      ],
+      { duration: 460, easing: 'cubic-bezier(0.32, 0, 0.2, 1)', fill: 'forwards' },
+    );
 
-    if (typeof clone.animate === 'function') {
-      const anim = clone.animate(
-        [
-          { transform: 'translate(-50%, -50%) scale(1.1)', opacity: 1 },
-          { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.32)`, opacity: 0.9 }
-        ],
-        { duration: 540, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' }
-      );
-      anim.onfinish = () => {
-        clone.remove();
-        this.inventoryButton.classList.remove('inventory-btn-pulse');
-        void this.inventoryButton.offsetWidth;
-        this.inventoryButton.classList.add('inventory-btn-pulse');
-      };
-    } else {
-      clone.remove();
+    current.animations.push(stageAnim, itemAnim);
+    itemAnim.finished
+      .then(() => {
+        if (this.activePickupShowcase === current) {
+          this.activePickupShowcase = null;
+        }
+        root.remove();
+        this.#pulseInventoryButton();
+      })
+      .catch(() => {
+        root.remove();
+      });
+  }
+
+  animatePickupToInventory(startX, startY, imageUrl, alt = '') {
+    if (typeof document === 'undefined' || !imageUrl || !this.inventoryButton) return;
+    this.#clearPickupShowcase();
+
+    if (this.#prefersReducedMotion() || typeof document.createElement('div').animate !== 'function') {
+      this.#pulseInventoryButton();
+      return;
     }
+
+    const root = document.createElement('div');
+    root.className = 'pickup-showcase';
+    root.setAttribute('aria-hidden', 'true');
+
+    const stage = document.createElement('div');
+    stage.className = 'pickup-showcase-stage';
+
+    const glow = document.createElement('div');
+    glow.className = 'pickup-showcase-glow';
+
+    const rays = document.createElement('div');
+    rays.className = 'pickup-showcase-rays';
+
+    stage.appendChild(glow);
+    stage.appendChild(rays);
+
+    const itemWrap = document.createElement('div');
+    itemWrap.className = 'pickup-showcase-item-wrap';
+
+    const itemImg = document.createElement('img');
+    itemImg.className = 'pickup-showcase-img';
+    itemImg.src = imageUrl;
+    itemImg.alt = alt || '';
+    itemWrap.appendChild(itemImg);
+
+    root.appendChild(stage);
+    root.appendChild(itemWrap);
+    (this.shell || document.body).appendChild(root);
+
+    const centerX = window.innerWidth * 0.5;
+    const centerY = window.innerHeight * 0.5;
+    const originX = Number.isFinite(startX) ? startX : centerX;
+    const originY = Number.isFinite(startY) ? startY : centerY;
+    const startDx = originX - centerX;
+    const startDy = originY - centerY;
+
+    const stageInAnim = stage.animate(
+      [
+        { transform: 'translate3d(-50%, -50%, 0) scale(0.32)', opacity: 0 },
+        { transform: 'translate3d(-50%, -50%, 0) scale(1.06)', opacity: 1, offset: 0.72 },
+        { transform: 'translate3d(-50%, -50%, 0) scale(1)', opacity: 1 },
+      ],
+      { duration: 360, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+
+    const itemInAnim = itemWrap.animate(
+      [
+        { transform: `translate3d(calc(-50% + ${startDx}px), calc(-50% + ${startDy}px), 0) scale(0.24)`, opacity: 0.5 },
+        { transform: 'translate3d(-50%, -50%, 0) scale(1.12)', opacity: 1, offset: 0.72 },
+        { transform: 'translate3d(-50%, -50%, 0) scale(1)', opacity: 1 },
+      ],
+      { duration: 360, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+
+    const showcase = {
+      root,
+      stage,
+      itemWrap,
+      itemImg,
+      animations: [stageInAnim, itemInAnim],
+      awaitingToast: true,
+      exiting: false,
+      fallbackTimer: null,
+    };
+
+    showcase.fallbackTimer = setTimeout(() => {
+      if (this.activePickupShowcase === showcase) {
+        this.#flyPickupShowcaseToInventory();
+      }
+    }, 3600);
+
+    this.activePickupShowcase = showcase;
   }
 
   showToast(message, options = 3600) {
     if (!this.hudToastEl) return;
     const opts = typeof options === 'number' ? { durationMs: options } : (options || {});
     const { durationMs = 3600, imageUrl = '', imageAlt = '' } = opts;
+
+    if (this.activePickupShowcase) {
+      if (this.activePickupShowcase.awaitingToast) {
+        this.activePickupShowcase.awaitingToast = false;
+        clearTimeout(this.activePickupShowcase.fallbackTimer);
+      } else {
+        this.#flyPickupShowcaseToInventory();
+      }
+    }
 
     if (this.hudToastImgEl) {
       if (imageUrl) {
@@ -665,6 +945,9 @@ export class HudController {
     clearTimeout(this.hudToastTimer);
     this.hudToastTimer = setTimeout(() => {
       this.hudToastEl.classList.add('hidden');
+      if (this.activePickupShowcase && !this.activePickupShowcase.exiting) {
+        this.#flyPickupShowcaseToInventory();
+      }
     }, durationMs);
   }
 

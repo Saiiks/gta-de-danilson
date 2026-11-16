@@ -1042,6 +1042,7 @@ export class Engine {
       : (activeMission?.objective || '');
     this.hud.openExpandedMap(objectiveText);
     this.#resetExpandedMapView();
+    this.hud.animateExpandedMapOpen();
   }
 
   closeExpandedMap() {
