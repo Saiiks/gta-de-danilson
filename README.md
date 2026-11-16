@@ -2,7 +2,7 @@
   <img src="./story/favicon.svg" alt="Logo GTA — Guanabara Testando Agentes" width="84" height="84">
 </p>
 
-<h1 align="center">GTA — Guanabara Testando Agentes</h1>
+<h1 align="center">GTA (Guanabara Testando Agentes)</h1>
 
 <p align="center">
   <strong>Um jogo retrô de mundo aberto em visão superior construído com WebGL, Canvas 2D e JavaScript puro — aberto para você jogar, estudar e criar suas próprias histórias.</strong>
