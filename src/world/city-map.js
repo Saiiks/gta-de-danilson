@@ -802,6 +802,20 @@ export class CityMap {
     return null;
   }
 
+  getSurfaceAt(x, y) {
+    const block = this.getBlockAt(x, y);
+    if (block) {
+      if (block.plaza) {
+        const pb = block.plaza.bounds;
+        if (x >= pb.x && x <= pb.x + pb.w && y >= pb.y && y <= pb.y + pb.h) {
+          return 'grass';
+        }
+      }
+      return 'sidewalk';
+    }
+    return 'asphalt';
+  }
+
   getCollidersAround(x, y, margin = 120, forVehicle = false) {
     const blocks = this.getVisibleBlocks(x - margin, y - margin, x + margin, y + margin);
     const colliders = [];

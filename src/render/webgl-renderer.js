@@ -340,14 +340,22 @@ export class WebGLRenderer {
     // Marcas de drift (sobre asfalto, calçada e gramado)
     for (const mark of skidMarks) {
       if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
-      this.#pushQuad(mark.x - 4, mark.y - 4, 8, 8, mark.angle, 'solid', [0.06, 0.06, 0.08, mark.alpha]);
+      const len = mark.length || 8;
+      const wid = (mark.width || 5) + (mark.surface === 'grass' ? 1.5 : 0);
+      const color = mark.surface === 'grass'
+        ? [0.28, 0.19, 0.09, Math.min(0.85, mark.alpha * 1.35)]
+        : mark.surface === 'sidewalk'
+          ? [0.18, 0.17, 0.16, mark.alpha * 0.85]
+          : [0.04, 0.04, 0.05, mark.alpha];
+      this.#pushQuad(mark.x - len * 0.5, mark.y - wid * 0.5, len, wid, mark.angle, 'solid', color);
     }
 
     // Marcas de sangue de arrasto e impacto (sobre asfalto, calçada e gramado)
     for (const mark of bloodMarks) {
       if (mark.x < minX || mark.x > maxX || mark.y < minY || mark.y > maxY) continue;
-      const s = mark.size || 8;
-      this.#pushQuad(mark.x - s * 0.5, mark.y - s * 0.5, s, s, mark.angle || 0, 'solid', [0.58, 0.04, 0.05, mark.alpha]);
+      const len = mark.length || mark.size || 8;
+      const wid = mark.width || mark.size || 8;
+      this.#pushQuad(mark.x - len * 0.5, mark.y - wid * 0.5, len, wid, mark.angle || 0, 'solid', [0.58, 0.04, 0.05, mark.alpha]);
     }
 
     // Mobiliário de praça, obstáculos e edificações
@@ -548,6 +556,8 @@ export class WebGLRenderer {
     for (const v of vehicles) {
       if (v.x < minX || v.x > maxX || v.y < minY || v.y > maxY) continue;
       const sinkScale = v.sinkScale ?? 1;
+      const entryPulse = v.entryPulseTimer > 0 ? Math.sin((v.entryPulseTimer / 0.28) * Math.PI) : 0;
+      const pulseScale = sinkScale * (1 + entryPulse * 0.06);
       const vHealth = v.health ?? 100;
       const baseRgba = hexToRgba(v.color, v.sinkAlpha ?? 1);
       const shade = v.destroyed ? 0.22 : 0.45 + 0.55 * (vHealth / 100);
@@ -558,11 +568,22 @@ export class WebGLRenderer {
       }
       const dentWidth = vHealth < 75 ? v.width * (0.9 + 0.1 * (vHealth / 100)) : v.width;
       const dentLength = vHealth < 75 ? v.length * (0.93 + 0.07 * (vHealth / 100)) : v.length;
+      if (entryPulse > 0.02 && !v.destroyed) {
+        const cos = Math.cos(v.angle);
+        const sin = Math.sin(v.angle);
+        const frontOffset = dentLength * 0.5 + 10;
+        const sideSpread = dentWidth * 0.28;
+        for (const side of [-1, 1]) {
+          const hx = v.x + cos * frontOffset - sin * sideSpread * side;
+          const hy = v.y + sin * frontOffset + cos * sideSpread * side;
+          this.#pushQuad(hx - 12, hy - 5, 24, 10, v.angle, 'circle', [1.0, 0.94, 0.55, entryPulse * 0.7]);
+        }
+      }
       this.#pushQuad(
-        v.x - dentLength * 0.5 * sinkScale,
-        v.y - dentWidth * 0.5 * sinkScale,
-        dentLength * sinkScale,
-        dentWidth * sinkScale,
+        v.x - dentLength * 0.5 * pulseScale,
+        v.y - dentWidth * 0.5 * pulseScale,
+        dentLength * pulseScale,
+        dentWidth * pulseScale,
         v.angle,
         v.kind,
         rgba
@@ -678,12 +699,13 @@ export class WebGLRenderer {
         // Braços alternados (opostos às pernas)
         drawPedLimb(-swing * 0.85 + 2, -11, 8, 5, skin);
         drawPedLimb(swing * 0.85 + 2, 11, 8, 5, skin);
+        const hs = ped.hopScale ?? 1;
         // Sombra, contorno dos ombros, camisa, rosto e cabelo
         this.#pushQuad(ped.x - 9, ped.y - 9, 20, 20, 0, 'circle', [0, 0, 0, 0.35]);
-        this.#pushQuad(ped.x - 9.5, ped.y - 9.5, 19, 19, 0, 'circle', [0.12, 0.16, 0.22, 1]);
-        this.#pushQuad(ped.x + cos * 2 - 6.5, ped.y + sin * 2 - 6.5, 13, 13, 0, 'circle', ped.color);
-        this.#pushQuad(ped.x + cos * 5.2 - 3.8, ped.y + sin * 5.2 - 3.8, 7.6, 7.6, 0, 'circle', skin);
-        this.#pushQuad(ped.x + cos * 4.0 - 3.6, ped.y + sin * 4.0 - 3.6, 7.2, 7.2, 0, 'circle', hair);
+        this.#pushQuad(ped.x - 9.5 * hs, ped.y - 9.5 * hs, 19 * hs, 19 * hs, 0, 'circle', [0.12, 0.16, 0.22, 1]);
+        this.#pushQuad(ped.x + cos * 2 - 6.5 * hs, ped.y + sin * 2 - 6.5 * hs, 13 * hs, 13 * hs, 0, 'circle', ped.color);
+        this.#pushQuad(ped.x + cos * 5.2 - 3.8 * hs, ped.y + sin * 5.2 - 3.8 * hs, 7.6 * hs, 7.6 * hs, 0, 'circle', skin);
+        this.#pushQuad(ped.x + cos * 4.0 - 3.6 * hs, ped.y + sin * 4.0 - 3.6 * hs, 7.2 * hs, 7.2 * hs, 0, 'circle', hair);
       }
     }
 
@@ -737,8 +759,12 @@ export class WebGLRenderer {
     const ridingMoto = Boolean(playerVehicle && playerVehicle.kind === 'moto');
 
     if (!player.inVehicleId || ridingMoto) {
-      const pScale = ridingMoto ? (playerVehicle.sinkScale ?? 1) : (player.sinkScale ?? 1);
-      const pAlpha = ridingMoto ? (playerVehicle.sinkAlpha ?? 1) : (player.sinkAlpha ?? 1);
+      const pScale = ridingMoto
+        ? (playerVehicle.sinkScale ?? 1)
+        : (player.sinkScale ?? 1) * (player.entryScale ?? 1);
+      const pAlpha = ridingMoto
+        ? (playerVehicle.sinkAlpha ?? 1)
+        : (player.sinkAlpha ?? 1) * (player.entryAlpha ?? 1);
       if (!ridingMoto && player.sinkProgress > 0) {
         const ring = 20 + player.sinkProgress * 28;
         this.#pushQuad(player.x - ring * 0.5, player.y - ring * 0.5, ring, ring, 0, 'solid', [0.75, 0.92, 1, (1 - player.sinkProgress) * 0.5]);

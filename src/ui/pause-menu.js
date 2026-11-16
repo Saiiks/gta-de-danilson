@@ -19,6 +19,7 @@ export class PauseMenuController {
     this.missionSelectBackBtn = document.getElementById('mission-select-back-btn');
     this.newGameBtn = document.getElementById('pause-new-game-btn');
     this.refreshAssetsBtn = document.getElementById('pause-refresh-assets-btn');
+    this.resetGameBtn = document.getElementById('pause-reset-game-btn');
     this.exitBtn = document.getElementById('pause-exit-btn');
 
     this.isOpen = false;
@@ -52,6 +53,10 @@ export class PauseMenuController {
       this.callbacks.onRefreshAssets?.();
     });
 
+    this.resetGameBtn?.addEventListener('click', () => {
+      this.callbacks.onResetGame?.();
+    });
+
     this.exitBtn.addEventListener('click', () => {
       this.close();
       this.callbacks.onExitToTitle?.();
@@ -74,6 +79,7 @@ export class PauseMenuController {
       this.chooseMissionBtn,
       this.newGameBtn,
       this.refreshAssetsBtn,
+      this.resetGameBtn,
       this.exitBtn,
     ].filter(Boolean);
   }
@@ -85,6 +91,7 @@ export class PauseMenuController {
       this.chooseMissionBtn,
       this.newGameBtn,
       this.refreshAssetsBtn,
+      this.resetGameBtn,
       this.exitBtn,
       this.missionSelectBackBtn,
       ...this.missionListEl.querySelectorAll('button')

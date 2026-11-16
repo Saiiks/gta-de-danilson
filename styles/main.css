@@ -1294,6 +1294,7 @@ body {
 
 .expanded-map-card {
   width: min(94vw, 1440px);
+  max-width: none;
   max-height: 94dvh;
   padding: clamp(10px, 2dvh, 18px) clamp(12px, 2.5vw, 22px);
   display: flex;

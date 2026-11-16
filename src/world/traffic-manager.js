@@ -206,17 +206,26 @@ export class TrafficManager {
     const dirY = dy / d;
     const npc = {
       id: `PED-${idNum}`,
-      x: pos.x,
-      y: pos.y,
+      x: vehicle.x,
+      y: vehicle.y,
       dirX,
       dirY,
       angle: Math.atan2(dirY, dirX),
-      speed: 62,
+      speed: 118,
       baseSpeed: 62,
       health: 100,
       radius: 10,
       hitCooldown: 0,
-      fleeTimer: 0,
+      fleeTimer: 1.8,
+      ejectAnim: {
+        fromX: vehicle.x,
+        fromY: vehicle.y,
+        toX: pos.x,
+        toY: pos.y,
+        timer: 0,
+        duration: 0.34,
+      },
+      hopScale: 1,
       crossTimer: 4.0,
       crossCooldown: 1.5,
       visitCooldown: 6,
@@ -277,6 +286,20 @@ export class TrafficManager {
         ped.binReactCooldown = Math.max(0, ped.binReactCooldown - dt);
       }
       if (ped.state === 'downed') continue;
+      if (ped.ejectAnim) {
+        ped.ejectAnim.timer += dt;
+        const t = Math.min(1, ped.ejectAnim.timer / ped.ejectAnim.duration);
+        const ease = 1 - Math.pow(1 - t, 2);
+        ped.x = ped.ejectAnim.fromX + (ped.ejectAnim.toX - ped.ejectAnim.fromX) * ease;
+        ped.y = ped.ejectAnim.fromY + (ped.ejectAnim.toY - ped.ejectAnim.fromY) * ease;
+        ped.hopScale = 1 + Math.sin(t * Math.PI) * 0.28;
+        ped.walkPhase += dt * 24;
+        if (t >= 1) {
+          ped.ejectAnim = null;
+          ped.hopScale = 1;
+        }
+        continue;
+      }
       if (Math.abs(ped.x - player.x) > activeRadius || Math.abs(ped.y - player.y) > activeRadius) {
         continue;
       }

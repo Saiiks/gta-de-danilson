@@ -1,9 +1,9 @@
-import { CityMap } from '../world/city-map.js?v=29';
+import { CityMap } from '../world/city-map.js?v=30';
 import { RoadPathfinder } from '../world/pathfinding.js';
-import { TrafficManager } from '../world/traffic-manager.js?v=23';
+import { TrafficManager } from '../world/traffic-manager.js?v=24';
 import { BoatManager } from '../world/boat-manager.js?v=17';
 import { InputManager } from '../input/input-manager.js?v=20';
-import { WebGLRenderer } from '../render/webgl-renderer.js?v=27';
+import { WebGLRenderer } from '../render/webgl-renderer.js?v=29';
 import { isInWater, resolveCircleStaticObstacle, resolveEntityCollisions, resolveVehiclePairCollision } from '../physics/collision.js?v=11';
 import {
   applyPedestrianDamage,
@@ -59,6 +59,7 @@ export class Engine {
     this.onExitToTitle = options.onExitToTitle || null;
     this.onNewGame = options.onNewGame || null;
     this.onRefreshAssets = options.onRefreshAssets || null;
+    this.onResetGame = options.onResetGame || null;
 
     this.inventory = new Inventory();
     this.awaitingExitTarget = false;
@@ -275,6 +276,9 @@ export class Engine {
       onRefreshAssets: () => {
         this.onRefreshAssets?.();
       },
+      onResetGame: () => {
+        this.onResetGame?.();
+      },
       onExitToTitle: () => {
         this.#persistSaveState();
         this.onExitToTitle?.();
@@ -380,6 +384,9 @@ export class Engine {
       },
       onRefreshAssets: () => {
         this.onRefreshAssets?.();
+      },
+      onResetGame: () => {
+        this.onResetGame?.();
       },
       onExitToTitle: () => {
         this.#persistSaveState();
@@ -513,6 +520,9 @@ export class Engine {
       },
       onRefreshAssets: () => {
         this.onRefreshAssets?.();
+      },
+      onResetGame: () => {
+        this.onResetGame?.();
       },
       onExitToTitle: () => {
         this.#persistSaveState();
@@ -1266,6 +1276,66 @@ export class Engine {
           this.applyDamage(Math.max(1, Math.round(ejRes.extraDamage * 0.75)), 'Você colidiu fortemente após ser ejetado!');
         }
         this.#resolvePlayerMissionNpcCollision();
+      } else if (this.player.enteringVehicle) {
+        const anim = this.player.enteringVehicle;
+        const targetVehicle = this.vehicles.find((v) => v.id === anim.vehicleId);
+        if (!targetVehicle || targetVehicle.destroyed) {
+          this.player.enteringVehicle = null;
+          this.player.entryScale = 1;
+          this.player.entryAlpha = 1;
+        } else {
+          anim.timer += dt;
+          const t = Math.min(1, anim.timer / anim.duration);
+          const ease = 1 - Math.pow(1 - t, 2);
+          this.player.x = anim.fromX + (targetVehicle.x - anim.fromX) * ease;
+          this.player.y = anim.fromY + (targetVehicle.y - anim.fromY) * ease;
+          this.player.angle = Math.atan2(targetVehicle.y - anim.fromY, targetVehicle.x - anim.fromX);
+          this.player.walkPhase += dt * 22;
+          this.player.speed = 90;
+          if (targetVehicle.kind === 'moto') {
+            this.player.entryScale = 1 + Math.sin(t * Math.PI) * 0.22;
+            this.player.entryAlpha = 1;
+          } else {
+            this.player.entryScale = 1 - t * 0.35;
+            this.player.entryAlpha = 1 - Math.max(0, (t - 0.55) / 0.45);
+          }
+          if (t >= 1) {
+            this.player.enteringVehicle = null;
+            this.player.entryScale = 1;
+            this.player.entryAlpha = 1;
+            this.player.inVehicleId = targetVehicle.id;
+            this.player.x = targetVehicle.x;
+            this.player.y = targetVehicle.y;
+            this.player.insideLocationCode = null;
+            targetVehicle.entryPulseTimer = 0.28;
+            this.input.consumeExitTrigger();
+            activeVehicle = targetVehicle;
+          }
+        }
+      } else if (this.player.exitingVehicle) {
+        const anim = this.player.exitingVehicle;
+        anim.timer += dt;
+        const t = Math.min(1, anim.timer / anim.duration);
+        const ease = 1 - Math.pow(1 - t, 2);
+        this.player.x = anim.fromX + (anim.toX - anim.fromX) * ease;
+        this.player.y = anim.fromY + (anim.toY - anim.fromY) * ease;
+        this.player.angle = Math.atan2(anim.toY - anim.fromY, anim.toX - anim.fromX);
+        this.player.walkPhase += dt * 22;
+        this.player.speed = 90;
+        if (anim.kind === 'moto') {
+          this.player.entryScale = 1 + Math.sin(t * Math.PI) * 0.2;
+          this.player.entryAlpha = 1;
+        } else {
+          this.player.entryScale = 0.65 + t * 0.35;
+          this.player.entryAlpha = Math.min(1, t / 0.45);
+        }
+        if (t >= 1) {
+          this.player.exitingVehicle = null;
+          this.player.entryScale = 1;
+          this.player.entryAlpha = 1;
+          this.player.x = anim.toX;
+          this.player.y = anim.toY;
+        }
       } else {
         updatePedestrian(this.player, input, dt, this.cityMap, this.vehicles);
         this.#resolvePlayerMissionNpcCollision();
@@ -1277,15 +1347,24 @@ export class Engine {
         if (input.actionJustPressed && !this.#isNearInteriorStoryNpc()) {
           const nearest = findNearestVehicle(this.player.x, this.player.y, this.vehicles);
           if (nearest) {
-            if (nearest.driver === 'npc') {
+            const hadNpcDriver = nearest.driver === 'npc';
+            if (hadNpcDriver) {
               this.trafficManager.evictDriver(nearest, this.player.radius);
             }
             nearest.driver = 'player';
             nearest.isParked = false;
-            this.player.inVehicleId = nearest.id;
+            nearest.vx *= 0.25;
+            nearest.vy *= 0.25;
+            nearest.speed *= 0.25;
             this.player.insideLocationCode = null;
-            this.input.consumeExitTrigger();
-            activeVehicle = nearest;
+            this.player.enteringVehicle = {
+              vehicleId: nearest.id,
+              fromX: this.player.x,
+              fromY: this.player.y,
+              timer: 0,
+              duration: hadNpcDriver ? 0.34 : 0.24,
+              hadNpcDriver,
+            };
           } else {
             const ped = this.#findNearestTalkablePedestrian(this.player.x, this.player.y);
             if (ped) {
@@ -1306,10 +1385,23 @@ export class Engine {
 
       if (shouldExit) {
         const exitPos = findSafeExitPosition(activeVehicle, this.player.radius, this.cityMap);
+        const startX = activeVehicle.x;
+        const startY = activeVehicle.y;
+        const kind = activeVehicle.kind;
         activeVehicle.driver = null;
+        activeVehicle.entryPulseTimer = 0.24;
         this.player.inVehicleId = null;
-        this.player.x = exitPos.x;
-        this.player.y = exitPos.y;
+        this.player.x = startX;
+        this.player.y = startY;
+        this.player.exitingVehicle = {
+          fromX: startX,
+          fromY: startY,
+          toX: exitPos.x,
+          toY: exitPos.y,
+          timer: 0,
+          duration: 0.24,
+          kind,
+        };
         this.input.consumeExitTrigger();
         activeVehicle = null;
       }
@@ -1344,15 +1436,12 @@ export class Engine {
         }
       }
       if (v.isDrifting && v.driftIntensity > 0.25) {
-        this.skidMarks.push({
-          x: v.x,
-          y: v.y,
-          angle: v.angle,
-          alpha: Math.min(0.45, v.driftIntensity * 0.4)
+        this.#emitVehicleTireMarks(v, this.skidMarks, {
+          alpha: Math.min(0.48, v.driftIntensity * 0.42),
+          maxCount: 600,
+          length: 9,
+          includeSurface: true,
         });
-        if (this.skidMarks.length > 350) {
-          this.skidMarks.shift();
-        }
       }
     }
 
@@ -1383,6 +1472,9 @@ export class Engine {
 
     // Contagem regressiva de 10s para veículos com até 30% de integridade
     for (const v of this.vehicles) {
+      if (v.entryPulseTimer > 0) {
+        v.entryPulseTimer = Math.max(0, v.entryPulseTimer - dt);
+      }
       if (v.destroyed) continue;
       const crit = updateVehicleCriticalState(v, dt);
       if (crit.shouldExplode) {
@@ -1601,16 +1693,12 @@ export class Engine {
       if (v.bloodTireTimer > 0) {
         v.bloodTireTimer = Math.max(0, v.bloodTireTimer - dt);
         if (v.speed > 12) {
-          this.bloodMarks.push({
-            x: v.x,
-            y: v.y,
-            size: 7,
-            angle: v.angle,
-            alpha: Math.min(0.75, v.bloodTireTimer * 0.45)
+          this.#emitVehicleTireMarks(v, this.bloodMarks, {
+            alpha: Math.min(0.75, v.bloodTireTimer * 0.45),
+            maxCount: 420,
+            length: 7,
+            includeSurface: false,
           });
-          while (this.bloodMarks.length > 260) {
-            this.bloodMarks.shift();
-          }
         }
       }
     }
@@ -2079,6 +2167,35 @@ export class Engine {
     }
   }
 
+  #emitVehicleTireMarks(vehicle, targetArray, { alpha, maxCount, length = 8, includeSurface = false }) {
+    if (!vehicle || !Array.isArray(targetArray)) return;
+    const cos = Math.cos(vehicle.angle);
+    const sin = Math.sin(vehicle.angle);
+    const rearX = vehicle.x - cos * ((vehicle.length || 44) * 0.28);
+    const rearY = vehicle.y - sin * ((vehicle.length || 44) * 0.28);
+    const wheelOffsets = vehicle.kind === 'moto' ? [0] : [-1, 1];
+    const trackHalf = (vehicle.width || 24) * 0.34;
+    const tireWidth = vehicle.kind === 'van' ? 5 : 4;
+
+    for (const side of wheelOffsets) {
+      const wx = rearX + (-sin) * trackHalf * side;
+      const wy = rearY + cos * trackHalf * side;
+      targetArray.push({
+        x: wx,
+        y: wy,
+        angle: vehicle.angle,
+        alpha,
+        width: tireWidth,
+        length,
+        size: tireWidth,
+        surface: includeSurface && this.cityMap?.getSurfaceAt ? this.cityMap.getSurfaceAt(wx, wy) : undefined,
+      });
+    }
+    while (targetArray.length > maxCount) {
+      targetArray.shift();
+    }
+  }
+
   #triggerVehicleExplosion(vehicle) {
     if (!vehicle || vehicle.destroyed) return;
     vehicle.destroyed = true;
@@ -2140,11 +2257,11 @@ export class Engine {
       sparks
     });
 
-    this.skidMarks.push({
-      x: vehicle.x,
-      y: vehicle.y,
-      angle: vehicle.angle,
-      alpha: 0.78
+    this.#emitVehicleTireMarks(vehicle, this.skidMarks, {
+      alpha: 0.78,
+      maxCount: 600,
+      length: 12,
+      includeSurface: true,
     });
 
     for (let i = 0; i < 18; i++) {

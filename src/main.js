@@ -1,11 +1,11 @@
-import { Engine } from './core/engine.js?v=53';
+import { Engine } from './core/engine.js?v=57';
 import { HudController } from './ui/hud-controller.js?v=38';
 import { CutsceneController } from './ui/cutscene-controller.js?v=15';
-import { PauseMenuController } from './ui/pause-menu.js?v=5';
+import { PauseMenuController } from './ui/pause-menu.js?v=6';
 import { ConfirmDialogController } from './ui/confirm-dialog.js?v=2';
 import { AssetsRefreshDialogController } from './ui/assets-refresh-dialog.js?v=2';
 import { InventoryController } from './ui/inventory-controller.js?v=21';
-import { CityMap } from './world/city-map.js?v=29';
+import { CityMap } from './world/city-map.js?v=30';
 import {
   loadGameState,
   clearGameState,
@@ -206,6 +206,7 @@ async function boot() {
         preloadedUrls,
         onNewGame: () => requestNewGame(() => pauseMenu.close()),
         onRefreshAssets: () => handleRefreshAssets(),
+        onResetGame: () => requestResetGame(() => pauseMenu.close()),
         onExitToTitle: () => {
           activeEngine?.stop();
           activeEngine = null;
@@ -279,6 +280,77 @@ async function boot() {
       onConfirm: () => {
         onConfirmed?.();
         launchGame({ useSaved: false });
+      }
+    });
+  };
+
+  const resetAllSessionData = async () => {
+    if (idlePreloadTimer) {
+      clearTimeout(idlePreloadTimer);
+      idlePreloadTimer = null;
+    }
+    if (activeEngine) {
+      activeEngine.stop();
+      activeEngine = null;
+    }
+    preloadedUrls.clear();
+    try {
+      window.localStorage?.clear();
+    } catch {
+      // ignora erro de localStorage
+    }
+    try {
+      window.sessionStorage?.clear();
+    } catch {
+      // ignora erro de sessionStorage
+    }
+    if ('caches' in window) {
+      try {
+        const keys = await window.caches.keys();
+        await Promise.all(keys.map((key) => window.caches.delete(key)));
+      } catch {
+        // ignora erro de Cache Storage
+      }
+    }
+    if ('serviceWorker' in navigator) {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((reg) => reg.unregister()));
+      } catch {
+        // ignora erro ao desregistrar Service Worker
+      }
+    }
+    if (window.indexedDB && typeof window.indexedDB.databases === 'function') {
+      try {
+        const dbs = await window.indexedDB.databases();
+        await Promise.all(
+          (dbs || []).map((db) => {
+            if (!db?.name) return Promise.resolve();
+            return new Promise((resolve) => {
+              const req = window.indexedDB.deleteDatabase(db.name);
+              req.onsuccess = () => resolve();
+              req.onerror = () => resolve();
+              req.onblocked = () => resolve();
+            });
+          })
+        );
+      } catch {
+        // ignora erro de IndexedDB
+      }
+    }
+    const baseHref = window.location.href.split('?')[0].split('#')[0];
+    window.location.replace(`${baseHref}?fresh=${Date.now()}`);
+  };
+
+  const requestResetGame = (onConfirmed = null) => {
+    confirmDialog.open({
+      title: 'RESETAR TODO O JOGO?',
+      message: 'Isso apagará progresso, inventário, cache de assets e dados locais, reiniciando como no primeiro acesso. Deseja continuar?',
+      cancelLabel: 'Cancelar',
+      confirmLabel: 'Resetar Tudo',
+      onConfirm: () => {
+        onConfirmed?.();
+        resetAllSessionData();
       }
     });
   };

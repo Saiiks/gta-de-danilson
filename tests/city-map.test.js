@@ -215,3 +215,18 @@ test('computeInitialExpandedView enquadra a maior dimensão mantendo jogador e d
   assert.ok(Math.abs(farPlayer.x - farView.centerX) <= farHalfW);
   assert.ok(Math.abs(farObjective.x - farView.centerX) <= farHalfW);
 });
+
+test('getSurfaceAt diferencia asfalto, calçada e grama', () => {
+  const map = new CityMap();
+  const road = map.resolveLocationCode('RUA-01');
+  assert.equal(map.getSurfaceAt(road.bounds.x + road.bounds.w * 0.5, road.bounds.y + road.bounds.h * 0.5), 'asphalt');
+
+  const bx = map.blockXOffsets[0];
+  const by = map.blockYOffsets[0];
+  assert.equal(map.getSurfaceAt(bx + 6, by + 6), 'sidewalk');
+
+  const plazaBlock = map.blocks.flat().find((b) => b.isPlaza && b.plaza);
+  assert.ok(plazaBlock);
+  const pb = plazaBlock.plaza.bounds;
+  assert.equal(map.getSurfaceAt(pb.x + pb.w * 0.5, pb.y + pb.h * 0.5), 'grass');
+});
