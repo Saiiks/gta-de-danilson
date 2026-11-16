@@ -1,7 +1,7 @@
 {
-  "name": "Cidade Aberta Retrô",
+  "name": "Missão Vibe Coding — Curso em Vídeo",
   "short_name": "GTA",
-  "description": "Jogo retrô de mundo aberto em visão superior.",
+  "description": "Cruzando a cidade para descobrir o segredo guardado em uma caixa secreta e lidando com GPUs, servidores e robôs!",
   "start_url": "./index.html",
   "scope": "./",
   "display": "fullscreen",

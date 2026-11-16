@@ -1,3 +1,10 @@
+import {
+  bindHoverClearsKeyboardFocus,
+  isKeyboardUiMode,
+  onUiInputModeChange,
+  setUiInputMode,
+} from './input-mode.js?v=1';
+
 export class PauseMenuController {
   constructor(confirmDialog = null, assetsRefreshDialog = null) {
     this.confirmDialog = confirmDialog;
@@ -49,6 +56,12 @@ export class PauseMenuController {
       this.close();
       this.callbacks.onExitToTitle?.();
     });
+
+    bindHoverClearsKeyboardFocus(this.screen, () => this.highlightSelection());
+    bindHoverClearsKeyboardFocus(this.missionSelectScreen, () => this.highlightSelection());
+    onUiInputModeChange(() => {
+      if (this.isOpen) this.highlightSelection();
+    });
   }
 
   getActiveButtons() {
@@ -77,6 +90,7 @@ export class PauseMenuController {
       ...this.missionListEl.querySelectorAll('button')
     ].filter(Boolean);
     allButtons.forEach((b) => b.classList.remove('menu-selected'));
+    if (!isKeyboardUiMode()) return;
 
     const active = this.getActiveButtons();
     if (active.length === 0) return;
@@ -119,10 +133,12 @@ export class PauseMenuController {
     const down = Boolean(input.moveY > 0.5);
 
     if (up && !this.prevUp) {
+      setUiInputMode('keyboard');
       this.selectedIndex = (this.selectedIndex - 1 + active.length) % active.length;
       this.highlightSelection();
     }
     if (down && !this.prevDown) {
+      setUiInputMode('keyboard');
       this.selectedIndex = (this.selectedIndex + 1) % active.length;
       this.highlightSelection();
     }

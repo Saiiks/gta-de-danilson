@@ -1,3 +1,10 @@
+import {
+  bindHoverClearsKeyboardFocus,
+  isKeyboardUiMode,
+  onUiInputModeChange,
+  setUiInputMode,
+} from './input-mode.js?v=1';
+
 export class ConfirmDialogController {
   constructor() {
     this.screen = document.getElementById('confirm-screen');
@@ -52,6 +59,10 @@ export class ConfirmDialogController {
       }
     };
     window.addEventListener('keydown', this.#onKeyDown, true);
+    bindHoverClearsKeyboardFocus(this.screen, () => this.highlightSelection());
+    onUiInputModeChange(() => {
+      if (this.isOpen) this.highlightSelection();
+    });
   }
 
   #onKeyDown = null;
@@ -63,12 +74,13 @@ export class ConfirmDialogController {
   highlightSelection() {
     const buttons = this.getButtons();
     buttons.forEach((btn) => btn.classList.remove('menu-selected'));
-    if (buttons.length === 0) return;
+    if (!isKeyboardUiMode() || buttons.length === 0) return;
     this.selectedIndex = Math.max(0, Math.min(this.selectedIndex, buttons.length - 1));
     buttons[this.selectedIndex].classList.add('menu-selected');
   }
 
   moveSelection(delta) {
+    setUiInputMode('keyboard');
     const buttons = this.getButtons();
     if (buttons.length === 0) return;
     this.selectedIndex = (this.selectedIndex + delta + buttons.length) % buttons.length;

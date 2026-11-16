@@ -1175,6 +1175,17 @@ body {
   touch-action: manipulation;
 }
 
+@media (max-width: 540px) {
+  .confirm-actions {
+    flex-direction: column-reverse;
+  }
+
+  .confirm-actions button {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+}
+
 .expanded-map-card {
   width: min(94vw, 960px);
   max-height: 94dvh;

@@ -1,3 +1,9 @@
+import {
+  bindHoverClearsKeyboardFocus,
+  isKeyboardUiMode,
+  onUiInputModeChange,
+} from './input-mode.js?v=1';
+
 export class AssetsRefreshDialogController {
   constructor() {
     this.screen = document.getElementById('assets-refresh-screen');
@@ -31,9 +37,18 @@ export class AssetsRefreshDialogController {
       }
     };
     window.addEventListener('keydown', this.#onKeyDown, true);
+    bindHoverClearsKeyboardFocus(this.screen, () => this.#syncActionBtnHighlight());
+    onUiInputModeChange(() => {
+      if (this.isOpen) this.#syncActionBtnHighlight();
+    });
   }
 
   #onKeyDown = null;
+
+  #syncActionBtnHighlight() {
+    if (!this.actionBtn) return;
+    this.actionBtn.classList.toggle('menu-selected', isKeyboardUiMode());
+  }
 
   open() {
     this.abortController?.abort();
@@ -43,7 +58,8 @@ export class AssetsRefreshDialogController {
     this.setProgress(0, 'Iniciando atualização dos assets...');
     if (this.actionBtn) {
       this.actionBtn.textContent = 'Cancelar';
-      this.actionBtn.className = 'secondary-button menu-selected';
+      this.actionBtn.className = 'secondary-button';
+      this.#syncActionBtnHighlight();
     }
     this.screen?.classList.remove('hidden');
     return this.abortController.signal;
@@ -61,7 +77,8 @@ export class AssetsRefreshDialogController {
     this.setProgress(100, text);
     if (this.actionBtn) {
       this.actionBtn.textContent = 'Fechar';
-      this.actionBtn.className = 'primary-button menu-selected';
+      this.actionBtn.className = 'primary-button';
+      this.#syncActionBtnHighlight();
     }
   }
 
@@ -70,7 +87,8 @@ export class AssetsRefreshDialogController {
     if (this.textEl) this.textEl.textContent = text;
     if (this.actionBtn) {
       this.actionBtn.textContent = 'Fechar';
-      this.actionBtn.className = 'secondary-button menu-selected';
+      this.actionBtn.className = 'secondary-button';
+      this.#syncActionBtnHighlight();
     }
   }
 

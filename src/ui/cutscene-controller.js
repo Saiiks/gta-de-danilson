@@ -1,4 +1,10 @@
 import { pickCutsceneBackground } from '../story/story-loader.js?v=14';
+import {
+  bindHoverClearsKeyboardFocus,
+  isKeyboardUiMode,
+  onUiInputModeChange,
+  setUiInputMode,
+} from './input-mode.js?v=1';
 
 export class CutsceneController {
   constructor() {
@@ -30,6 +36,19 @@ export class CutsceneController {
     this.recentBackgroundsByType = new Map();
 
     this.nextBtn.addEventListener('click', () => this.advance());
+    bindHoverClearsKeyboardFocus(this.choicesEl, () => this.#syncChoiceSelection());
+    onUiInputModeChange(() => {
+      if (this.active) this.#syncChoiceSelection();
+    });
+  }
+
+  #syncChoiceSelection() {
+    if (!this.choicesEl) return;
+    const buttons = [...this.choicesEl.querySelectorAll('.cutscene-choice-btn')];
+    const showFocus = isKeyboardUiMode();
+    buttons.forEach((btn, idx) => {
+      btn.classList.toggle('selected', showFocus && idx === this.selectedChoiceIndex);
+    });
   }
 
   play(cutscene, characters, onFinish, options = {}) {
@@ -164,7 +183,7 @@ export class CutsceneController {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'cutscene-choice-btn';
-        if (idx === this.selectedChoiceIndex) btn.classList.add('selected');
+        if (isKeyboardUiMode() && idx === this.selectedChoiceIndex) btn.classList.add('selected');
         btn.textContent = choice.label;
         btn.addEventListener('click', () => {
           this.#selectChoice(choice);
@@ -190,13 +209,15 @@ export class CutsceneController {
 
     if (step.choices && step.choices.length > 0) {
       if (up && !this.prevUp) {
+        setUiInputMode('keyboard');
         this.selectedChoiceIndex =
           (this.selectedChoiceIndex - 1 + step.choices.length) % step.choices.length;
-        this.renderStep();
+        this.#syncChoiceSelection();
       }
       if (down && !this.prevDown) {
+        setUiInputMode('keyboard');
         this.selectedChoiceIndex = (this.selectedChoiceIndex + 1) % step.choices.length;
-        this.renderStep();
+        this.#syncChoiceSelection();
       }
       if (action && !this.prevAction) {
         const chosen = step.choices[this.selectedChoiceIndex];

@@ -1,9 +1,9 @@
 import { Engine } from './core/engine.js?v=50';
-import { HudController } from './ui/hud-controller.js?v=31';
-import { CutsceneController } from './ui/cutscene-controller.js?v=14';
-import { PauseMenuController } from './ui/pause-menu.js?v=4';
-import { ConfirmDialogController } from './ui/confirm-dialog.js?v=1';
-import { AssetsRefreshDialogController } from './ui/assets-refresh-dialog.js?v=1';
+import { HudController } from './ui/hud-controller.js?v=33';
+import { CutsceneController } from './ui/cutscene-controller.js?v=15';
+import { PauseMenuController } from './ui/pause-menu.js?v=5';
+import { ConfirmDialogController } from './ui/confirm-dialog.js?v=2';
+import { AssetsRefreshDialogController } from './ui/assets-refresh-dialog.js?v=2';
 import { InventoryController } from './ui/inventory-controller.js?v=19';
 import { CityMap } from './world/city-map.js?v=29';
 import {

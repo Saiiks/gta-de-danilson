@@ -351,3 +351,32 @@ test('teclado e joystick controlam caminhada e direção normalmente', async () 
   assert.equal(snap.actionPressed, true);
   assert.equal(snap.exitJustPressed, true);
 });
+
+test('input-mode oculta destaque no toque, limpa seleção padrão ao passar o mouse e reativa no teclado', async () => {
+  setupGlobals({ maxTouchPoints: 0 });
+  const {
+    getUiInputMode,
+    isKeyboardUiMode,
+    setUiInputMode,
+    onUiInputModeChange,
+  } = await import('../src/ui/input-mode.js');
+
+  setUiInputMode('keyboard');
+  const seen = [];
+  const unsubscribe = onUiInputModeChange((mode) => seen.push(mode));
+  assert.equal(getUiInputMode(), 'keyboard');
+  assert.equal(isKeyboardUiMode(), true);
+
+  setUiInputMode('mouse');
+  assert.equal(getUiInputMode(), 'mouse');
+  assert.equal(isKeyboardUiMode(), false);
+
+  setUiInputMode('touch');
+  assert.equal(getUiInputMode(), 'touch');
+  assert.equal(isKeyboardUiMode(), false);
+
+  setUiInputMode('keyboard');
+  assert.equal(isKeyboardUiMode(), true);
+  assert.deepEqual(seen, ['mouse', 'touch', 'keyboard']);
+  unsubscribe();
+});

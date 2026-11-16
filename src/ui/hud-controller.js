@@ -1,3 +1,10 @@
+import {
+  bindHoverClearsKeyboardFocus,
+  isKeyboardUiMode,
+  onUiInputModeChange,
+  setUiInputMode,
+} from './input-mode.js?v=1';
+
 export class HudController {
   constructor() {
     this.shell = document.getElementById('game-shell');
@@ -92,6 +99,12 @@ export class HudController {
     this.#bindFullscreenRestore();
     this.#updateIosInstallHint();
     this.#bindZoomPrevention();
+    bindHoverClearsKeyboardFocus(this.startScreen, () => this.setStartSelection(this.startSelectedIndex));
+    onUiInputModeChange(() => {
+      if (this.isStartScreenOpen()) {
+        this.setStartSelection(this.startSelectedIndex);
+      }
+    });
   }
 
   isTouchDevice() {
@@ -212,17 +225,35 @@ export class HudController {
     const browserTitle = pageTitle || title;
     if (browserTitle && typeof document !== 'undefined') {
       document.title = browserTitle;
+      this.#setMetaContent('meta[property="og:title"]', browserTitle);
+      this.#setMetaContent('meta[name="twitter:title"]', browserTitle);
     }
-    if (subtitle) this.startSubtitleEl.textContent = subtitle;
+    if (subtitle) {
+      this.startSubtitleEl.textContent = subtitle;
+      this.#setMetaContent('meta[name="description"]', subtitle);
+      this.#setMetaContent('meta[property="og:description"]', subtitle);
+      this.#setMetaContent('meta[name="twitter:description"]', subtitle);
+    }
     if (faviconUrl !== undefined) {
       this.setStoryFavicon(faviconUrl);
     }
     if (splashUrl) {
       this.startSplashEl.src = splashUrl;
       this.startSplashEl.classList.remove('hidden');
+      const absSplash = typeof window !== 'undefined'
+        ? new URL(splashUrl, window.location.href).href
+        : splashUrl;
+      this.#setMetaContent('meta[property="og:image"]', absSplash);
+      this.#setMetaContent('meta[name="twitter:image"]', absSplash);
     } else {
       this.startSplashEl.classList.add('hidden');
     }
+  }
+
+  #setMetaContent(selector, value) {
+    if (typeof document === 'undefined' || !value) return;
+    const el = document.querySelector(selector);
+    if (el) el.setAttribute('content', value);
   }
 
   showStartScreen() {
@@ -270,12 +301,14 @@ export class HudController {
     if (buttons.length === 0) return;
     const len = buttons.length;
     this.startSelectedIndex = ((Math.floor(index) % len) + len) % len;
+    const showFocus = isKeyboardUiMode();
     buttons.forEach((btn, idx) => {
-      btn.classList.toggle('start-action-selected', len > 1 && idx === this.startSelectedIndex);
+      btn.classList.toggle('start-action-selected', showFocus && len > 1 && idx === this.startSelectedIndex);
     });
   }
 
   moveStartSelection(delta = 1) {
+    setUiInputMode('keyboard');
     const buttons = this.#getVisibleStartButtons();
     if (buttons.length <= 1) return;
     this.setStartSelection(this.startSelectedIndex + delta);
