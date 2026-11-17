@@ -14,6 +14,7 @@ export class WebModalController {
     this.titleEl = document.getElementById('web-modal-title');
     this.urlEl = document.getElementById('web-modal-url');
     this.iframe = document.getElementById('web-modal-iframe');
+    this.loadingEl = document.getElementById('web-modal-loading');
     this.externalBtn = document.getElementById('web-modal-external-btn');
     this.closeBtn = document.getElementById('web-modal-close-btn');
     this.hintEl = document.getElementById('web-modal-hint');
@@ -22,6 +23,7 @@ export class WebModalController {
     this.active = false;
     this.url = '';
     this.onClose = null;
+    this.loadTimer = null;
     this.selectedButtonIndex = 1;
     this.prevAction = false;
     this.prevSecondary = false;
@@ -30,6 +32,11 @@ export class WebModalController {
 
     this.externalBtn?.addEventListener('click', () => this.openExternal());
     this.closeBtn?.addEventListener('click', () => this.close());
+    this.iframe?.addEventListener('load', () => {
+      if (!this.active) return;
+      clearTimeout(this.loadTimer);
+      this.loadingEl?.classList.add('hidden');
+    });
     bindHoverClearsKeyboardFocus(this.actionsEl, () => this.#syncButtonSelection());
     onUiInputModeChange(() => {
       if (this.active) this.#syncButtonSelection();
@@ -122,6 +129,16 @@ export class WebModalController {
     if (this.titleEl) this.titleEl.textContent = label || 'SITE EXTERNO';
     if (this.urlEl) this.urlEl.textContent = this.url;
     if (this.hintEl) this.hintEl.textContent = DEFAULT_HINT;
+    if (this.loadingEl) {
+      this.loadingEl.textContent = 'Carregando site...';
+      this.loadingEl.classList.remove('hidden');
+    }
+    clearTimeout(this.loadTimer);
+    this.loadTimer = setTimeout(() => {
+      if (!this.active || !this.loadingEl) return;
+      this.loadingEl.textContent =
+        'O site está demorando para responder ou bloqueou a exibição interna. Você pode aguardar ou clicar em "Abrir no navegador externo".';
+    }, 6000);
     this.iframe.src = this.url;
     this.screen.classList.remove('hidden');
     this.#syncButtonSelection();
@@ -187,8 +204,10 @@ export class WebModalController {
   close() {
     if (!this.active) return;
     this.active = false;
+    clearTimeout(this.loadTimer);
     window.removeEventListener('keydown', this.handleKeyDown);
     if (this.iframe) this.iframe.src = 'about:blank';
+    this.loadingEl?.classList.add('hidden');
     this.screen?.classList.add('hidden');
     const cb = this.onClose;
     this.onClose = null;
