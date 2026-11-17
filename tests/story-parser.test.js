@@ -504,7 +504,27 @@ test('parseEncounterMarkdown lê encontro extra em construção e rejeita local 
   assert.equal(encounter.id, 'extra-casa-63');
   assert.equal(encounter.npc, 'maltmon');
   assert.equal(encounter.location, 'CASA-63');
+  assert.equal(encounter.roofColor, '#d6282e');
+  assert.equal(encounter.roofLogo, '');
   assert.ok(encounter.cutscene.steps.length >= 2);
+
+  const customEncounter = parseEncounterMarkdown(
+    `---\nid: custom\nnpc: maltmon\nlocation: CASA-63\nroof_color: #2563eb\nroof_logo: assets/alex-front.svg\n---\n## CUTSCENE\n- maltmon: Oi\n`,
+    'custom.md',
+    map,
+  );
+  assert.equal(customEncounter.roofColor, '#2563eb');
+  assert.equal(customEncounter.roofLogo, 'assets/alex-front.svg');
+
+  assert.throws(
+    () =>
+      parseEncounterMarkdown(
+        `---\nid: badcolor\nnpc: maltmon\nlocation: CASA-63\nroof_color: azul\n---\n## CUTSCENE\n- maltmon: Oi\n`,
+        'badcolor.md',
+        map,
+      ),
+    StoryParseError,
+  );
 
   assert.throws(
     () =>

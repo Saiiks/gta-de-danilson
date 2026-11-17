@@ -68,7 +68,7 @@ export class Engine {
     this.missionOutTriggered = false;
     this.completedNpcPoints = [];
     this.encounterNpcs = [];
-    this.encounterLocationCodes = new Set();
+    this.encounterLocationCodes = new Map();
     this.paused = false;
     this.hudDisplayHealth = 100;
     this.wasInsideHospital = false;
@@ -785,13 +785,16 @@ export class Engine {
 
   #buildEncounterNpcs() {
     this.encounterNpcs = [];
-    this.encounterLocationCodes = new Set();
+    this.encounterLocationCodes = new Map();
     const encounters = this.storyPackage?.encounters;
     if (!this.cityMap || !Array.isArray(encounters) || encounters.length === 0) return;
     for (const encounter of encounters) {
       try {
         const pos = this.cityMap.resolveIndoorOppositePosition(encounter.location);
-        this.encounterLocationCodes.add(encounter.location);
+        this.encounterLocationCodes.set(encounter.location, {
+          roofColor: encounter.roofColor || '#d6282e',
+          roofLogo: encounter.roofLogo || '',
+        });
         this.encounterNpcs.push({
           id: encounter.id,
           npc: encounter.npc,

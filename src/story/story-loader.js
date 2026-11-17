@@ -520,6 +520,9 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
       if (encounter.prompt) {
         encounter.prompt = replaceLocationCodesWithNames(encounter.prompt, locationNames);
       }
+      if (encounter.roofLogo) {
+        encounter.roofLogo = withBust(`${cleanBase}/${encounter.roofLogo}`);
+      }
       return encounter;
     }),
   );
@@ -577,6 +580,7 @@ export function collectStoryAssetUrls(storyPackage) {
     }
   }
   for (const encounter of storyPackage.encounters || []) {
+    if (encounter?.roofLogo) urls.add(encounter.roofLogo);
     const cs = encounter?.cutscene;
     if (!cs) continue;
     if (cs.backgroundImage) urls.add(cs.backgroundImage);

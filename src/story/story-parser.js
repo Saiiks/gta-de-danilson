@@ -438,11 +438,24 @@ export function parseEncounterMarkdown(rawText, fileName = 'encounter.md', cityM
     );
   }
 
+  const rawRoofColor = String(meta.roof_color || '').trim();
+  const roofColor = rawRoofColor || '#d6282e';
+  if (!/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(roofColor)) {
+    throw new StoryParseError(
+      fileName,
+      2,
+      `Cor de telhado inválida ("roof_color: ${rawRoofColor}"). Use formato hexadecimal como #d6282e.`,
+    );
+  }
+  const roofLogo = meta.roof_logo ? validateAssetPath(meta.roof_logo, fileName, 2) : '';
+
   return {
     id: String(meta.id).trim(),
     npc: String(meta.npc).trim(),
     location: String(meta.location).trim(),
     prompt: String(meta.prompt || '').trim(),
+    roofColor,
+    roofLogo,
     cutscene,
   };
 }

@@ -133,6 +133,36 @@ export class WebGLRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlas.canvas);
+    this.customTextures = new Map();
+  }
+
+  #getOrLoadLogoTexture(url) {
+    if (!url) return null;
+    const existing = this.customTextures.get(url);
+    if (existing) return existing;
+    const gl = this.gl;
+    const entry = { texture: null, loaded: false, failed: false, width: 1, height: 1 };
+    this.customTextures.set(url, entry);
+    const img = new Image();
+    img.onload = () => {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      gl.bindTexture(gl.TEXTURE_2D, this.texture);
+      entry.texture = tex;
+      entry.width = img.naturalWidth || img.width || 1;
+      entry.height = img.naturalHeight || img.height || 1;
+      entry.loaded = true;
+    };
+    img.onerror = () => {
+      entry.failed = true;
+    };
+    img.src = url;
+    return entry;
   }
 
   resize(width, height) {
@@ -394,15 +424,21 @@ export class WebGLRenderer {
 
         // Cobertura superior oculta quando o jogador está dentro (desenhada após pedestres)
         if (!isInside) {
-          const isEncounter = Boolean(encounterLocations && encounterLocations.has(building.code));
+          const encounterMeta = encounterLocations instanceof Map
+            ? encounterLocations.get(building.code)
+            : (encounterLocations?.has?.(building.code) ? {} : null);
+          const isEncounter = Boolean(encounterMeta);
           closedRoofs.push({
             x: bb.x,
             y: bb.y,
             w: bb.w,
             h: bb.h,
-            color: isEncounter ? [0.84, 0.16, 0.18, 1] : hexToRgba(building.roofColor),
+            color: isEncounter
+              ? hexToRgba(encounterMeta.roofColor || '#d6282e')
+              : hexToRgba(building.roofColor),
             isHospital: building.type === 'hospital',
             isEncounter,
+            roofLogo: encounterMeta?.roofLogo || '',
           });
         }
 
@@ -724,6 +760,7 @@ export class WebGLRenderer {
     }
 
     // Telhados fechados cobrem pessoas dentro dos prédios quando o jogador está fora
+    const pendingRoofLogos = [];
     for (const roof of closedRoofs) {
       this.#pushQuad(roof.x, roof.y, roof.w, roof.h, 0, 'roof', roof.color);
       if (roof.isHospital) {
@@ -735,10 +772,23 @@ export class WebGLRenderer {
         this.#pushQuad(cx - armThick * 0.5, cy - crossLen * 0.5, armThick, crossLen, 0, 'solid', red);
         this.#pushQuad(cx - crossLen * 0.5, cy - armThick * 0.5, crossLen, armThick, 0, 'solid', red);
       } else if (roof.isEncounter) {
-        const dia = Math.max(22, Math.min(roof.w, roof.h) * 0.44);
-        const cx = roof.x + roof.w * 0.5;
-        const cy = roof.y + roof.h * 0.5;
-        this.#pushQuad(cx - dia * 0.5, cy - dia * 0.5, dia, dia, 0, 'disc', [0.98, 0.8, 0.1, 1]);
+        const logoEntry = roof.roofLogo ? this.#getOrLoadLogoTexture(roof.roofLogo) : null;
+        if (logoEntry && logoEntry.loaded && logoEntry.texture) {
+          pendingRoofLogos.push({ roof, entry: logoEntry });
+        } else {
+          const cx = roof.x + roof.w * 0.5;
+          const cy = roof.y + roof.h * 0.5;
+          const markH = Math.min(roof.w, roof.h) * 0.52;
+          const thick = Math.max(8, Math.round(markH * 0.22));
+          const barH = Math.max(12, Math.round(markH * 0.62));
+          const dotSize = Math.max(8, Math.round(thick * 1.05));
+          const gap = Math.max(5, Math.round(markH * 0.1));
+          const totalH = barH + gap + dotSize;
+          const topY = cy - totalH * 0.5;
+          const white = [1, 1, 1, 1];
+          this.#pushQuad(cx - thick * 0.5, topY, thick, barH, 0, 'solid', white);
+          this.#pushQuad(cx - dotSize * 0.5, topY + barH + gap, dotSize, dotSize, 0, 'disc', white);
+        }
       }
     }
 
@@ -951,5 +1001,32 @@ export class WebGLRenderer {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertexData.subarray(0, this.quadCount * 6 * this.floatsPerVertex));
     gl.drawArrays(gl.TRIANGLES, 0, this.quadCount * 6);
+
+    if (pendingRoofLogos.length > 0) {
+      const logoVerts = new Float32Array(6 * 8);
+      for (const { roof, entry } of pendingRoofLogos) {
+        const maxBox = Math.min(roof.w, roof.h) * 0.62;
+        const aspect = entry.width / Math.max(1, entry.height);
+        const lw = aspect >= 1 ? maxBox : maxBox * aspect;
+        const lh = aspect >= 1 ? maxBox / aspect : maxBox;
+        const x0 = roof.x + (roof.w - lw) * 0.5;
+        const y0 = roof.y + (roof.h - lh) * 0.5;
+        const x1 = x0 + lw;
+        const y1 = y0 + lh;
+        const verts = [
+          x0, y0, 0, 0, 1, 1, 1, 1,
+          x1, y0, 1, 0, 1, 1, 1, 1,
+          x1, y1, 1, 1, 1, 1, 1, 1,
+          x0, y0, 0, 0, 1, 1, 1, 1,
+          x1, y1, 1, 1, 1, 1, 1, 1,
+          x0, y1, 0, 1, 1, 1, 1, 1,
+        ];
+        logoVerts.set(verts);
+        gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, logoVerts);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+      gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    }
   }
 }
