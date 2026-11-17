@@ -11,6 +11,7 @@ const DEFAULT_HINT =
 export class WebModalController {
   constructor() {
     this.screen = document.getElementById('web-modal-screen');
+    this.stageEl = this.screen?.querySelector('.web-modal-stage') || null;
     this.titleEl = document.getElementById('web-modal-title');
     this.urlEl = document.getElementById('web-modal-url');
     this.iframe = document.getElementById('web-modal-iframe');
@@ -41,6 +42,10 @@ export class WebModalController {
     onUiInputModeChange(() => {
       if (this.active) this.#syncButtonSelection();
     });
+
+    this.handleResize = () => {
+      if (this.active) this.#updateIframeScale();
+    };
 
     this.handleKeyDown = (event) => {
       if (!this.active) return;
@@ -86,6 +91,18 @@ export class WebModalController {
         }
       }
     };
+  }
+
+  #updateIframeScale() {
+    if (!this.iframe || !this.stageEl) return;
+    const stageWidth = this.stageEl.clientWidth;
+    if (!stageWidth) return;
+    const targetVirtualWidth = 1120;
+    const scale = Math.min(0.8, Math.max(0.45, stageWidth / targetVirtualWidth));
+    const sizePct = `${(100 / scale).toFixed(4)}%`;
+    this.iframe.style.width = sizePct;
+    this.iframe.style.height = sizePct;
+    this.iframe.style.transform = `scale(${scale.toFixed(4)})`;
   }
 
   #getButtons() {
@@ -144,7 +161,9 @@ export class WebModalController {
     this.#syncButtonSelection();
 
     window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('resize', this.handleResize);
     requestAnimationFrame(() => {
+      this.#updateIframeScale();
       try {
         this.iframe?.focus();
       } catch {
@@ -206,7 +225,13 @@ export class WebModalController {
     this.active = false;
     clearTimeout(this.loadTimer);
     window.removeEventListener('keydown', this.handleKeyDown);
-    if (this.iframe) this.iframe.src = 'about:blank';
+    window.removeEventListener('resize', this.handleResize);
+    if (this.iframe) {
+      this.iframe.src = 'about:blank';
+      this.iframe.style.width = '';
+      this.iframe.style.height = '';
+      this.iframe.style.transform = '';
+    }
     this.loadingEl?.classList.add('hidden');
     this.screen?.classList.add('hidden');
     const cb = this.onClose;
