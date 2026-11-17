@@ -92,6 +92,7 @@ export function parseStoryManifest(rawText, fileName = 'story.md') {
 
   const items = parseListField(meta.items);
   const collectibles = parseListField(meta.collectibles);
+  const encounters = parseListField(meta.encounters);
 
   return {
     title: meta.title,
@@ -102,6 +103,7 @@ export function parseStoryManifest(rawText, fileName = 'story.md') {
     missions,
     items,
     collectibles,
+    encounters,
     description: body,
   };
 }
@@ -313,6 +315,36 @@ function parseCutsceneBlock(blockLines, startLine, fileName) {
   return cutscene;
 }
 
+function splitMarkdownSections(body, bodyStartLine, allowedNames) {
+  const lines = body ? body.split('\n') : [];
+  const sections = {};
+  const sectionStarts = {};
+  for (const name of allowedNames) {
+    sections[name] = [];
+    sectionStarts[name] = bodyStartLine;
+  }
+  let activeSection = null;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith('## ')) {
+      const name = trimmed.slice(3).trim().toUpperCase();
+      if (allowedNames.includes(name)) {
+        activeSection = name;
+        sectionStarts[name] = bodyStartLine + i + 1;
+      } else {
+        activeSection = null;
+      }
+      continue;
+    }
+    if (activeSection) {
+      sections[activeSection].push(lines[i]);
+    }
+  }
+
+  return { sections, sectionStarts };
+}
+
 export function parseMissionMarkdown(rawText, fileName = 'mission.md', cityMap = null) {
   const { meta, body, bodyStartLine } = parseFrontmatter(rawText, fileName);
 
@@ -344,27 +376,10 @@ export function parseMissionMarkdown(rawText, fileName = 'mission.md', cityMap =
     }
   }
 
-  const lines = body ? body.split('\n') : [];
-  const sections = { CUTSCENE_INICIO: [], CUTSCENE_FIM: [] };
-  const sectionStarts = { CUTSCENE_INICIO: bodyStartLine, CUTSCENE_FIM: bodyStartLine };
-  let activeSection = null;
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const trimmed = lines[i].trim();
-    if (trimmed.startsWith('## ')) {
-      const name = trimmed.slice(3).trim().toUpperCase();
-      if (name === 'CUTSCENE_INICIO' || name === 'CUTSCENE_FIM') {
-        activeSection = name;
-        sectionStarts[name] = bodyStartLine + i + 1;
-      } else {
-        activeSection = null;
-      }
-      continue;
-    }
-    if (activeSection) {
-      sections[activeSection].push(lines[i]);
-    }
-  }
+  const { sections, sectionStarts } = splitMarkdownSections(body, bodyStartLine, [
+    'CUTSCENE_INICIO',
+    'CUTSCENE_FIM',
+  ]);
 
   return {
     id: meta.id,
@@ -380,6 +395,68 @@ export function parseMissionMarkdown(rawText, fileName = 'mission.md', cityMap =
     wrongItemMessage: String(meta.wrong_item_message || '').trim(),
     introCutscene: parseCutsceneBlock(sections.CUTSCENE_INICIO, sectionStarts.CUTSCENE_INICIO, fileName),
     outroCutscene: parseCutsceneBlock(sections.CUTSCENE_FIM, sectionStarts.CUTSCENE_FIM, fileName),
+  };
+}
+
+export function parseEncounterMarkdown(rawText, fileName = 'encounter.md', cityMap = null) {
+  const { meta, body, bodyStartLine } = parseFrontmatter(rawText, fileName);
+
+  if (!meta.id || !meta.npc || !meta.location) {
+    throw new StoryParseError(
+      fileName,
+      2,
+      'Encontro extra deve definir "id", "npc" e "location" no frontmatter.',
+    );
+  }
+
+  if (cityMap) {
+    try {
+      cityMap.resolveIndoorOppositePosition(meta.location);
+    } catch (err) {
+      throw new StoryParseError(
+        fileName,
+        2,
+        `Local inválido para encontro ("location: ${meta.location}"): ${err.message}`,
+      );
+    }
+  }
+
+  const { sections, sectionStarts } = splitMarkdownSections(body, bodyStartLine, [
+    'CUTSCENE',
+    'CUTSCENE_INICIO',
+  ]);
+  const useIntroFallback = sections.CUTSCENE.length === 0 && sections.CUTSCENE_INICIO.length > 0;
+  const blockLines = useIntroFallback ? sections.CUTSCENE_INICIO : sections.CUTSCENE;
+  const startLine = useIntroFallback ? sectionStarts.CUTSCENE_INICIO : sectionStarts.CUTSCENE;
+  const cutscene = parseCutsceneBlock(blockLines, startLine, fileName);
+
+  if (!cutscene.steps || cutscene.steps.length === 0) {
+    throw new StoryParseError(
+      fileName,
+      startLine,
+      'Encontro extra deve conter uma seção "## CUTSCENE" com ao menos uma fala.',
+    );
+  }
+
+  const rawRoofColor = String(meta.roof_color || '').trim();
+  const roofColor = rawRoofColor || '#d6282e';
+  if (!/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(roofColor)) {
+    throw new StoryParseError(
+      fileName,
+      2,
+      `Cor de telhado inválida ("roof_color: ${rawRoofColor}"). Use formato hexadecimal como #d6282e.`,
+    );
+  }
+  const roofLogo = meta.roof_logo ? validateAssetPath(meta.roof_logo, fileName, 2) : '';
+
+  return {
+    id: String(meta.id).trim(),
+    npc: String(meta.npc).trim(),
+    location: String(meta.location).trim(),
+    prompt: String(meta.prompt || '').trim(),
+    roofColor,
+    roofLogo,
+    cutscene,
   };
 }
 

@@ -3,6 +3,7 @@ import {
   parseCharacterMarkdown,
   parseItemMarkdown,
   parseMissionMarkdown,
+  parseEncounterMarkdown,
   parseMapMarkdown,
   replaceLocationCodesWithNames,
   validateAssetPath,
@@ -427,6 +428,37 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     poolsPromise,
   ]);
 
+  async function hydrateCutscene(cutscene, fallbackCode, sourceFile) {
+    if (cutscene.leftChar && !characters.has(cutscene.leftChar)) {
+      throw new StoryParseError(sourceFile, 0, `Personagem "${cutscene.leftChar}" não declarado em story.md.`);
+    }
+    if (cutscene.rightChar && !characters.has(cutscene.rightChar)) {
+      throw new StoryParseError(sourceFile, 0, `Personagem "${cutscene.rightChar}" não declarado em story.md.`);
+    }
+    const bgType = extractCutsceneLocationType(cutscene.background, fallbackCode);
+    const pool = typePools.get(bgType) || [];
+    const explicitCandidates = getCutsceneBackgroundCandidates(cleanBase, cutscene.background, fallbackCode)
+      .filter((url) => !/\/map\/(?:casa|com|praca|rua)\.(?:png|jpe?g)$/i.test(url));
+    const explicitBg = withBust(await resolveFirstExistingAsset(explicitCandidates, cachedExists));
+
+    cutscene.backgroundType = bgType;
+    cutscene.backgroundPool = explicitBg ? [explicitBg] : pool;
+    cutscene.backgroundImage = explicitBg || pool[0] || withBust(await resolveFirstExistingAsset(
+      getCutsceneBackgroundCandidates(cleanBase, cutscene.background, fallbackCode),
+      cachedExists,
+    ));
+    cutscene.background = replaceLocationCodesWithNames(cutscene.background, locationNames);
+    for (const step of cutscene.steps) {
+      step.text = replaceLocationCodesWithNames(step.text, locationNames);
+      if (step.choices) {
+        for (const choice of step.choices) {
+          choice.label = replaceLocationCodesWithNames(choice.label, locationNames);
+          choice.reason = replaceLocationCodesWithNames(choice.reason, locationNames);
+        }
+      }
+    }
+  }
+
   const totalMissions = Math.max(1, manifest.missions.length);
   let loadedMissions = 0;
   const missions = await Promise.all(
@@ -448,36 +480,9 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
       ];
 
       await Promise.all(
-        cutsceneConfigs.map(async ({ cutscene, fallbackCode }) => {
-          if (cutscene.leftChar && !characters.has(cutscene.leftChar)) {
-            throw new StoryParseError(missionFile, 0, `Personagem "${cutscene.leftChar}" não declarado em story.md.`);
-          }
-          if (cutscene.rightChar && !characters.has(cutscene.rightChar)) {
-            throw new StoryParseError(missionFile, 0, `Personagem "${cutscene.rightChar}" não declarado em story.md.`);
-          }
-          const bgType = extractCutsceneLocationType(cutscene.background, fallbackCode);
-          const pool = typePools.get(bgType) || [];
-          const explicitCandidates = getCutsceneBackgroundCandidates(cleanBase, cutscene.background, fallbackCode)
-            .filter((url) => !/\/map\/(?:casa|com|praca|rua)\.(?:png|jpe?g)$/i.test(url));
-          const explicitBg = withBust(await resolveFirstExistingAsset(explicitCandidates, cachedExists));
-
-          cutscene.backgroundType = bgType;
-          cutscene.backgroundPool = explicitBg ? [explicitBg] : pool;
-          cutscene.backgroundImage = explicitBg || pool[0] || withBust(await resolveFirstExistingAsset(
-            getCutsceneBackgroundCandidates(cleanBase, cutscene.background, fallbackCode),
-            cachedExists,
-          ));
-          cutscene.background = replaceLocationCodesWithNames(cutscene.background, locationNames);
-          for (const step of cutscene.steps) {
-            step.text = replaceLocationCodesWithNames(step.text, locationNames);
-            if (step.choices) {
-              for (const choice of step.choices) {
-                choice.label = replaceLocationCodesWithNames(choice.label, locationNames);
-                choice.reason = replaceLocationCodesWithNames(choice.reason, locationNames);
-              }
-            }
-          }
-        }),
+        cutsceneConfigs.map(({ cutscene, fallbackCode }) =>
+          hydrateCutscene(cutscene, fallbackCode, missionFile),
+        ),
       );
 
       mission.objective = replaceLocationCodesWithNames(mission.objective, locationNames);
@@ -499,8 +504,31 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     }),
   );
 
+  const encounters = await Promise.all(
+    (manifest.encounters || []).map(async (encounterId) => {
+      const encounterFile = `missions/${encounterId}.md`;
+      const raw = await readStoryText(`${cleanBase}/${encounterFile}`, encounterFile);
+      const encounter = parseEncounterMarkdown(raw, encounterFile, cityMap);
+      if (!characters.has(encounter.npc)) {
+        throw new StoryParseError(
+          encounterFile,
+          2,
+          `Personagem "${encounter.npc}" (npc) não declarado em story.md.`,
+        );
+      }
+      await hydrateCutscene(encounter.cutscene, encounter.location, encounterFile);
+      if (encounter.prompt) {
+        encounter.prompt = replaceLocationCodesWithNames(encounter.prompt, locationNames);
+      }
+      if (encounter.roofLogo) {
+        encounter.roofLogo = withBust(`${cleanBase}/${encounter.roofLogo}`);
+      }
+      return encounter;
+    }),
+  );
+
   console.info(
-    `[StoryLoader] História "${manifest.title}" carregada (${characters.size} personagens, ${items.size} itens, ${missions.length} missões, ${locationNames.size} locais nomeados).`,
+    `[StoryLoader] História "${manifest.title}" carregada (${characters.size} personagens, ${items.size} itens, ${missions.length} missões, ${encounters.length} encontros extras, ${locationNames.size} locais nomeados).`,
   );
 
   return {
@@ -514,6 +542,7 @@ export async function loadStoryPackage(basePath = './story', cityMap = null, opt
     characters,
     items,
     missions,
+    encounters,
     locationNames,
   };
 }
@@ -547,6 +576,17 @@ export function collectStoryAssetUrls(storyPackage) {
         for (const bgUrl of cs.backgroundPool) {
           if (bgUrl) urls.add(bgUrl);
         }
+      }
+    }
+  }
+  for (const encounter of storyPackage.encounters || []) {
+    if (encounter?.roofLogo) urls.add(encounter.roofLogo);
+    const cs = encounter?.cutscene;
+    if (!cs) continue;
+    if (cs.backgroundImage) urls.add(cs.backgroundImage);
+    if (Array.isArray(cs.backgroundPool)) {
+      for (const bgUrl of cs.backgroundPool) {
+        if (bgUrl) urls.add(bgUrl);
       }
     }
   }

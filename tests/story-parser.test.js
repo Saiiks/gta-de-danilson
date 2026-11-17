@@ -9,6 +9,7 @@ import {
   parseItemMarkdown,
   parseCharacterMarkdown,
   parseMissionMarkdown,
+  parseEncounterMarkdown,
   parseMapMarkdown,
   replaceLocationCodesWithNames,
   validateAssetPath,
@@ -489,6 +490,48 @@ right: mentor
       parseMissionMarkdown(
         `${baseHeader}- LINK: Sem fala -> https://www.cursoemvideo.com/\n`,
         'm-link-err.md',
+      ),
+    StoryParseError,
+  );
+});
+
+test('parseEncounterMarkdown lê encontro extra em construção e rejeita local não edificável', () => {
+  const map = new CityMap();
+  const sampleDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../story');
+  const raw = fs.readFileSync(path.join(sampleDir, 'missions/extra-casa-63.md'), 'utf-8');
+  const encounter = parseEncounterMarkdown(raw, 'missions/extra-casa-63.md', map);
+
+  assert.equal(encounter.id, 'extra-casa-63');
+  assert.ok(encounter.npc);
+  assert.equal(encounter.location, 'CASA-63');
+  assert.equal(encounter.roofColor, '#d6282e');
+  assert.equal(encounter.roofLogo, '');
+  assert.ok(encounter.cutscene.steps.length >= 2);
+
+  const customEncounter = parseEncounterMarkdown(
+    `---\nid: custom\nnpc: maltmon\nlocation: CASA-63\nroof_color: #2563eb\nroof_logo: assets/alex-front.svg\n---\n## CUTSCENE\n- maltmon: Oi\n`,
+    'custom.md',
+    map,
+  );
+  assert.equal(customEncounter.roofColor, '#2563eb');
+  assert.equal(customEncounter.roofLogo, 'assets/alex-front.svg');
+
+  assert.throws(
+    () =>
+      parseEncounterMarkdown(
+        `---\nid: badcolor\nnpc: maltmon\nlocation: CASA-63\nroof_color: azul\n---\n## CUTSCENE\n- maltmon: Oi\n`,
+        'badcolor.md',
+        map,
+      ),
+    StoryParseError,
+  );
+
+  assert.throws(
+    () =>
+      parseEncounterMarkdown(
+        `---\nid: bad\nnpc: maltmon\nlocation: RUA-04\n---\n## CUTSCENE\n- maltmon: Oi\n`,
+        'bad.md',
+        map,
       ),
     StoryParseError,
   );

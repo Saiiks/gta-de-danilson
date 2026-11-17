@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'gta-cv-shell-v1';
-const ASSETS_CACHE = 'gta-cv-assets-v4';
+const SHELL_CACHE = 'gta-cv-shell-v2';
+const ASSETS_CACHE = 'gta-cv-assets-v5';
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|svg)$/i;
 
@@ -134,7 +134,7 @@ self.addEventListener('fetch', (event) => {
       return;
     }
     if (url.pathname.endsWith('.md')) {
-      event.respondWith(handleStaleWhileRevalidate(request, ASSETS_CACHE, event));
+      event.respondWith(handleNetworkFirst(request, ASSETS_CACHE));
       return;
     }
   }

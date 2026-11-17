@@ -3,6 +3,21 @@ export class Minimap {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.viewRange = 1900;
+    this.logoImages = new Map();
+  }
+
+  #getOrLoadLogo(url) {
+    if (!url || typeof Image === 'undefined') return null;
+    const existing = this.logoImages.get(url);
+    if (existing) return existing;
+    const img = new Image();
+    img._failed = false;
+    img.onerror = () => {
+      img._failed = true;
+    };
+    img.src = url;
+    this.logoImages.set(url, img);
+    return img;
   }
 
   #drawMapScene(ctx, w, h, {
@@ -11,6 +26,7 @@ export class Minimap {
     routePoints,
     objectivePoint,
     worldCollectibles = [],
+    encounterLocations = null,
     scale,
     centerX,
     centerY,
@@ -56,6 +72,35 @@ export class Minimap {
           ctx.fillStyle = '#ef4444';
           ctx.fillRect(cx - thick * 0.5, cy - arm * 0.5, thick, arm);
           ctx.fillRect(cx - arm * 0.5, cy - thick * 0.5, arm, thick);
+        } else if (
+          encounterLocations instanceof Map
+            ? encounterLocations.has(building.code)
+            : Boolean(encounterLocations?.has?.(building.code))
+        ) {
+          const meta = encounterLocations instanceof Map ? encounterLocations.get(building.code) : {};
+          ctx.fillStyle = meta?.roofColor || '#dc2626';
+          ctx.fillRect(bx, by, bw, bh);
+          const logoImg = meta?.roofLogo ? this.#getOrLoadLogo(meta.roofLogo) : null;
+          if (logoImg && !logoImg._failed && logoImg.complete && logoImg.naturalWidth > 0) {
+            const box = Math.max(8, Math.min(bw, bh) * 0.85);
+            ctx.drawImage(logoImg, bx + (bw - box) * 0.5, by + (bh - box) * 0.5, box, box);
+          } else {
+            const cx = bx + bw * 0.5;
+            const cy = by + bh * 0.5;
+            ctx.save();
+            const fontSize = expanded
+              ? Math.max(16, Math.round(Math.min(w, h) * 0.036))
+              : Math.max(10, Math.round(Math.max(bw, bh) * 0.85));
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.lineWidth = expanded ? 3.5 : 2;
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeText('!', cx, cy);
+            ctx.fillText('!', cx, cy);
+            ctx.restore();
+          }
         } else {
           ctx.fillStyle = building.type === 'commerce' ? '#4f6d9a' : '#7c5c4e';
           ctx.fillRect(bx, by, bw, bh);
@@ -167,7 +212,7 @@ export class Minimap {
     ctx.restore();
   }
 
-  render(cityMap, player, routePoints, objectivePoint, worldCollectibles = []) {
+  render(cityMap, player, routePoints, objectivePoint, worldCollectibles = [], encounterLocations = null) {
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
@@ -178,6 +223,7 @@ export class Minimap {
       routePoints,
       objectivePoint,
       worldCollectibles,
+      encounterLocations,
       scale,
       centerX: player.x,
       centerY: player.y,
@@ -269,6 +315,7 @@ export class Minimap {
     viewportWidth = 800,
     viewportHeight = 600,
     viewState = null,
+    encounterLocations = null,
   ) {
     if (!expandedCanvas || !cityMap) return;
     const { width: targetW, height: targetH } = this.getExpandedCanvasSize(viewportWidth, viewportHeight);
@@ -292,6 +339,7 @@ export class Minimap {
       routePoints,
       objectivePoint,
       worldCollectibles,
+      encounterLocations,
       scale,
       centerX,
       centerY,
