@@ -1391,7 +1391,7 @@ export class Engine {
           if (encounterNpc && this.cutscene) {
             this.cutscene.play(encounterNpc.cutscene, this.storyPackage.characters, (result) => {
               if (result?.outcome === 'gameover') {
-                this.#triggerGameOver(result.reason || 'Fim de linha!');
+                this.triggerGameOver(result.reason || 'Fim de linha!');
               }
             });
             return;
