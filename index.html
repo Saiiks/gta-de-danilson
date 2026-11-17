@@ -214,7 +214,10 @@
           <div id="cutscene-speaker" class="cutscene-speaker"></div>
           <p id="cutscene-text" class="cutscene-text"></p>
           <div id="cutscene-choices" class="cutscene-choices hidden"></div>
-          <button id="cutscene-next-btn" type="button" class="primary-button cutscene-next-btn">Continuar</button>
+          <div class="cutscene-actions">
+            <button id="cutscene-link-btn" type="button" class="cutscene-link-btn hidden">Visualizar o link</button>
+            <button id="cutscene-next-btn" type="button" class="primary-button cutscene-next-btn">Continuar</button>
+          </div>
         </div>
       </div>
     </section>
@@ -274,6 +277,31 @@
           <span class="legend-chip"><i class="legend-dot legend-extra"></i> Extras (?)</span>
           <span class="legend-chip"><i class="legend-dot legend-hospital"></i> Hospitais</span>
         </div>
+      </div>
+    </section>
+
+    <section id="web-modal-screen" class="overlay-screen hidden" role="dialog" aria-modal="true" aria-label="Visualizador Web">
+      <div class="overlay-card web-modal-card">
+        <div class="web-modal-header">
+          <div class="web-modal-title-group">
+            <h2 id="web-modal-title" class="retro-title web-modal-title">SITE EXTERNO</h2>
+            <p id="web-modal-url" class="overlay-subtitle web-modal-url"></p>
+          </div>
+          <div class="web-modal-actions">
+            <button id="web-modal-external-btn" type="button" class="web-modal-external-btn">Abrir no navegador externo</button>
+            <button id="web-modal-close-btn" type="button" class="secondary-button web-modal-close-btn">Fechar</button>
+          </div>
+        </div>
+        <div class="web-modal-stage">
+          <div id="web-modal-loading" class="web-modal-loading">Carregando site...</div>
+          <iframe
+            id="web-modal-iframe"
+            class="web-modal-iframe"
+            title="Conteúdo externo"
+            referrerpolicy="no-referrer-when-downgrade"
+          ></iframe>
+        </div>
+        <p id="web-modal-hint" class="web-modal-hint">Role com mouse, dedo ou setas. Se o site não carregar aqui, use "Abrir no navegador externo".</p>
       </div>
     </section>
 
