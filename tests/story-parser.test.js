@@ -498,10 +498,10 @@ right: mentor
 test('parseEncounterMarkdown lê encontro extra em construção e rejeita local não edificável', () => {
   const map = new CityMap();
   const sampleDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../story');
-  const raw = fs.readFileSync(path.join(sampleDir, 'missions/extra-casa-63.md'), 'utf-8');
-  const encounter = parseEncounterMarkdown(raw, 'missions/extra-casa-63.md', map);
+  const raw = fs.readFileSync(path.join(sampleDir, 'missions/extra-casa-hostnet.md'), 'utf-8');
+  const encounter = parseEncounterMarkdown(raw, 'missions/extra-casa-hostnet.md', map);
 
-  assert.equal(encounter.id, 'extra-casa-63');
+  assert.equal(encounter.id, 'extra-casa-hostnet');
   assert.ok(encounter.npc);
   assert.equal(encounter.location, 'CASA-63');
   assert.match(encounter.roofColor, /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);

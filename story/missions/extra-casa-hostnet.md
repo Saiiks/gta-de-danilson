@@ -1,5 +1,5 @@
 ---
-id: extra-casa-63
+id: extra-casa-hostnet
 npc: kaue
 location: CASA-63
 prompt: Conversar na CASA-63
