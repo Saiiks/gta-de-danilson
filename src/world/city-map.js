@@ -669,41 +669,10 @@ export class CityMap {
 
     const loc = this.resolveLocationCode(trimmed);
     if (loc.type === 'house' || loc.type === 'commerce' || loc.type === 'hospital') {
-      const { x: bx, y: by, w: bw, h: bh } = loc.bounds;
-      const wallOffset = 28;
-      let ix = bx + bw * 0.5;
-      let iy = by + bh * 0.5;
-
-      if (loc.doorSide === 'north') {
-        iy = by + bh - wallOffset;
-      } else if (loc.doorSide === 'south') {
-        iy = by + wallOffset;
-      } else if (loc.doorSide === 'west') {
-        ix = bx + bw - wallOffset;
-      } else if (loc.doorSide === 'east') {
-        ix = bx + wallOffset;
-      }
-
-      const props = loc.interior?.props || [];
-      for (const prop of props) {
-        const pad = 12;
-        if (
-          ix >= prop.x - pad &&
-          ix <= prop.x + prop.w + pad &&
-          iy >= prop.y - pad &&
-          iy <= prop.y + prop.h + pad
-        ) {
-          if (loc.doorSide === 'south') {
-            iy = Math.min(by + bh - wallOffset, prop.y + prop.h + pad);
-          } else if (loc.doorSide === 'east') {
-            iy = Math.min(by + bh - wallOffset, prop.y + prop.h + pad);
-          }
-        }
-      }
-
+      const point = this.#computeIndoorOppositePoint(loc);
       return {
-        x: ix,
-        y: iy,
+        x: point.x,
+        y: point.y,
         kind: 'interior',
         code: loc.code
       };
@@ -712,6 +681,53 @@ export class CityMap {
       return { x: loc.spawnPoint.x, y: loc.spawnPoint.y, kind: 'plaza', code: loc.code };
     }
     return { x: loc.spawnPoint.x, y: loc.spawnPoint.y, kind: loc.type, code: loc.code };
+  }
+
+  #computeIndoorOppositePoint(loc) {
+    const { x: bx, y: by, w: bw, h: bh } = loc.bounds;
+    const wallOffset = 28;
+    let ix = bx + bw * 0.5;
+    let iy = by + bh * 0.5;
+
+    if (loc.doorSide === 'north') {
+      iy = by + bh - wallOffset;
+    } else if (loc.doorSide === 'south') {
+      iy = by + wallOffset;
+    } else if (loc.doorSide === 'west') {
+      ix = bx + bw - wallOffset;
+    } else if (loc.doorSide === 'east') {
+      ix = bx + wallOffset;
+    }
+
+    const props = loc.interior?.props || [];
+    for (const prop of props) {
+      const pad = 12;
+      if (
+        ix >= prop.x - pad &&
+        ix <= prop.x + prop.w + pad &&
+        iy >= prop.y - pad &&
+        iy <= prop.y + prop.h + pad
+      ) {
+        if (loc.doorSide === 'south' || loc.doorSide === 'east') {
+          iy = Math.min(by + bh - wallOffset, prop.y + prop.h + pad);
+        }
+      }
+    }
+
+    return { x: ix, y: iy };
+  }
+
+  resolveIndoorOppositePosition(code) {
+    const loc = this.resolveLocationCode(String(code || '').trim());
+    if (loc.type !== 'house' && loc.type !== 'commerce' && loc.type !== 'hospital') {
+      throw new Error(`Local "${code}" não é uma construção com interior.`);
+    }
+    const { x, y } = this.#computeIndoorOppositePoint(loc);
+    let angle = Math.PI * 0.5;
+    if (loc.doorSide === 'north') angle = -Math.PI * 0.5;
+    else if (loc.doorSide === 'east') angle = 0;
+    else if (loc.doorSide === 'west') angle = Math.PI;
+    return { x, y, angle, building: loc };
   }
 
   #findIndexRange(offsets, sizes, minVal, maxVal) {
