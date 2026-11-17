@@ -1952,6 +1952,10 @@ export class Engine {
         const nearDoor = !this.player.inVehicleId && Math.hypot(this.player.x - ex, this.player.y - ey) < 42;
         const targetOpen = nearDoor ? 1 : 0;
         b.doorOpen = (b.doorOpen || 0) + (targetOpen - (b.doorOpen || 0)) * Math.min(1, dt * 12);
+        const targetRoofAlpha = !this.player.inVehicleId && this.player.insideLocationCode === b.code ? 0 : 1;
+        const currRoofAlpha = b.roofAlpha ?? 1;
+        const nextRoofAlpha = currRoofAlpha + (targetRoofAlpha - currRoofAlpha) * Math.min(1, dt * 10);
+        b.roofAlpha = nextRoofAlpha < 0.01 ? 0 : nextRoofAlpha > 0.99 ? 1 : nextRoofAlpha;
       }
     }
 

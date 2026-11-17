@@ -440,20 +440,23 @@ export class WebGLRenderer {
           this.#pushQuad(prop.x, prop.y, prop.w, prop.h, 0, 'solid', pCol);
         }
 
-        // Cobertura superior oculta quando o jogador está dentro (desenhada após pedestres)
-        if (!isInside) {
+        // Cobertura superior com fade suave ao entrar/sair (desenhada após pedestres)
+        const roofAlpha = building.roofAlpha ?? (isInside ? 0 : 1);
+        if (roofAlpha > 0.01) {
           const encounterMeta = encounterLocations instanceof Map
             ? encounterLocations.get(building.code)
             : (encounterLocations?.has?.(building.code) ? {} : null);
           const isEncounter = Boolean(encounterMeta);
+          const baseRoofColor = isEncounter
+            ? hexToRgba(encounterMeta.roofColor || '#d6282e')
+            : hexToRgba(building.roofColor);
           closedRoofs.push({
             x: bb.x,
             y: bb.y,
             w: bb.w,
             h: bb.h,
-            color: isEncounter
-              ? hexToRgba(encounterMeta.roofColor || '#d6282e')
-              : hexToRgba(building.roofColor),
+            color: [baseRoofColor[0], baseRoofColor[1], baseRoofColor[2], baseRoofColor[3] * roofAlpha],
+            alpha: roofAlpha,
             isHospital: building.type === 'hospital',
             isEncounter,
             roofLogo: encounterMeta?.roofLogo || '',
@@ -786,19 +789,20 @@ export class WebGLRenderer {
     // Telhados fechados cobrem pessoas dentro dos prédios quando o jogador está fora
     const pendingRoofLogos = [];
     for (const roof of closedRoofs) {
+      const ra = roof.alpha ?? 1;
       this.#pushQuad(roof.x, roof.y, roof.w, roof.h, 0, 'roof', roof.color);
       if (roof.isHospital) {
         const crossLen = Math.min(roof.w, roof.h) * 0.56;
         const armThick = Math.max(10, Math.round(crossLen * 0.3));
         const cx = roof.x + roof.w * 0.5;
         const cy = roof.y + roof.h * 0.5;
-        const red = [0.88, 0.14, 0.18, 1];
+        const red = [0.88, 0.14, 0.18, ra];
         this.#pushQuad(cx - armThick * 0.5, cy - crossLen * 0.5, armThick, crossLen, 0, 'solid', red);
         this.#pushQuad(cx - crossLen * 0.5, cy - armThick * 0.5, crossLen, armThick, 0, 'solid', red);
       } else if (roof.isEncounter) {
         const logoEntry = roof.roofLogo ? this.#getOrLoadLogoTexture(roof.roofLogo) : null;
         if (logoEntry && logoEntry.loaded && logoEntry.texture) {
-          pendingRoofLogos.push({ roof, entry: logoEntry });
+          pendingRoofLogos.push({ roof, entry: logoEntry, alpha: ra });
         } else {
           const cx = roof.x + roof.w * 0.5;
           const cy = roof.y + roof.h * 0.5;
@@ -809,7 +813,7 @@ export class WebGLRenderer {
           const gap = Math.max(5, Math.round(markH * 0.1));
           const totalH = barH + gap + dotSize;
           const topY = cy - totalH * 0.5;
-          const white = [1, 1, 1, 1];
+          const white = [1, 1, 1, ra];
           this.#pushQuad(cx - thick * 0.5, topY, thick, barH, 0, 'solid', white);
           this.#pushQuad(cx - dotSize * 0.5, topY + barH + gap, dotSize, dotSize, 0, 'disc', white);
         }
@@ -1014,7 +1018,7 @@ export class WebGLRenderer {
 
     if (pendingRoofLogos.length > 0) {
       const logoVerts = new Float32Array(6 * 8);
-      for (const { roof, entry } of pendingRoofLogos) {
+      for (const { roof, entry, alpha } of pendingRoofLogos) {
         const maxBox = Math.min(roof.w, roof.h) * 0.62;
         const aspect = entry.width / Math.max(1, entry.height);
         const lw = aspect >= 1 ? maxBox : maxBox * aspect;
@@ -1024,12 +1028,12 @@ export class WebGLRenderer {
         const x1 = x0 + lw;
         const y1 = y0 + lh;
         const verts = [
-          x0, y0, 0, 0, 1, 1, 1, 1,
-          x1, y0, 1, 0, 1, 1, 1, 1,
-          x1, y1, 1, 1, 1, 1, 1, 1,
-          x0, y0, 0, 0, 1, 1, 1, 1,
-          x1, y1, 1, 1, 1, 1, 1, 1,
-          x0, y1, 0, 1, 1, 1, 1, 1,
+          x0, y0, 0, 0, 1, 1, 1, alpha,
+          x1, y0, 1, 0, 1, 1, 1, alpha,
+          x1, y1, 1, 1, 1, 1, 1, alpha,
+          x0, y0, 0, 0, 1, 1, 1, alpha,
+          x1, y1, 1, 1, 1, 1, 1, alpha,
+          x0, y1, 0, 1, 1, 1, 1, alpha,
         ];
         logoVerts.set(verts);
         gl.bindTexture(gl.TEXTURE_2D, entry.texture);
