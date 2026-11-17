@@ -54,6 +54,22 @@ export class CutsceneController {
     });
   }
 
+  #matchesSpeaker(speaker, charId, charName) {
+    const normalize = (val) =>
+      String(val || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+    const s = normalize(speaker);
+    if (!s) return false;
+    const idNorm = normalize(charId);
+    const nameNorm = normalize(charName);
+    if (s === idNorm || s === nameNorm) return true;
+    const firstWord = nameNorm.split(/\s+/)[0];
+    return Boolean(firstWord && s === firstWord);
+  }
+
   #syncChoiceSelection() {
     if (!this.choicesEl) return;
     const buttons = [...this.choicesEl.querySelectorAll('.cutscene-choice-btn')];
@@ -195,16 +211,15 @@ export class CutsceneController {
     this.speakerEl.textContent = step.speaker || '';
     this.textEl.textContent = step.text || '';
 
-    const speakerLower = (step.speaker || '').toLowerCase();
-    const leftIdLower = (this.cutscene?.leftChar || '').toLowerCase();
-    const rightIdLower = (this.cutscene?.rightChar || '').toLowerCase();
-    const leftNameLower = (this.leftName.textContent || '').toLowerCase();
-    const rightNameLower = (this.rightName.textContent || '').toLowerCase();
-    const isLeftSpeaking = Boolean(
-      speakerLower && (speakerLower === leftNameLower || speakerLower === leftIdLower),
+    const isLeftSpeaking = this.#matchesSpeaker(
+      step.speaker,
+      this.cutscene?.leftChar,
+      this.leftName.textContent,
     );
-    const isRightSpeaking = Boolean(
-      speakerLower && (speakerLower === rightNameLower || speakerLower === rightIdLower),
+    const isRightSpeaking = this.#matchesSpeaker(
+      step.speaker,
+      this.cutscene?.rightChar,
+      this.rightName.textContent,
     );
     if (isLeftSpeaking && this.leftName.textContent) {
       this.speakerEl.textContent = this.leftName.textContent;

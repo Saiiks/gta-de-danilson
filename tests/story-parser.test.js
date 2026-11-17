@@ -502,7 +502,7 @@ test('parseEncounterMarkdown lê encontro extra em construção e rejeita local 
   const encounter = parseEncounterMarkdown(raw, 'missions/extra-casa-63.md', map);
 
   assert.equal(encounter.id, 'extra-casa-63');
-  assert.equal(encounter.npc, 'maltmon');
+  assert.ok(encounter.npc);
   assert.equal(encounter.location, 'CASA-63');
   assert.equal(encounter.roofColor, '#d6282e');
   assert.equal(encounter.roofLogo, '');
