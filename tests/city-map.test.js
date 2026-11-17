@@ -230,3 +230,15 @@ test('getSurfaceAt diferencia asfalto, calçada e grama', () => {
   const pb = plazaBlock.plaza.bounds;
   assert.equal(map.getSurfaceAt(pb.x + pb.w * 0.5, pb.y + pb.h * 0.5), 'grass');
 });
+
+test('resolveIndoorOppositePosition posiciona NPC na parede oposta à porta da CASA-63', () => {
+  const map = new CityMap();
+  const pos = map.resolveIndoorOppositePosition('CASA-63');
+  const b = pos.building.bounds;
+  assert.equal(pos.building.code, 'CASA-63');
+  assert.equal(pos.building.doorSide, 'south');
+  assert.ok(pos.y < b.y + b.h * 0.5, 'NPC deve ficar na metade norte (oposta à porta sul)');
+  assert.ok(pos.x >= b.x && pos.x <= b.x + b.w);
+  assert.equal(pos.angle, Math.PI * 0.5);
+  assert.throws(() => map.resolveIndoorOppositePosition('RUA-04'));
+});
