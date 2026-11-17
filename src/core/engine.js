@@ -67,6 +67,7 @@ export class Engine {
     this.freeRoamMode = !this.storyPackage;
     this.missionOutTriggered = false;
     this.completedNpcPoints = [];
+    this.encounterNpcs = [];
     this.paused = false;
     this.hudDisplayHealth = 100;
     this.wasInsideHospital = false;
@@ -192,6 +193,7 @@ export class Engine {
     if (!this.cityMap) {
       this.cityMap = new CityMap();
     }
+    this.#buildEncounterNpcs();
     this.pathfinder = new RoadPathfinder(this.cityMap);
 
     this.hud.showLoading(70, 'Iniciando tráfego e pedestres...');
@@ -253,6 +255,7 @@ export class Engine {
     if (!freshPackage) return;
     this.storyPackage = freshPackage;
     this.locationNames = freshPackage.locationNames || new Map();
+    this.#buildEncounterNpcs();
     if (this.freeRoamMode || !freshPackage.missions?.length) return;
     const clamped = Math.max(0, Math.min(this.currentMissionIndex, freshPackage.missions.length - 1));
     this.currentMissionIndex = clamped;
@@ -779,6 +782,40 @@ export class Engine {
     };
   }
 
+  #buildEncounterNpcs() {
+    this.encounterNpcs = [];
+    const encounters = this.storyPackage?.encounters;
+    if (!this.cityMap || !Array.isArray(encounters) || encounters.length === 0) return;
+    for (const encounter of encounters) {
+      try {
+        const pos = this.cityMap.resolveIndoorOppositePosition(encounter.location);
+        this.encounterNpcs.push({
+          id: encounter.id,
+          npc: encounter.npc,
+          location: encounter.location,
+          prompt: encounter.prompt,
+          cutscene: encounter.cutscene,
+          x: pos.x,
+          y: pos.y,
+          angle: pos.angle,
+        });
+      } catch (err) {
+        console.warn(`[Engine] Não foi possível posicionar encontro "${encounter.id}": ${err.message}`);
+      }
+    }
+  }
+
+  #findNearbyEncounterNpc() {
+    if (this.player.inVehicleId || !this.player.insideLocationCode) return null;
+    for (const npc of this.encounterNpcs) {
+      if (npc.location !== this.player.insideLocationCode) continue;
+      if (Math.hypot(this.player.x - npc.x, this.player.y - npc.y) < 58) {
+        return npc;
+      }
+    }
+    return null;
+  }
+
   #isPickupStageActive() {
     const activeMission = this.storyPackage?.missions?.[this.currentMissionIndex];
     return Boolean(
@@ -803,7 +840,7 @@ export class Engine {
     if (this.player.inVehicleId || this.player.isDead) {
       return;
     }
-    const npcs = [...(this.completedNpcPoints || [])];
+    const npcs = [...(this.completedNpcPoints || []), ...(this.encounterNpcs || [])];
     if (!this.#isPickupStageActive() && !this.missionOutTriggered && !this.freeRoamMode && this.objectiveNpcPoint) {
       npcs.push(this.objectiveNpcPoint);
     }
@@ -1346,6 +1383,15 @@ export class Engine {
           this.player.walkPhase = 0;
         }
         if (input.actionJustPressed && !this.#isNearInteriorStoryNpc()) {
+          const encounterNpc = this.#findNearbyEncounterNpc();
+          if (encounterNpc && this.cutscene) {
+            this.cutscene.play(encounterNpc.cutscene, this.storyPackage.characters, (result) => {
+              if (result?.outcome === 'gameover') {
+                this.#triggerGameOver(result.reason || 'Fim de linha!');
+              }
+            });
+            return;
+          }
           const nearest = findNearestVehicle(this.player.x, this.player.y, this.vehicles);
           if (nearest) {
             const hadNpcDriver = nearest.driver === 'npc';
@@ -1908,9 +1954,12 @@ export class Engine {
       ? this.vehicles.find((v) => v.id === this.player.inVehicleId)
       : null;
 
+    const nearbyEncounterNpc = this.#findNearbyEncounterNpc();
     const objectiveHint = this.#isNearInteriorStoryNpc()
       ? 'Aperte Ação para falar'
-      : this.getLocationDisplayName(this.objectiveCode);
+      : nearbyEncounterNpc
+        ? (nearbyEncounterNpc.prompt || 'Aperte Ação para falar')
+        : this.getLocationDisplayName(this.objectiveCode);
 
     if (this.hudDisplayHealth < this.player.health) {
       this.hudDisplayHealth = Math.min(this.player.health, this.hudDisplayHealth + dt * 90);
@@ -2122,7 +2171,7 @@ export class Engine {
       worldCollectibles: this.worldCollectibles,
       objectivePoint: hideTargetNpc ? null : this.objectivePoint,
       objectiveNpcPoint: hideTargetNpc ? null : this.objectiveNpcPoint,
-      completedNpcPoints: this.completedNpcPoints,
+      completedNpcPoints: [...this.completedNpcPoints, ...this.encounterNpcs],
       emitNpcWaves: !hideTargetNpc && Boolean(this.objectiveNpcPoint || this.objectivePoint),
       time: this.elapsedTime
     });
