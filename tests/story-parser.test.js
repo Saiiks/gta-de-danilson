@@ -425,3 +425,71 @@ test('parseNpcLinesMarkdown lê falas de NPCs de story/npc-lines.md ignorando ca
   assert.ok(wrongLines.length >= 40, `esperado >= 40 falas de item errado, obtido ${wrongLines.length}`);
   assert.ok(wrongLines.every((l) => l.length > 0 && l.length <= 60));
 });
+
+test('parseMissionMarkdown interpreta diretiva - LINK: com rótulo personalizado e padrão "Visualizar o link"', () => {
+  const md = `---
+id: m-link
+title: Teste Link
+start: RUA-01-01
+target: COM-01-01
+---
+## CUTSCENE_INICIO
+left: prota
+right: mentor
+bg: RUA
+- prota: Olha esse site aqui!
+- LINK: Acessar Curso -> https://www.cursoemvideo.com/
+- mentor: Também tem esse outro endereço.
+- LINK: https://www.cursoemvideo.com/cursos
+`;
+  const mission = parseMissionMarkdown(md, 'm-link.md');
+  assert.equal(mission.introCutscene.steps.length, 2);
+  assert.deepEqual(mission.introCutscene.steps[0].link, {
+    label: 'Acessar Curso',
+    url: 'https://www.cursoemvideo.com/',
+  });
+  assert.deepEqual(mission.introCutscene.steps[1].link, {
+    label: 'Visualizar o link',
+    url: 'https://www.cursoemvideo.com/cursos',
+  });
+});
+
+test('parseMissionMarkdown rejeita - LINK: inválido, protocolo proibido ou sem fala anterior', () => {
+  const baseHeader = `---
+id: m-link-err
+title: Erro Link
+start: RUA-01-01
+target: COM-01-01
+---
+## CUTSCENE_INICIO
+left: prota
+right: mentor
+`;
+
+  assert.throws(
+    () =>
+      parseMissionMarkdown(
+        `${baseHeader}- prota: Fala\n- LINK: Clique -> javascript:alert(1)\n`,
+        'm-link-err.md',
+      ),
+    StoryParseError,
+  );
+
+  assert.throws(
+    () =>
+      parseMissionMarkdown(
+        `${baseHeader}- prota: Fala\n- LINK: Clique -> url-invalida\n`,
+        'm-link-err.md',
+      ),
+    StoryParseError,
+  );
+
+  assert.throws(
+    () =>
+      parseMissionMarkdown(
+        `${baseHeader}- LINK: Sem fala -> https://www.cursoemvideo.com/\n`,
+        'm-link-err.md',
+      ),
+    StoryParseError,
+  );
+});

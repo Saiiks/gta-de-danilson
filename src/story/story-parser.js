@@ -181,6 +181,65 @@ function parseCutsceneBlock(blockLines, startLine, fileName) {
       continue;
     }
 
+    if (trimmed.startsWith('- LINK:')) {
+      const linkBody = trimmed.slice('- LINK:'.length).trim();
+      const arrowIdx = linkBody.indexOf('->');
+      const label = arrowIdx === -1
+        ? 'Visualizar o link'
+        : (linkBody.slice(0, arrowIdx).trim() || 'Visualizar o link');
+      const rawUrl = arrowIdx === -1 ? linkBody : linkBody.slice(arrowIdx + 2).trim();
+
+      if (!rawUrl) {
+        throw new StoryParseError(
+          fileName,
+          lineNum,
+          'Link vazio em "- LINK:". Use "- LINK: Texto -> https://..." ou "- LINK: https://...".',
+        );
+      }
+
+      let parsedUrl;
+      try {
+        parsedUrl = new URL(rawUrl);
+      } catch {
+        throw new StoryParseError(
+          fileName,
+          lineNum,
+          `URL inválida "${rawUrl}" em "- LINK:". Use uma URL completa com http:// ou https://.`,
+        );
+      }
+
+      if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+        throw new StoryParseError(
+          fileName,
+          lineNum,
+          `Protocolo não permitido "${parsedUrl.protocol}" em "- LINK:". Use apenas http:// ou https://.`,
+        );
+      }
+
+      const lastStep = cutscene.steps[cutscene.steps.length - 1];
+      if (!lastStep || lastStep.type === 'deliver') {
+        throw new StoryParseError(
+          fileName,
+          lineNum,
+          'A diretiva "- LINK:" deve vir logo após uma fala de personagem.',
+        );
+      }
+      if (lastStep.link) {
+        throw new StoryParseError(
+          fileName,
+          lineNum,
+          'Cada fala pode ter apenas uma diretiva "- LINK:".',
+        );
+      }
+
+      pendingChoices = null;
+      lastStep.link = {
+        label,
+        url: parsedUrl.href,
+      };
+      continue;
+    }
+
     if (trimmed.startsWith('- OPCAO:')) {
       const optionBody = trimmed.slice('- OPCAO:'.length).trim();
       const arrowIdx = optionBody.indexOf('->');

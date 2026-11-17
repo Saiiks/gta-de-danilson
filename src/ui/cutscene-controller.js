@@ -5,6 +5,7 @@ import {
   onUiInputModeChange,
   setUiInputMode,
 } from './input-mode.js?v=1';
+import { WebModalController } from './web-modal.js?v=1';
 
 export class CutsceneController {
   constructor() {
@@ -20,7 +21,10 @@ export class CutsceneController {
     this.speakerEl = document.getElementById('cutscene-speaker');
     this.textEl = document.getElementById('cutscene-text');
     this.choicesEl = document.getElementById('cutscene-choices');
+    this.actionsEl = this.screen.querySelector('.cutscene-actions');
+    this.linkBtn = document.getElementById('cutscene-link-btn');
     this.nextBtn = document.getElementById('cutscene-next-btn');
+    this.webModal = new WebModalController();
 
     this.active = false;
     this.awaitingDelivery = false;
@@ -28,17 +32,25 @@ export class CutsceneController {
     this.characters = null;
     this.stepIndex = 0;
     this.selectedChoiceIndex = 0;
+    this.selectedActionIndex = 0;
     this.onFinish = null;
     this.onDeliverRequest = null;
     this.prevAction = false;
     this.prevUp = false;
     this.prevDown = false;
+    this.prevLeft = false;
+    this.prevRight = false;
     this.recentBackgroundsByType = new Map();
 
+    this.linkBtn?.addEventListener('click', () => this.openStepLink());
     this.nextBtn.addEventListener('click', () => this.advance());
     bindHoverClearsKeyboardFocus(this.choicesEl, () => this.#syncChoiceSelection());
+    bindHoverClearsKeyboardFocus(this.actionsEl, () => this.#syncActionSelection());
     onUiInputModeChange(() => {
-      if (this.active) this.#syncChoiceSelection();
+      if (this.active) {
+        this.#syncChoiceSelection();
+        this.#syncActionSelection();
+      }
     });
   }
 
@@ -49,6 +61,19 @@ export class CutsceneController {
     buttons.forEach((btn, idx) => {
       btn.classList.toggle('selected', showFocus && idx === this.selectedChoiceIndex);
     });
+  }
+
+  #syncActionSelection() {
+    const step = this.cutscene?.steps?.[this.stepIndex];
+    const hasLink = Boolean(step?.link && !(step?.choices && step.choices.length > 0));
+    if (!hasLink) {
+      this.linkBtn?.classList.remove('selected');
+      this.nextBtn?.classList.remove('selected');
+      return;
+    }
+    const showFocus = isKeyboardUiMode();
+    this.linkBtn?.classList.toggle('selected', showFocus && this.selectedActionIndex === 0);
+    this.nextBtn?.classList.toggle('selected', showFocus && this.selectedActionIndex === 1);
   }
 
   play(cutscene, characters, onFinish, options = {}) {
@@ -63,11 +88,14 @@ export class CutsceneController {
     this.characters = characters;
     this.stepIndex = 0;
     this.selectedChoiceIndex = 0;
+    this.selectedActionIndex = 0;
     this.onFinish = onFinish;
     this.onDeliverRequest = options.onDeliverRequest || null;
     this.prevAction = true;
     this.prevUp = false;
     this.prevDown = false;
+    this.prevLeft = false;
+    this.prevRight = false;
 
     let chosenBackgroundImage = cutscene.backgroundImage || '';
     if (Array.isArray(cutscene.backgroundPool) && cutscene.backgroundPool.length > 0) {
@@ -175,6 +203,7 @@ export class CutsceneController {
 
     this.choicesEl.replaceChildren();
     if (step.choices && step.choices.length > 0) {
+      this.linkBtn?.classList.add('hidden');
       this.nextBtn.classList.add('hidden');
       this.choicesEl.classList.remove('hidden');
       this.selectedChoiceIndex = Math.min(this.selectedChoiceIndex, step.choices.length - 1);
@@ -195,16 +224,47 @@ export class CutsceneController {
       this.nextBtn.classList.remove('hidden');
       this.nextBtn.textContent =
         this.stepIndex >= this.cutscene.steps.length - 1 ? 'Concluir cena' : 'Continuar';
+      if (step.link) {
+        if (this.linkBtn) {
+          this.linkBtn.textContent = step.link.label;
+          this.linkBtn.classList.remove('hidden');
+        }
+        this.selectedActionIndex = 0;
+      } else {
+        this.linkBtn?.classList.add('hidden');
+        this.selectedActionIndex = 1;
+      }
+      this.#syncActionSelection();
     }
+  }
+
+  openStepLink() {
+    if (!this.active || this.awaitingDelivery || this.webModal.active) return;
+    const step = this.cutscene?.steps?.[this.stepIndex];
+    if (!step?.link?.url) return;
+    this.webModal.open(step.link.url, step.link.label, {
+      onClose: () => {
+        this.prevAction = true;
+        this.prevLeft = false;
+        this.prevRight = false;
+        this.#syncActionSelection();
+      },
+    });
   }
 
   updateInput(inputState) {
     if (!this.active || this.awaitingDelivery) return;
+    if (this.webModal.active) {
+      this.webModal.updateInput(inputState);
+      return;
+    }
     const step = this.cutscene?.steps?.[this.stepIndex];
     if (!step) return;
 
     const up = Boolean(inputState.moveY < -0.5);
     const down = Boolean(inputState.moveY > 0.5);
+    const left = Boolean(inputState.moveX < -0.5);
+    const right = Boolean(inputState.moveX > 0.5);
     const action = Boolean(inputState.actionPressed ?? inputState.action);
 
     if (step.choices && step.choices.length > 0) {
@@ -223,6 +283,24 @@ export class CutsceneController {
         const chosen = step.choices[this.selectedChoiceIndex];
         this.#selectChoice(chosen);
       }
+    } else if (step.link) {
+      if ((left && !this.prevLeft) || (up && !this.prevUp)) {
+        setUiInputMode('keyboard');
+        this.selectedActionIndex = 0;
+        this.#syncActionSelection();
+      }
+      if ((right && !this.prevRight) || (down && !this.prevDown)) {
+        setUiInputMode('keyboard');
+        this.selectedActionIndex = 1;
+        this.#syncActionSelection();
+      }
+      if (action && !this.prevAction) {
+        if (this.selectedActionIndex === 0) {
+          this.openStepLink();
+        } else {
+          this.advance();
+        }
+      }
     } else if (action && !this.prevAction) {
       this.advance();
     }
@@ -230,6 +308,8 @@ export class CutsceneController {
     this.prevAction = action;
     this.prevUp = up;
     this.prevDown = down;
+    this.prevLeft = left;
+    this.prevRight = right;
   }
 
   #selectChoice(choice) {
@@ -263,6 +343,7 @@ export class CutsceneController {
   }
 
   finish(result) {
+    this.webModal.close();
     this.active = false;
     this.screen.classList.add('hidden');
     const cb = this.onFinish;
