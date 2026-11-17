@@ -11,6 +11,10 @@ export class Minimap {
     const existing = this.logoImages.get(url);
     if (existing) return existing;
     const img = new Image();
+    img._failed = false;
+    img.onerror = () => {
+      img._failed = true;
+    };
     img.src = url;
     this.logoImages.set(url, img);
     return img;
@@ -77,7 +81,7 @@ export class Minimap {
           ctx.fillStyle = meta?.roofColor || '#dc2626';
           ctx.fillRect(bx, by, bw, bh);
           const logoImg = meta?.roofLogo ? this.#getOrLoadLogo(meta.roofLogo) : null;
-          if (logoImg && logoImg.complete && (logoImg.naturalWidth || logoImg.width) > 0) {
+          if (logoImg && !logoImg._failed && logoImg.complete && logoImg.naturalWidth > 0) {
             const box = Math.max(8, Math.min(bw, bh) * 0.85);
             ctx.drawImage(logoImg, bx + (bw - box) * 0.5, by + (bh - box) * 0.5, box, box);
           } else {
