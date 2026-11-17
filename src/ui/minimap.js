@@ -11,6 +11,7 @@ export class Minimap {
     routePoints,
     objectivePoint,
     worldCollectibles = [],
+    encounterLocations = null,
     scale,
     centerX,
     centerY,
@@ -56,6 +57,24 @@ export class Minimap {
           ctx.fillStyle = '#ef4444';
           ctx.fillRect(cx - thick * 0.5, cy - arm * 0.5, thick, arm);
           ctx.fillRect(cx - arm * 0.5, cy - thick * 0.5, arm, thick);
+        } else if (encounterLocations && encounterLocations.has(building.code)) {
+          ctx.fillStyle = '#dc2626';
+          ctx.fillRect(bx, by, bw, bh);
+          const cx = bx + bw * 0.5;
+          const cy = by + bh * 0.5;
+          ctx.save();
+          const fontSize = expanded
+            ? Math.max(16, Math.round(Math.min(w, h) * 0.036))
+            : Math.max(10, Math.round(Math.max(bw, bh) * 0.85));
+          ctx.font = `bold ${fontSize}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.lineWidth = expanded ? 3.5 : 2;
+          ctx.strokeStyle = '#7f1d1d';
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeText('!', cx, cy);
+          ctx.fillText('!', cx, cy);
+          ctx.restore();
         } else {
           ctx.fillStyle = building.type === 'commerce' ? '#4f6d9a' : '#7c5c4e';
           ctx.fillRect(bx, by, bw, bh);
@@ -167,7 +186,7 @@ export class Minimap {
     ctx.restore();
   }
 
-  render(cityMap, player, routePoints, objectivePoint, worldCollectibles = []) {
+  render(cityMap, player, routePoints, objectivePoint, worldCollectibles = [], encounterLocations = null) {
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
@@ -178,6 +197,7 @@ export class Minimap {
       routePoints,
       objectivePoint,
       worldCollectibles,
+      encounterLocations,
       scale,
       centerX: player.x,
       centerY: player.y,
@@ -269,6 +289,7 @@ export class Minimap {
     viewportWidth = 800,
     viewportHeight = 600,
     viewState = null,
+    encounterLocations = null,
   ) {
     if (!expandedCanvas || !cityMap) return;
     const { width: targetW, height: targetH } = this.getExpandedCanvasSize(viewportWidth, viewportHeight);
@@ -292,6 +313,7 @@ export class Minimap {
       routePoints,
       objectivePoint,
       worldCollectibles,
+      encounterLocations,
       scale,
       centerX,
       centerY,

@@ -215,7 +215,7 @@ export class WebGLRenderer {
     this.#pushQuad(x - 4.5, y - 2, 9, 9, 0, 'disc', [0.22, 0.14, 0.08, 1]);
   }
 
-  renderFrame({ camera, cityMap, vehicles, boats = [], trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], worldCollectibles = [], objectivePoint, objectiveNpcPoint, completedNpcPoints = [], emitNpcWaves = false, time }) {
+  renderFrame({ camera, cityMap, vehicles, boats = [], trashBins = [], pedestrians = [], player, skidMarks, bloodMarks = [], smokeParticles = [], explosions = [], worldCollectibles = [], objectivePoint, objectiveNpcPoint, completedNpcPoints = [], encounterLocations = null, emitNpcWaves = false, time }) {
     const gl = this.gl;
     this.quadCount = 0;
 
@@ -394,13 +394,15 @@ export class WebGLRenderer {
 
         // Cobertura superior oculta quando o jogador está dentro (desenhada após pedestres)
         if (!isInside) {
+          const isEncounter = Boolean(encounterLocations && encounterLocations.has(building.code));
           closedRoofs.push({
             x: bb.x,
             y: bb.y,
             w: bb.w,
             h: bb.h,
-            color: hexToRgba(building.roofColor),
-            isHospital: building.type === 'hospital'
+            color: isEncounter ? [0.84, 0.16, 0.18, 1] : hexToRgba(building.roofColor),
+            isHospital: building.type === 'hospital',
+            isEncounter,
           });
         }
 
@@ -732,6 +734,11 @@ export class WebGLRenderer {
         const red = [0.88, 0.14, 0.18, 1];
         this.#pushQuad(cx - armThick * 0.5, cy - crossLen * 0.5, armThick, crossLen, 0, 'solid', red);
         this.#pushQuad(cx - crossLen * 0.5, cy - armThick * 0.5, crossLen, armThick, 0, 'solid', red);
+      } else if (roof.isEncounter) {
+        const dia = Math.max(22, Math.min(roof.w, roof.h) * 0.44);
+        const cx = roof.x + roof.w * 0.5;
+        const cy = roof.y + roof.h * 0.5;
+        this.#pushQuad(cx - dia * 0.5, cy - dia * 0.5, dia, dia, 0, 'disc', [0.98, 0.8, 0.1, 1]);
       }
     }
 

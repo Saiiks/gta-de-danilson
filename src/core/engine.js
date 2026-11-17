@@ -68,6 +68,7 @@ export class Engine {
     this.missionOutTriggered = false;
     this.completedNpcPoints = [];
     this.encounterNpcs = [];
+    this.encounterLocationCodes = new Set();
     this.paused = false;
     this.hudDisplayHealth = 100;
     this.wasInsideHospital = false;
@@ -784,11 +785,13 @@ export class Engine {
 
   #buildEncounterNpcs() {
     this.encounterNpcs = [];
+    this.encounterLocationCodes = new Set();
     const encounters = this.storyPackage?.encounters;
     if (!this.cityMap || !Array.isArray(encounters) || encounters.length === 0) return;
     for (const encounter of encounters) {
       try {
         const pos = this.cityMap.resolveIndoorOppositePosition(encounter.location);
+        this.encounterLocationCodes.add(encounter.location);
         this.encounterNpcs.push({
           id: encounter.id,
           npc: encounter.npc,
@@ -1067,6 +1070,7 @@ export class Engine {
       window.innerWidth,
       window.innerHeight,
       this.expandedMapView,
+      this.encounterLocationCodes,
     );
   }
 
@@ -2172,6 +2176,7 @@ export class Engine {
       objectivePoint: hideTargetNpc ? null : this.objectivePoint,
       objectiveNpcPoint: hideTargetNpc ? null : this.objectiveNpcPoint,
       completedNpcPoints: [...this.completedNpcPoints, ...this.encounterNpcs],
+      encounterLocations: this.encounterLocationCodes,
       emitNpcWaves: !hideTargetNpc && Boolean(this.objectiveNpcPoint || this.objectivePoint),
       time: this.elapsedTime
     });
@@ -2211,7 +2216,14 @@ export class Engine {
         : 0;
       return this.#worldToScreen(bubblePed.x + avoidX, bubblePed.y - 22);
     });
-    this.minimap.render(this.cityMap, this.player, this.routePoints, this.objectivePoint, this.worldCollectibles);
+    this.minimap.render(
+      this.cityMap,
+      this.player,
+      this.routePoints,
+      this.objectivePoint,
+      this.worldCollectibles,
+      this.encounterLocationCodes,
+    );
     if (this.hud.isExpandedMapOpen()) {
       this.#renderExpandedMap();
     }
