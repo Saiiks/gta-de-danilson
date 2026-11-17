@@ -504,9 +504,16 @@ test('parseEncounterMarkdown lê encontro extra em construção e rejeita local 
   assert.equal(encounter.id, 'extra-casa-63');
   assert.ok(encounter.npc);
   assert.equal(encounter.location, 'CASA-63');
-  assert.equal(encounter.roofColor, '#d6282e');
-  assert.equal(encounter.roofLogo, '');
+  assert.match(encounter.roofColor, /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
   assert.ok(encounter.cutscene.steps.length >= 2);
+
+  const defaultEncounter = parseEncounterMarkdown(
+    `---\nid: def\nnpc: maltmon\nlocation: CASA-63\n---\n## CUTSCENE\n- maltmon: Oi\n`,
+    'def.md',
+    map,
+  );
+  assert.equal(defaultEncounter.roofColor, '#d6282e');
+  assert.equal(defaultEncounter.roofLogo, '');
 
   const customEncounter = parseEncounterMarkdown(
     `---\nid: custom\nnpc: maltmon\nlocation: CASA-63\nroof_color: #2563eb\nroof_logo: assets/alex-front.svg\n---\n## CUTSCENE\n- maltmon: Oi\n`,

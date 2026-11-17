@@ -220,6 +220,24 @@ export class WebGLRenderer {
     this.quadCount++;
   }
 
+  #drawNpcWaves(x, y, time) {
+    const cycle = 1.9;
+    for (let i = 0; i < 3; i++) {
+      const phase = ((time / cycle) + i / 3) % 1;
+      const waveSize = 32 + phase * 156;
+      const alpha = (1 - phase) * (1 - phase) * 0.72;
+      this.#pushQuad(
+        x - waveSize * 0.5,
+        y - waveSize * 0.5,
+        waveSize,
+        waveSize,
+        0,
+        'shockwave',
+        [0.98, 0.78, 0.2, alpha]
+      );
+    }
+  }
+
   #drawStoryNpc(x, y, time, withHalo = false) {
     if (withHalo) {
       const pulse = 1 + Math.sin(time * 5) * 0.14;
@@ -747,10 +765,16 @@ export class WebGLRenderer {
       }
     }
 
-    // Personagens de missões já concluídas permanecem na cena sem ondas
+    // Personagens de missões já concluídas e NPCs fixos de encontros extras
     for (const pt of completedNpcPoints) {
       if (pt.x < minX || pt.x > maxX || pt.y < minY || pt.y > maxY) continue;
-      this.#drawStoryNpc(pt.x, pt.y, time, false);
+      const isPlayerInsideEncounter = Boolean(
+        !player.inVehicleId && pt.location && player.insideLocationCode === pt.location,
+      );
+      this.#drawStoryNpc(pt.x, pt.y, time, isPlayerInsideEncounter);
+      if (isPlayerInsideEncounter) {
+        this.#drawNpcWaves(pt.x, pt.y, time);
+      }
     }
 
     // Boneco do personagem de destino (dentro do estabelecimento ou no ponto de encontro)
@@ -794,21 +818,7 @@ export class WebGLRenderer {
 
     // Ondas circulares estilo sinal Wi-Fi ao redor do personagem de destino (visíveis mesmo com teto fechado)
     if (npcMarker && emitNpcWaves) {
-      const cycle = 1.9;
-      for (let i = 0; i < 3; i++) {
-        const phase = ((time / cycle) + i / 3) % 1;
-        const waveSize = 32 + phase * 156;
-        const alpha = (1 - phase) * (1 - phase) * 0.72;
-        this.#pushQuad(
-          npcMarker.x - waveSize * 0.5,
-          npcMarker.y - waveSize * 0.5,
-          waveSize,
-          waveSize,
-          0,
-          'shockwave',
-          [0.98, 0.78, 0.2, alpha]
-        );
-      }
+      this.#drawNpcWaves(npcMarker.x, npcMarker.y, time);
     }
 
     // Jogador a pé ou montado em moto (que não possui teto)
