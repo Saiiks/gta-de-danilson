@@ -196,10 +196,23 @@ export class CutsceneController {
     this.textEl.textContent = step.text || '';
 
     const speakerLower = (step.speaker || '').toLowerCase();
+    const leftIdLower = (this.cutscene?.leftChar || '').toLowerCase();
+    const rightIdLower = (this.cutscene?.rightChar || '').toLowerCase();
     const leftNameLower = (this.leftName.textContent || '').toLowerCase();
     const rightNameLower = (this.rightName.textContent || '').toLowerCase();
-    this.leftSlot.classList.toggle('speaking', Boolean(leftNameLower && speakerLower === leftNameLower));
-    this.rightSlot.classList.toggle('speaking', Boolean(rightNameLower && speakerLower === rightNameLower));
+    const isLeftSpeaking = Boolean(
+      speakerLower && (speakerLower === leftNameLower || speakerLower === leftIdLower),
+    );
+    const isRightSpeaking = Boolean(
+      speakerLower && (speakerLower === rightNameLower || speakerLower === rightIdLower),
+    );
+    if (isLeftSpeaking && this.leftName.textContent) {
+      this.speakerEl.textContent = this.leftName.textContent;
+    } else if (isRightSpeaking && this.rightName.textContent) {
+      this.speakerEl.textContent = this.rightName.textContent;
+    }
+    this.leftSlot.classList.toggle('speaking', isLeftSpeaking);
+    this.rightSlot.classList.toggle('speaking', isRightSpeaking);
 
     this.choicesEl.replaceChildren();
     if (step.choices && step.choices.length > 0) {

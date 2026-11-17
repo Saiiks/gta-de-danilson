@@ -1389,6 +1389,7 @@ export class Engine {
         if (input.actionJustPressed && !this.#isNearInteriorStoryNpc()) {
           const encounterNpc = this.#findNearbyEncounterNpc();
           if (encounterNpc && this.cutscene) {
+            this.player.speed = 0;
             this.cutscene.play(encounterNpc.cutscene, this.storyPackage.characters, (result) => {
               if (result?.outcome === 'gameover') {
                 this.triggerGameOver(result.reason || 'Fim de linha!');
