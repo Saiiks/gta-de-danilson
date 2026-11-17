@@ -742,9 +742,32 @@ export class WebGLRenderer {
       const cos = Math.cos(ped.angle);
       const sin = Math.sin(ped.angle);
       if (ped.state === 'downed') {
-        this.#pushQuad(ped.x - 13, ped.y - 6, 26, 12, ped.angle, 'solid', ped.color);
-        this.#pushQuad(ped.x + cos * 11 - 5, ped.y + sin * 11 - 5, 10, 10, ped.angle, 'circle', skin);
-        this.#pushQuad(ped.x + cos * 9.5 - 4, ped.y + sin * 9.5 - 4, 8, 8, ped.angle, 'circle', hair);
+        const drawDownedPart = (fwd, side, w, h, rotOffset, tex, col) => {
+          const px = ped.x + cos * fwd - sin * side;
+          const py = ped.y + sin * fwd + cos * side;
+          this.#pushQuad(px - w * 0.5, py - h * 0.5, w, h, ped.angle + rotOffset, tex, col);
+        };
+        const shoeCol = [0.1, 0.1, 0.12, 1];
+        const outlineCol = [0.12, 0.16, 0.22, 1];
+        // Sombra suave no chão
+        drawDownedPart(-1, 0, 34, 18, 0, 'circle', [0, 0, 0, 0.28]);
+        // Pernas levemente abertas e sapatos
+        drawDownedPart(-8.5, -3.4, 12, 4.8, 0.18, 'solid', pants);
+        drawDownedPart(-14.2, -4.4, 4.8, 4.2, 0.18, 'disc', shoeCol);
+        drawDownedPart(-8.2, 3.6, 12, 4.8, -0.22, 'solid', pants);
+        drawDownedPart(-13.8, 4.8, 4.8, 4.2, -0.22, 'disc', shoeCol);
+        // Braços esparramados nas laterais com mãos
+        drawDownedPart(3.5, -7.8, 9.5, 3.8, -0.65, 'solid', skin);
+        drawDownedPart(6.5, -10.6, 4.2, 4.2, 0, 'disc', skin);
+        drawDownedPart(2.0, 8.0, 9.5, 3.8, 0.55, 'solid', skin);
+        drawDownedPart(5.2, 10.6, 4.2, 4.2, 0, 'disc', skin);
+        // Tronco (camisa) com contorno
+        drawDownedPart(0.8, 0, 14.5, 13.5, 0, 'disc', outlineCol);
+        drawDownedPart(0.8, 0, 12.5, 11.5, 0, 'disc', ped.color);
+        // Cabeça tombada e cabelo
+        drawDownedPart(9.8, 0.4, 9.6, 9.6, 0, 'disc', outlineCol);
+        drawDownedPart(10.0, 0.4, 8.2, 8.2, 0, 'disc', skin);
+        drawDownedPart(8.6, -0.6, 7.2, 7.0, 0, 'disc', hair);
       } else {
         const swing = Math.sin(ped.walkPhase || 0) * 6;
         const drawPedLimb = (forwardOffset, sideOffset, w, h, col) => {
