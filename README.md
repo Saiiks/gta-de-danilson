@@ -84,7 +84,7 @@ Como o projeto utiliza **ES Modules**, sirva esta pasta por um servidor HTTP loc
 
 ```bash
 # Opção 1: Python
-python3 -m http.server 8080 ou outra porta que estiver diponível
+python3 -m http.server 8080 
 
 # Opção 2: Node.js
 npx serve .
