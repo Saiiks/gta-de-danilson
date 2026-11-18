@@ -84,13 +84,13 @@ Como o projeto utiliza **ES Modules**, sirva esta pasta por um servidor HTTP loc
 
 ```bash
 # Opção 1: Python
-python3 -m http.server 8080
+python3 -m http.server 8080 ou outra porta que estiver diponível
 
 # Opção 2: Node.js
 npx serve .
 ```
 
-Depois, acesse `http://localhost:8080` no navegador.
+Depois, acesse `http://localhost:8080` ou o link que fôr fornecido no navegador.
 
 Para executar a suíte de testes unitários com Node.js:
 
