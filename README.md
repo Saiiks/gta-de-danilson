@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="./story/favicon.svg" alt="Logo GTA — Guanabara Testando Agentes" width="84" height="84">
+  <img src="./story/favicon.svg" alt="Logo GTA — Grande Teste de Agentes" width="84" height="84">
 </p>
 
-<h1 align="center">GTA (Guanabara Testando Agentes)</h1>
+<h1 align="center">GTA (Grande Teste de Agentes)</h1>
 
 <p align="center">
   <strong>Um jogo retrô de mundo aberto em visão superior construído com WebGL, Canvas 2D e JavaScript puro — aberto para você jogar, estudar e criar suas próprias histórias.</strong>
@@ -16,7 +16,7 @@
 
 ## Sobre o Projeto
 
-**GTA (Guanabara Testando Agentes)** nasceu como um laboratório prático e divertido para explorar o desenvolvimento de aplicações completas com apoio de agentes de inteligência artificial — sem abrir mão de arquitetura limpa, testes automatizados e experiência polida em desktop e celular.
+**GTA (Grande Teste de Agentes)** nasceu como um laboratório prático e divertido para explorar o desenvolvimento de aplicações completas com apoio de agentes de inteligência artificial — sem abrir mão de arquitetura limpa, testes automatizados e experiência polida em desktop e celular.
 
 Todo o motor roda diretamente no navegador, sem frameworks ou dependências externas em tempo de execução, combinando **ES Modules**, **WebGL** para renderização da cidade, **Canvas 2D** para minimapa e mapa ampliado, **Service Worker** para cache offline e suporte completo a **PWA** (incluindo *Adicionar à Tela de Início* no iPhone e iPad).
 
@@ -104,6 +104,6 @@ node --test tests/*.test.js
 
 Este projeto foi idealizado e criado por **Gustavo Guanabara**, professor e fundador do [**Curso em Vídeo**](https://www.youtube.com/cursoemvideo) no YouTube.
 
-O objetivo do **GTA — Guanabara Testando Agentes** vai muito além do jogo: ele existe para **incentivar pessoas de todas as idades a aprenderem a desenvolver soluções reais**, mostrando na prática como tecnologia, criatividade, lógica e ferramentas modernas podem caminhar juntas. O **Curso em Vídeo** tem como missão democratizar o ensino de tecnologia em língua portuguesa e **formar a próxima geração de desenvolvedores do mercado**.
+O objetivo do **GTA — Grande Teste de Agentes** vai muito além do jogo: ele existe para **incentivar pessoas de todas as idades a aprenderem a desenvolver soluções reais**, mostrando na prática como tecnologia, criatividade, lógica e ferramentas modernas podem caminhar juntas. O **Curso em Vídeo** tem como missão democratizar o ensino de tecnologia em língua portuguesa e **formar a próxima geração de desenvolvedores do mercado**.
 
 Curtiu o projeto? Faça um **fork**, crie sua própria história em [`story/`](./story), compartilhe com a comunidade e continue aprendendo!

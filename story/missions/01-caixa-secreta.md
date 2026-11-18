@@ -17,7 +17,7 @@ left: danilson
 right: jason
 bg: Frente da CASA-01
 
-- Danilson: Olá, Pequeno Gafanhoto! Bom dia, Jason! Já tomou aquele café para aguentar o código de hoje?
+- Danilson: Olá, Jason! Já tomou aquele café para aguentar o código de hoje?
 - Jason: Danilson, esquece o café e olha o tamanho da encrenca! Deixaram uma caixa metálica trancada ali na PRACA-01 com um adesivo escrito "Futuro do Curso em Vídeo".
 - Danilson: Uma caixa misteriosa? Será que é mais um monitor ultrawide ou alguém tentou mandar um ZIP sem senha?
 - OPCAO: Vou lá buscar agora antes que vire repositório abandonado! -> NEXT

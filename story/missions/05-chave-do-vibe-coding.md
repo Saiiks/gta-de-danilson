@@ -28,7 +28,7 @@ bg: splash/splash-end.png
 
 - ENTREGAR: chave-secreta
 - Narrador: A Chave Mestra gira na fechadura dourada da Caixa Secreta... e um brilho toma conta de todo o estúdio em CASA-353!
-- Danilson: Olá, Pequeno Gafanhoto! Dentro da caixa está o grande anúncio oficial: o Curso em Vídeo vai lançar o novo Curso de Vibe Coding!
+- Danilson: Olá, Ilustre! Dentro da caixa está o grande anúncio oficial: o Curso em Vídeo vai lançar o novo Curso de Vibe Coding!
 - Danilson: Um curso feito para a nova geração de programadores que estão chegando no mercado, unindo lógica, base sólida e Inteligência Artificial!
 - Danilson: Aguardamos todos vocês lá! Fiquem de olho nas redes sociais @danilsonroberto para saber a data de lançamento!
 - Narrador: Missão cumprida! Agora você está livre para explorar a cidade ou revisitar qualquer missão pelo menu de pausa.
