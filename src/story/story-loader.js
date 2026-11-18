@@ -64,7 +64,7 @@ export function getCharacterSidePngCandidates(basePath, charId, view) {
 export function getSplashPngCandidates(basePath, manifestSplash = '') {
   const cleanBase = String(basePath || '').replace(/\/+$/, '');
   const candidates = [
-    `${cleanBase}/splash/splash-start.png`,
+    `${cleanBase}/splash/splash-start.jpeg`,
     `${cleanBase}/splash.png`,
     `${cleanBase}/assets/splash.png`,
   ];

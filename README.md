@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="./story/splash/splash-start.png" alt="Tela de abertura de GTA: Missão Vibe Coding" width="760">
+  <img src="./story/splash/splash-start.jpeg" alt="Tela de abertura de GTA: Missão Vibe Coding" width="760">
 </p>
 
 ---
@@ -29,10 +29,10 @@ Nesta edição, a pasta [`story/`](./story) traz a campanha **Missão Vibe Codin
 <table>
   <tr>
     <td width="190" align="center">
-      <img src="./story/characters/guanabara.png" alt="Personagem Guanabara" width="160">
+      <img src="./story/characters/danilson.png" alt="Personagem Danilson" width="160">
     </td>
     <td>
-      Você controla <strong>Guanabara</strong>, um motorista experiente que conhece cada rua, esquina e atalho da ilha.<br><br>
+      Você controla <strong>Danilson</strong>, um motorista experiente que conhece cada rua, esquina e atalho da ilha.<br><br>
       Tudo começa com uma encomenda misteriosa: uma <strong>caixa secreta</strong> que precisa cruzar a cidade. A partir daí, uma sequência de entregas, imprevistos tecnológicos, bugs improváveis e figuras inspiradas no universo de tecnologia e inteligência artificial transforma um simples trajeto em uma corrida cheia de humor — envolvendo GPUs, servidores, robôs e muito café.<br><br>
       <em>Sem spoilers:</em> explore a cidade com calma, converse com moradores nas calçadas e fique atento aos itens colecionáveis espalhados pelos quarteirões!
     </td>
@@ -52,7 +52,7 @@ story/
 ├── npc-lines.md          # Frases aleatórias para balões HQ dos moradores na rua (até 60 caracteres)
 ├── wrong-item-lines.md   # Reações genéricas ao tentar entregar um item errado (até 60 caracteres)
 ├── splash/
-│   ├── splash-start.png  # Imagem da tela inicial e de compartilhamento em redes sociais
+│   ├── splash-start.jpeg  # Imagem da tela inicial e de compartilhamento em redes sociais
 │   └── splash-end.png    # Imagem exibida na conclusão da campanha
 ├── characters/           # Fichas (.md) e retratos (.png) dos personagens das cutscenes
 ├── items/                # Definições (.md) e ícones (.svg/.png) de itens de missão e extras

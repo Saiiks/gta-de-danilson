@@ -13,12 +13,12 @@ wrong_item_message: Essa chave não gira nem parafuso! Cadê a Chave Mestra?
 ---
 
 ## CUTSCENE_INICIO
-left: guanabara
+left: danilson
 right: lucia
 bg: Sudeste da cidade em CASA-656
 
-- Lucia: Guanabara, o Jason e eu já preparamos toda a bancada aqui em CASA-353! Só falta a Chave Mestra que o Sam Maltmon mencionou!
-- Guanabara: Tô saindo do Sudeste agora mesmo! A PRACA-29 fica logo ali na esquina.
+- Lucia: Danilson, o Jason e eu já preparamos toda a bancada aqui em CASA-353! Só falta a Chave Mestra que o Sam Maltmon mencionou!
+- Danilson: Tô saindo do Sudeste agora mesmo! A PRACA-29 fica logo ali na esquina.
 - Lucia: Pega a chave e vem pro Centro! Toda a equipe está curiosa para saber o que tem dentro da Caixa Secreta!
 
 ## CUTSCENE_FIM
@@ -28,7 +28,7 @@ bg: splash/splash-end.png
 
 - ENTREGAR: chave-secreta
 - Narrador: A Chave Mestra gira na fechadura dourada da Caixa Secreta... e um brilho toma conta de todo o estúdio em CASA-353!
-- Guanabara: Olá, Pequeno Gafanhoto! Dentro da caixa está o grande anúncio oficial: o Curso em Vídeo vai lançar o novo Curso de Vibe Coding!
-- Guanabara: Um curso feito para a nova geração de programadores que estão chegando no mercado, unindo lógica, base sólida e Inteligência Artificial!
-- Guanabara: Aguardamos todos vocês lá! Fiquem de olho nas redes sociais @gustavoguanabara e @cursoemvideo para saber a data de lançamento!
+- Danilson: Olá, Pequeno Gafanhoto! Dentro da caixa está o grande anúncio oficial: o Curso em Vídeo vai lançar o novo Curso de Vibe Coding!
+- Danilson: Um curso feito para a nova geração de programadores que estão chegando no mercado, unindo lógica, base sólida e Inteligência Artificial!
+- Danilson: Aguardamos todos vocês lá! Fiquem de olho nas redes sociais @danilsonroberto para saber a data de lançamento!
 - Narrador: Missão cumprida! Agora você está livre para explorar a cidade ou revisitar qualquer missão pelo menu de pausa.

@@ -1747,7 +1747,7 @@ HOSP-15: Hospital Horizonte
 HOSP-16: Hospital Liberdade
 HOSP-17: Hospital Atlântico
 HOSP-18: Hospital Paulista
-HOSP-19: Hospital Guanabara
+HOSP-19: Hospital Danilson
 HOSP-20: Hospital Boa Vista
 HOSP-21: Hospital Primavera
 HOSP-22: Hospital Bela Vista

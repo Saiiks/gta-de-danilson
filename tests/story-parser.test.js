@@ -134,21 +134,21 @@ test('prioriza PNG na pasta do personagem para visão lateral e faz fallback qua
 test('prioriza PNG personalizado para tela de abertura e faz fallback para padrão quando ausente', async () => {
   const candidates = getSplashPngCandidates('./story', 'assets/splash.svg');
   assert.deepEqual(candidates, [
-    './story/splash/splash-start.png',
+    './story/splash/splash-start.jpeg',
     './story/splash.png',
     './story/assets/splash.png',
   ]);
 
   const customCandidates = getSplashPngCandidates('./story', 'assets/capa.svg');
   assert.deepEqual(customCandidates, [
-    './story/splash/splash-start.png',
+    './story/splash/splash-start.jpeg',
     './story/splash.png',
     './story/assets/splash.png',
     './story/assets/capa.png',
   ]);
 
   const found = await resolveFirstExistingAsset(candidates, async (url) => url === './story/splash/splash-start.png');
-  assert.equal(found, './story/splash/splash-start.png');
+  assert.equal(found, './story/splash/splash-start.jpeg');
 
   const fallback = await resolveFirstExistingAsset(candidates, async () => false);
   assert.equal(fallback, '');
@@ -243,7 +243,7 @@ test('pré-carrega apenas splash e recursos da missão 0 na abertura e carrega d
   const story = {
     splashUrl: './story/splash.png',
     characters: new Map([
-      ['guanabara', { sprites: { left: './story/characters/guanabara.png' } }],
+      ['danilson', { sprites: { left: './story/characters/danilson.png' } }],
       ['beto', { sprites: { right: './story/characters/beto.png' } }],
       ['clara', { sprites: { right: './story/characters/clara.png' } }],
     ]),
@@ -255,14 +255,14 @@ test('pré-carrega apenas splash e recursos da missão 0 na abertura e carrega d
       {
         giveItem: 'maleta',
         requireItem: '',
-        introCutscene: { leftChar: 'guanabara', rightChar: 'beto', backgroundImage: './story/map/casa.png' },
-        outroCutscene: { leftChar: 'guanabara', rightChar: 'beto', backgroundImage: './story/map/rua.png' },
+        introCutscene: { leftChar: 'danilson', rightChar: 'beto', backgroundImage: './story/map/casa.png' },
+        outroCutscene: { leftChar: 'danilson', rightChar: 'beto', backgroundImage: './story/map/rua.png' },
       },
       {
         giveItem: '',
         requireItem: 'chave',
-        introCutscene: { leftChar: 'guanabara', rightChar: 'clara', backgroundImage: './story/map/com.jpg' },
-        outroCutscene: { leftChar: 'guanabara', rightChar: 'clara', backgroundImage: './story/map/praca.png' },
+        introCutscene: { leftChar: 'danilson', rightChar: 'clara', backgroundImage: './story/map/com.jpg' },
+        outroCutscene: { leftChar: 'danilson', rightChar: 'clara', backgroundImage: './story/map/praca.png' },
       },
     ],
   };
@@ -325,14 +325,14 @@ test('detecta variantes numeradas por tipo e sorteia cenários evitando repetiç
 
 test('lê page_title opcional do story.md para personalizar o título da aba', () => {
   const custom = parseStoryManifest(
-    '---\ntitle: Minha História\npage_title: Título da Aba\ncharacters: guanabara\nmissions: 01-caixa-secreta\n---\n',
+    '---\ntitle: Minha História\npage_title: Título da Aba\ncharacters: danilson\nmissions: 01-caixa-secreta\n---\n',
     'story.md'
   );
   assert.equal(custom.title, 'Minha História');
   assert.equal(custom.pageTitle, 'Título da Aba');
 
   const fallback = parseStoryManifest(
-    '---\ntitle: Minha História\ncharacters: guanabara\nmissions: 01-caixa-secreta\n---\n',
+    '---\ntitle: Minha História\ncharacters: danilson\nmissions: 01-caixa-secreta\n---\n',
     'story.md'
   );
   assert.equal(fallback.pageTitle, '');
@@ -381,7 +381,7 @@ test('registra arquivos já carregados em memória e evita recarregamento desnec
   const story = {
     splashUrl: './story/splash.png',
     characters: new Map([
-      ['guanabara', { id: 'guanabara', sprites: { right: './story/characters/guanabara.png' } }],
+      ['danilson', { id: 'danilson', sprites: { right: './story/characters/danilson.png' } }],
     ]),
     items: new Map(),
     missions: [],
@@ -397,7 +397,7 @@ test('registra arquivos já carregados em memória e evita recarregamento desnec
   assert.equal(first.total, 2);
   assert.equal(fetchCount, 2);
   assert.equal(isAssetLoaded('./story/splash.png'), true);
-  assert.equal(isAssetLoaded('./story/characters/guanabara.png'), true);
+  assert.equal(isAssetLoaded('./story/characters/danilson.png'), true);
 
   // Segunda chamada sem Set explícito ainda evita recarregar os já registrados em memória
   const second = await preloadStoryAssets(story, {

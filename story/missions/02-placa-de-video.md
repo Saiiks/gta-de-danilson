@@ -13,24 +13,24 @@ wrong_item_message: Isso não roda nem campo minado! Cadê a Placa de Vídeo?
 ---
 
 ## CUTSCENE_INICIO
-left: guanabara
+left: danilson
 right: jason
 bg: Centro da cidade em COM-320
 
-- Jason: Guanabara, socorro no rádio! Tentei rodar um modelo de IA local para testar o projeto novo e o computador começou a fazer barulho de secador de cabelo!
-- Guanabara: Calma, Jason! Quantos gigas de VRAM você tem aí?
+- Jason: Danilson, socorro no rádio! Tentei rodar um modelo de IA local para testar o projeto novo e o computador começou a fazer barulho de secador de cabelo!
+- Danilson: Calma, Jason! Quantos gigas de VRAM você tem aí?
 - Jason: Menos do que um disquete, pelo visto! Deixaram uma Placa de Vídeo Turbo novinha esperando na PRACA-15, aí no Centro mesmo.
-- Guanabara: Beleza, vou passar na PRACA-15 e levo até você aí no Nordeste!
+- Danilson: Beleza, vou passar na PRACA-15 e levo até você aí no Nordeste!
 - Jason: Isso! Estou dentro de COM-24. E dirige com cuidado, porque se essa GPU cair no chão vai dar tela azul até no semáforo!
 
 ## CUTSCENE_FIM
-left: guanabara
+left: danilson
 right: jason
 bg: Interior do COM-24
 
 - Jason: Fala, mestre! Diz que trouxe a salvação da minha taxa de quadros!
-- Guanabara: Trouxe sim, Jason! Tá brilhando mais que tela recém-compilada sem warning. Toma aí:
+- Danilson: Trouxe sim, Jason! Tá brilhando mais que tela recém-compilada sem warning. Toma aí:
 - ENTREGAR: placa-video
 - Jason: Uau! Agora sim dá pra fazer Vibe Coding em paz sem travar o mouse! Na minha máquina já tá voando!
-- Guanabara: Ótimo! Já podemos voltar pro estúdio?
+- Danilson: Ótimo! Já podemos voltar pro estúdio?
 - Jason: Quase! O Pundar Sichai acabou de mandar mensagem desesperado: um servidor em nuvem dele começou a alucinar no meio da rua. Passa lá na PRACA-05 pra ajudar o homem!
